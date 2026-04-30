@@ -60,6 +60,11 @@ export interface ConfigureNanoClawResult {
 
 const SERVER_NAME = "multibaas-agent";
 const CONTAINER_MOUNT_NAME = "multibaas-agent-harness";
+const EXTRA_MOUNTS_BASE = "/workspace/extra";
+
+function mountPathFor(containerPath: string): string {
+  return `${EXTRA_MOUNTS_BASE}/${containerPath}`;
+}
 
 function containerInstructions(defaultQueryName: string): string {
   return [
@@ -147,7 +152,7 @@ export function configureNanoClawGroup(options: ConfigureNanoClawOptions): Confi
 
   containerConfig.mcpServers[SERVER_NAME] = {
     command: "bun",
-    args: ["run", `/workspace/extra/${CONTAINER_MOUNT_NAME}/src/mcp.ts`],
+    args: ["run", `${mountPathFor(CONTAINER_MOUNT_NAME)}/src/mcp.ts`],
     env: {
       MULTIBAAS_BASE_URL: containerBaseUrl,
     },
@@ -166,7 +171,7 @@ export function configureNanoClawGroup(options: ConfigureNanoClawOptions): Confi
     allowlistPath: options.writeAllowlist ? ensureAllowlist(repoDir) : undefined,
     containerBaseUrl,
     containerConfigPath,
-    mountPath: `/workspace/extra/${CONTAINER_MOUNT_NAME}`,
+    mountPath: mountPathFor(CONTAINER_MOUNT_NAME),
     serverName: SERVER_NAME,
   };
 }
