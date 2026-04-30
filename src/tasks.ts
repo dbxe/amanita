@@ -1,26 +1,16 @@
 import { randomUUID } from "node:crypto";
 
-export type TaskState = "needs-abi" | "needs-link" | "syncing" | "ready" | "monitoring" | "blocked";
+import {
+  classifyReadinessFailure,
+  createBalanceWatchPlan,
+  type BalanceWatchPlan,
+  type ExecutionPlan,
+  type TaskState,
+  type ViewSpec,
+  type WaitCondition,
+} from "./planning.js";
 
-export interface WaitCondition {
-  reason: string;
-  state: Exclude<TaskState, "ready" | "monitoring">;
-}
-
-export interface ViewSpec {
-  address: string;
-  kind: "balance-watch";
-  queryName: string;
-}
-
-export interface ExecutionStep {
-  detail: string;
-  kind: "resolve-balance" | "persist-watch" | "evaluate-watch";
-}
-
-export interface ExecutionPlan {
-  steps: ExecutionStep[];
-}
+export type { ExecutionPlan, TaskState, ViewSpec, WaitCondition } from "./planning.js";
 
 export interface TaskRecord {
   createdAt: string;
@@ -47,42 +37,36 @@ const ALLOWED_TRANSITIONS: Record<TaskState, TaskState[]> = {
   syncing: ["blocked", "monitoring", "ready", "syncing"],
 };
 
-function createExecutionPlan(queryName: string): ExecutionPlan {
+export function createTaskFromBalanceWatchPlan(plan: BalanceWatchPlan, now = new Date().toISOString()): TaskRecord {
   return {
-    steps: [
-      { detail: `Resolve the current balance from saved query ${queryName}.`, kind: "resolve-balance" },
-      { detail: "Persist a local watch once prerequisites are satisfied.", kind: "persist-watch" },
-      { detail: "Reevaluate the watch when webhook-triggered events arrive.", kind: "evaluate-watch" },
-    ],
+    createdAt: now,
+    executionPlan: plan.executionPlan,
+    id: randomUUID(),
+    intent: plan.intent.rawText,
+    kind: "balance-watch",
+    state: plan.readiness.state,
+    title: plan.title,
+    updatedAt: now,
+    viewSpec: plan.viewSpec,
+    waitCondition: plan.readiness.waitCondition,
   };
-}
-
-function createTaskTitle(address: string): string {
-  return `Monitor balance for ${address}`;
 }
 
 export function createBalanceWatchTask(params: {
   address: string;
   intent?: string;
+  label?: string;
   now?: string;
   queryName: string;
 }): TaskRecord {
   const now = params.now ?? new Date().toISOString();
-  return {
-    createdAt: now,
-    executionPlan: createExecutionPlan(params.queryName),
-    id: randomUUID(),
-    intent: params.intent ?? `Alert me if the balance of ${params.address} moves`,
-    kind: "balance-watch",
-    state: "ready",
-    title: createTaskTitle(params.address),
-    updatedAt: now,
-    viewSpec: {
-      address: params.address,
-      kind: "balance-watch",
-      queryName: params.queryName,
-    },
-  };
+  const plan = createBalanceWatchPlan({
+    address: params.address,
+    label: params.label,
+    queryName: params.queryName,
+    rawText: params.intent ?? `Alert me if the balance of ${params.address} moves`,
+  });
+  return createTaskFromBalanceWatchPlan(plan, now);
 }
 
 export function findBalanceWatchTask(tasks: TaskRecord[], address: string, queryName: string): TaskRecord | undefined {
@@ -126,28 +110,9 @@ export function transitionTask(
   };
 }
 
-export function classifyTaskFailure(error: unknown): WaitCondition {
-  const message = error instanceof Error ? error.message : String(error);
-  const normalized = message.toLowerCase();
-
-  if (/\babi\b|\bcontract definition\b/.test(normalized)) {
-    return { reason: message, state: "needs-abi" };
-  }
-
-  if (/\blink\b|\bnot linked\b|\baddress\b.*\bcontract\b/.test(normalized)) {
-    return { reason: message, state: "needs-link" };
-  }
-
-  if (/\bsync\b|\bindex\b|\bindexing\b|\bhistorical\b/.test(normalized)) {
-    return { reason: message, state: "syncing" };
-  }
-
-  return { reason: message, state: "blocked" };
-}
-
 export function applyTaskFailure(task: TaskRecord, error: unknown, now: string): TaskRecord {
-  const waitCondition = classifyTaskFailure(error);
-  return transitionTask(task, waitCondition.state, now, { waitCondition });
+  const readiness = classifyReadinessFailure(error);
+  return transitionTask(task, readiness.state, now, { waitCondition: readiness.waitCondition });
 }
 
 export function attachWatchToTask(task: TaskRecord, params: { balance: string; now: string; watchId: string }): TaskRecord {

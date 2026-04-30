@@ -22,16 +22,20 @@ import {
   type Watch,
 } from "./state.js";
 import {
-  applyTaskFailure,
   attachWatchToTask,
-  createBalanceWatchTask,
+  createTaskFromBalanceWatchPlan,
   findBalanceWatchTask,
   recordTaskAlert,
   transitionTask,
   upsertTask,
   type TaskRecord,
-  type TaskState,
 } from "./tasks.js";
+import {
+  createBalanceWatchPlan,
+  evaluateBalanceWatchReadiness,
+  type BalanceWatchPlan,
+  type TaskState,
+} from "./planning.js";
 
 export const DEFAULT_WEBHOOK_LABEL = "balance-watch";
 
@@ -52,6 +56,7 @@ export interface WatchListResult {
 }
 
 export interface WatchSaveResult {
+  plan: BalanceWatchPlan;
   task: TaskRecord;
   watch?: Watch;
 }
@@ -184,6 +189,8 @@ export function formatSavedWatch(result: WatchSaveResult): string {
     lines.push(
       `Saved watch ${result.watch.label} for ${result.watch.address} at balance ${result.watch.lastKnownBalance}`,
     );
+  } else if (result.task.waitCondition) {
+    lines.push(`Accepted request for ${result.plan.viewSpec.address}; waiting because ${result.task.waitCondition.reason}`);
   }
   return lines.join("\n");
 }
@@ -263,59 +270,72 @@ export async function saveBalanceWatch(address: string, label?: string, queryNam
   const normalizedAddress = normalizeAddress(address);
   const effectiveQueryName = queryName ?? config.defaultQueryName;
   const now = new Date().toISOString();
+  const plan = await evaluateBalanceWatchReadiness(
+    createBalanceWatchPlan({
+      address: normalizedAddress,
+      label,
+      queryName: effectiveQueryName,
+      rawText: `Alert me if the balance of ${normalizedAddress} moves`,
+    }),
+    {
+      lookupBalance: (candidateAddress, candidateQueryName) =>
+        getAddressBalance(config, candidateQueryName, candidateAddress),
+    },
+  );
   const existingTask = findBalanceWatchTask(state.tasks, normalizedAddress, effectiveQueryName);
-  const baseTask = existingTask ?? createBalanceWatchTask({ address: normalizedAddress, now, queryName: effectiveQueryName });
+  const baseTask = existingTask ?? createTaskFromBalanceWatchPlan(plan, now);
 
-  try {
-    const snapshot = await getAddressBalance(config, effectiveQueryName, normalizedAddress);
-    const readyTask =
-      baseTask.state === "monitoring" ? baseTask : transitionTask(baseTask, "ready", now, { waitCondition: undefined });
-    const existingWatch = state.watches.find(
-      (watch) => normalizeAddress(watch.address) === normalizedAddress && watch.queryName === effectiveQueryName,
-    );
-    const watch: Watch = existingWatch
-      ? {
-          ...existingWatch,
-          label: label ?? existingWatch.label,
-          lastKnownBalance: snapshot.rawBalance,
-          taskId: readyTask.id,
-          updatedAt: now,
-        }
-      : {
-          address: normalizedAddress,
-          createdAt: now,
-          id: randomUUID(),
-          label: label ?? createWatchLabel(normalizedAddress),
-          lastKnownBalance: snapshot.rawBalance,
-          queryName: effectiveQueryName,
-          taskId: readyTask.id,
-          updatedAt: now,
-        };
-
-    const monitoringTask = attachWatchToTask(readyTask, {
-      balance: snapshot.rawBalance,
-      now,
-      watchId: watch.id,
+  if (plan.readiness.state !== "ready" || !plan.readiness.currentBalance) {
+    const waitingTask = transitionTask(baseTask, plan.readiness.state, now, {
+      waitCondition: plan.readiness.waitCondition,
     });
     const nextState: LocalState = {
       ...state,
-      tasks: upsertTask(state.tasks, monitoringTask),
-      watches: existingWatch
-        ? state.watches.map((candidate) => (candidate.id === existingWatch.id ? watch : candidate))
-        : [...state.watches, watch],
+      tasks: upsertTask(state.tasks, waitingTask),
     };
     saveState(config.stateDir, nextState);
-
-    return { task: monitoringTask, watch };
-  } catch (error) {
-    const failedTask = applyTaskFailure(baseTask, error, now);
-    const nextState: LocalState = {
-      ...state,
-      tasks: upsertTask(state.tasks, failedTask),
-    };
-    saveState(config.stateDir, nextState);
-    return { task: failedTask };
+    return { plan, task: waitingTask };
   }
+
+  const readyTask =
+    baseTask.state === "monitoring" ? baseTask : transitionTask(baseTask, "ready", now, { waitCondition: undefined });
+  const existingWatch = state.watches.find(
+    (watch) => normalizeAddress(watch.address) === normalizedAddress && watch.queryName === effectiveQueryName,
+  );
+  const watch: Watch = existingWatch
+    ? {
+        ...existingWatch,
+        label: label ?? existingWatch.label,
+        lastKnownBalance: plan.readiness.currentBalance,
+        taskId: readyTask.id,
+        updatedAt: now,
+      }
+    : {
+        address: normalizedAddress,
+        createdAt: now,
+        id: randomUUID(),
+        label: label ?? createWatchLabel(normalizedAddress),
+        lastKnownBalance: plan.readiness.currentBalance,
+        queryName: effectiveQueryName,
+        taskId: readyTask.id,
+        updatedAt: now,
+      };
+
+  const monitoringTask = attachWatchToTask(readyTask, {
+    balance: plan.readiness.currentBalance,
+    now,
+    watchId: watch.id,
+  });
+  const nextState: LocalState = {
+    ...state,
+    tasks: upsertTask(state.tasks, monitoringTask),
+    watches: existingWatch
+      ? state.watches.map((candidate) => (candidate.id === existingWatch.id ? watch : candidate))
+      : [...state.watches, watch],
+  };
+  saveState(config.stateDir, nextState);
+
+  return { plan, task: monitoringTask, watch };
 }
 
 export async function evaluateBalanceWatches(eventCount?: number): Promise<WatchEvaluationResult> {
