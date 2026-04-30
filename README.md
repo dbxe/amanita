@@ -2,6 +2,13 @@
 
 Minimal MultiBaas event-query and webhook loop for the hackathon MVP.
 
+## Documentation map
+
+- `README.md` — quickstart, working commands, and current MVP status
+- `docs/architecture.md` — repo shape, module boundaries, and design direction
+- `docs/nanoclaw.md` — NanoClaw setup, auth wiring, restart, and test runbook
+- `AGENTS.md` — coding-agent conventions for working in this repo
+
 ## What works now
 
 - query the saved MultiBaas event query `helloworld_balance`
@@ -135,11 +142,7 @@ What that does:
 
 NanoClaw itself still needs to be installed and initialized separately (`pnpm install`, credentials, group/session setup, daemon running).
 
-For authenticated MultiBaas access through NanoClaw:
-
-- keep Anthropic-compatible model credentials scoped to `/v1/*`
-- add a separate OneCLI generic secret for MultiBaas scoped to `/api/v0/*`
-- do **not** put a raw `MULTIBAAS_API_KEY` in the NanoClaw group `container.json`
+For the working local NanoClaw install pattern, model pinning, OneCLI path-scoped secrets, restart flow, and deterministic test path, see [`docs/nanoclaw.md`](docs/nanoclaw.md).
 
 ## Next layer
 
