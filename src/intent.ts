@@ -1,22 +1,20 @@
 import {
   evaluateBalanceWatches,
   formatAlerts,
-  formatBalance,
   formatSavedWatch,
   formatTasks,
-  formatTopHolders,
   formatWatches,
-  getTopHolders,
   listTasks,
   listBalanceWatches,
-  lookupBalance,
   saveBalanceWatch,
 } from "./agent-tools.js";
 import { resolveConfig } from "./config.js";
 import { createPlanFromIntent } from "./planning.js";
+import { executeAnalyticalView, formatAnalyticalViewResult } from "./views.js";
 
 type Intent =
   | { kind: "top-holders"; limit: number }
+  | { kind: "holder-concentration"; limit: number }
   | { kind: "balance"; address: string }
   | { kind: "create-watch"; address: string; label?: string }
   | { kind: "list-watches" }
@@ -41,6 +39,14 @@ export function parseIntent(text: string): Intent | null {
 
   if (/\b(evaluate|check|refresh)\b.*\bwatches?\b/.test(lower)) {
     return { kind: "evaluate-watches" };
+  }
+
+  if (/\bconcentration\b/.test(lower) && /\bholders?\b/.test(lower)) {
+    const parsedLimit = Number.parseInt(topMatch?.[1] ?? topMatch?.[2] ?? "", 10);
+    return {
+      kind: "holder-concentration",
+      limit: Number.isInteger(parsedLimit) && parsedLimit > 0 ? parsedLimit : 5,
+    };
   }
 
   if (/\btop\b.*\bholders?\b/.test(lower) || /\bholders?\b/.test(lower)) {
@@ -77,6 +83,7 @@ export async function handleIntent(text: string): Promise<string> {
       '- "Give me the top 5 holders"',
         '- "What is the balance of 0x...?"',
         '- "Alert me if the balance of 0x... moves"',
+        '- "What is the top 5 holder concentration?"',
         '- "List watches"',
         '- "List tasks"',
       ].join("\n");
@@ -86,11 +93,15 @@ export async function handleIntent(text: string): Promise<string> {
   switch (intent.kind) {
     case "top-holders": {
       const plan = createPlanFromIntent({ ...intent, rawText: text }, queryName);
-      return formatTopHolders(await getTopHolders(plan.viewSpec.limit, plan.viewSpec.queryName));
+      return formatAnalyticalViewResult(await executeAnalyticalView(plan));
+    }
+    case "holder-concentration": {
+      const plan = createPlanFromIntent({ ...intent, rawText: text }, queryName);
+      return formatAnalyticalViewResult(await executeAnalyticalView(plan));
     }
     case "balance": {
       const plan = createPlanFromIntent({ ...intent, rawText: text }, queryName);
-      return formatBalance(await lookupBalance(plan.viewSpec.address, plan.viewSpec.queryName));
+      return formatAnalyticalViewResult(await executeAnalyticalView(plan));
     }
     case "create-watch": {
       const plan = createPlanFromIntent({ ...intent, rawText: text }, queryName);

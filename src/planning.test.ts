@@ -90,3 +90,19 @@ test("createPlanFromIntent maps balance requests to an address-balance view", ()
   assert.equal(plan.viewSpec.address, "0xabc");
   assert.equal(plan.executionPlan.steps.map((step) => step.kind).join(","), "resolve-balance,format-response");
 });
+
+test("createPlanFromIntent maps concentration requests to a holder-concentration view", () => {
+  const plan = createPlanFromIntent(
+    {
+      kind: "holder-concentration",
+      limit: 5,
+      rawText: "What is the top 5 holder concentration?",
+    },
+    "helloworld_balance",
+  );
+
+  assert.equal(plan.kind, "holder-concentration");
+  assert.equal(plan.viewSpec.kind, "holder-concentration");
+  assert.equal(plan.viewSpec.limit, 5);
+  assert.equal(plan.executionPlan.steps.map((step) => step.kind).join(","), "execute-holder-query,compute-concentration,format-response");
+});

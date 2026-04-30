@@ -3,28 +3,26 @@ import {
   ensureBalanceWebhook,
   evaluateBalanceWatches,
   formatAlerts,
-  formatBalance,
   formatSavedWatch,
   formatTasks,
-  formatTopHolders,
   formatWebhook,
   formatWatches,
-  getTopHolders,
   listTasks,
   listBalanceWatches,
-  lookupBalance,
   saveBalanceWatch,
   startWebhookServer,
 } from "./agent-tools.js";
 import { handleIntent } from "./intent.js";
 import { sendNanoClawNotification } from "./nanoclaw-host.js";
 import { configureNanoClawGroup } from "./nanoclaw.js";
+import { formatAnalyticalViewResult, getHolderConcentration, getTopHolders, lookupBalance } from "./views.js";
 
 function printUsage(): void {
   console.log(`Local MultiBaas agent loop
 
 Usage:
   npm run dev -- query top-holders [--limit 20] [--query helloworld_balance]
+  npm run dev -- query concentration [--limit 5] [--query helloworld_balance]
   npm run dev -- query balance --address 0x... [--query helloworld_balance]
   npm run dev -- watch add --address 0x... [--label whale] [--query helloworld_balance]
   npm run dev -- watch list
@@ -77,13 +75,19 @@ async function handleQuery(args: string[]): Promise<void> {
 
   if (subcommand === "top-holders") {
     const limit = parsePositiveIntegerFlag(args, "--limit", 20);
-    console.log(formatTopHolders(await getTopHolders(limit, queryName)));
+    console.log(formatAnalyticalViewResult(await getTopHolders(limit, queryName)));
+    return;
+  }
+
+  if (subcommand === "concentration") {
+    const limit = parsePositiveIntegerFlag(args, "--limit", 5);
+    console.log(formatAnalyticalViewResult(await getHolderConcentration(limit, queryName)));
     return;
   }
 
   if (subcommand === "balance") {
     const address = requireFlag(args, "--address");
-    console.log(formatBalance(await lookupBalance(address, queryName)));
+    console.log(formatAnalyticalViewResult(await lookupBalance(address, queryName)));
     return;
   }
 

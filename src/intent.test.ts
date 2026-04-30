@@ -18,3 +18,10 @@ test("parseIntent recognizes balance watches", () => {
 test("parseIntent recognizes task listing requests", () => {
   assert.deepEqual(parseIntent("List tasks"), { kind: "list-tasks" });
 });
+
+test("parseIntent recognizes holder concentration requests", () => {
+  assert.deepEqual(parseIntent("What is the top 5 holder concentration?"), {
+    kind: "holder-concentration",
+    limit: 5,
+  });
+});

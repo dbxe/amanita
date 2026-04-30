@@ -7,17 +7,19 @@ import {
   ensureBalanceWebhook,
   evaluateBalanceWatches,
   formatAlerts,
-  formatBalance,
   formatSavedWatch,
   formatTasks,
-  formatTopHolders,
   formatWatches,
-  getTopHolders,
   listTasks,
   listBalanceWatches,
-  lookupBalance,
   saveBalanceWatch,
 } from "./agent-tools.js";
+import {
+  formatAnalyticalViewResult,
+  getHolderConcentration,
+  getTopHolders,
+  lookupBalance,
+} from "./views.js";
 
 const server = new McpServer({
   name: "multibaas-agent-harness",
@@ -33,7 +35,7 @@ server.tool(
   async ({ limit, queryName }) => {
     const result = await getTopHolders(limit ?? 20, queryName);
     return {
-      content: [{ type: "text", text: formatTopHolders(result) }],
+      content: [{ type: "text", text: formatAnalyticalViewResult(result) }],
     };
   },
 );
@@ -47,7 +49,21 @@ server.tool(
   async ({ address, queryName }) => {
     const result = await lookupBalance(address, queryName);
     return {
-      content: [{ type: "text", text: formatBalance(result) }],
+      content: [{ type: "text", text: formatAnalyticalViewResult(result) }],
+    };
+  },
+);
+
+server.tool(
+  "get_holder_concentration",
+  {
+    limit: z.number().int().min(1).max(100).optional(),
+    queryName: z.string().min(1).optional(),
+  },
+  async ({ limit, queryName }) => {
+    const result = await getHolderConcentration(limit ?? 5, queryName);
+    return {
+      content: [{ type: "text", text: formatAnalyticalViewResult(result) }],
     };
   },
 );

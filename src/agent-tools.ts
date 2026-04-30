@@ -6,11 +6,9 @@ import { sendNanoClawNotification } from "./nanoclaw-host.js";
 import { resolveConfig } from "./config.js";
 import {
   ensureEventWebhook,
-  executeSavedBalanceQuery,
   fetchBalanceSnapshot,
   getAddressBalance,
   normalizeAddress,
-  selectTopPositiveHolders,
   verifyWebhookSignature,
 } from "./multibaas.js";
 import {
@@ -38,18 +36,6 @@ import {
 } from "./planning.js";
 
 export const DEFAULT_WEBHOOK_LABEL = "balance-watch";
-
-export interface TopHoldersResult {
-  holders: Array<{ address: string; rawBalance: string }>;
-  limit: number;
-  queryName: string;
-}
-
-export interface BalanceResult {
-  address: string;
-  balance: string;
-  queryName: string;
-}
 
 export interface WatchListResult {
   watches: Array<Watch & { taskState?: TaskState }>;
@@ -135,18 +121,6 @@ async function evaluateWatches(
   return { alerts, nextState };
 }
 
-export function formatTopHolders(result: TopHoldersResult): string {
-  const lines = [`Top ${result.limit} holders`, ""];
-  result.holders.forEach((row, index) => {
-    lines.push(`${String(index + 1).padStart(2, " ")}. ${row.address}  ${row.rawBalance}`);
-  });
-  return lines.join("\n");
-}
-
-export function formatBalance(result: BalanceResult): string {
-  return [`Query: ${result.queryName}`, `Address: ${result.address}`, `Balance: ${result.balance}`].join("\n");
-}
-
 function formatTaskLine(task: TaskRecord): string {
   const details = [`${task.id}  ${task.state}  ${task.title}`];
   if (task.waitCondition) {
@@ -217,33 +191,6 @@ export function formatWebhook(result: WebhookEnsureResult): string {
     lines.push("Stored webhook signing secret in local state.");
   }
   return lines.join("\n");
-}
-
-export async function getTopHolders(limit = 20, queryName?: string): Promise<TopHoldersResult> {
-  const config = resolveConfig();
-  const effectiveQueryName = queryName ?? config.defaultQueryName;
-  const rows = await executeSavedBalanceQuery(config, effectiveQueryName, Math.min(limit, 100));
-
-  return {
-    holders: selectTopPositiveHolders(rows, limit).map((row) => ({
-      address: row.address,
-      rawBalance: row.rawBalance,
-    })),
-    limit,
-    queryName: effectiveQueryName,
-  };
-}
-
-export async function lookupBalance(address: string, queryName?: string): Promise<BalanceResult> {
-  const config = resolveConfig();
-  const effectiveQueryName = queryName ?? config.defaultQueryName;
-  const balance = await getAddressBalance(config, effectiveQueryName, address);
-
-  return {
-    address: balance.address,
-    balance: balance.rawBalance,
-    queryName: effectiveQueryName,
-  };
 }
 
 export function listTasks(): TaskListResult {

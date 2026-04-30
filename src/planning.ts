@@ -20,11 +20,22 @@ export type ViewSpec =
       kind: "holder-list";
       limit: number;
       queryName: string;
+    }
+  | {
+      kind: "holder-concentration";
+      limit: number;
+      queryName: string;
     };
 
 export interface ExecutionStep {
   detail: string;
-  kind: "evaluate-watch" | "execute-holder-query" | "format-response" | "persist-watch" | "resolve-balance";
+  kind:
+    | "compute-concentration"
+    | "evaluate-watch"
+    | "execute-holder-query"
+    | "format-response"
+    | "persist-watch"
+    | "resolve-balance";
 }
 
 export interface ExecutionPlan {
@@ -50,7 +61,13 @@ export interface TopHoldersIntent {
   rawText: string;
 }
 
-export type ViewIntent = AddressBalanceIntent | CreateWatchIntent | TopHoldersIntent;
+export interface HolderConcentrationIntent {
+  kind: "holder-concentration";
+  limit: number;
+  rawText: string;
+}
+
+export type ViewIntent = AddressBalanceIntent | CreateWatchIntent | HolderConcentrationIntent | TopHoldersIntent;
 
 export interface BalanceWatchReadiness {
   currentBalance?: string;
@@ -85,7 +102,16 @@ export interface HolderListPlan {
   viewSpec: Extract<ViewSpec, { kind: "holder-list" }>;
 }
 
-export type ViewPlan = AddressBalancePlan | BalanceWatchPlan | HolderListPlan;
+export interface HolderConcentrationPlan {
+  executionPlan: ExecutionPlan;
+  intent: HolderConcentrationIntent;
+  kind: "holder-concentration";
+  readiness: BalanceWatchReadiness;
+  title: string;
+  viewSpec: Extract<ViewSpec, { kind: "holder-concentration" }>;
+}
+
+export type ViewPlan = AddressBalancePlan | BalanceWatchPlan | HolderConcentrationPlan | HolderListPlan;
 
 export interface BalanceWatchReadinessDeps {
   lookupBalance: (address: string, queryName: string) => Promise<{ rawBalance: string }>;
@@ -119,6 +145,16 @@ function createHolderListExecutionPlan(queryName: string): ExecutionPlan {
     steps: [
       { detail: `Execute the holder view from saved query ${queryName}.`, kind: "execute-holder-query" },
       { detail: "Format the holder list for the user.", kind: "format-response" },
+    ],
+  };
+}
+
+function createHolderConcentrationExecutionPlan(queryName: string): ExecutionPlan {
+  return {
+    steps: [
+      { detail: `Execute the holder view from saved query ${queryName}.`, kind: "execute-holder-query" },
+      { detail: "Compute concentration from the top positive holders over tracked supply.", kind: "compute-concentration" },
+      { detail: "Format the concentration result for the user.", kind: "format-response" },
     ],
   };
 }
@@ -200,9 +236,35 @@ export function createHolderListPlan(params: {
   };
 }
 
+export function createHolderConcentrationPlan(params: {
+  limit: number;
+  queryName: string;
+  rawText: string;
+}): HolderConcentrationPlan {
+  return {
+    executionPlan: createHolderConcentrationExecutionPlan(params.queryName),
+    intent: {
+      kind: "holder-concentration",
+      limit: params.limit,
+      rawText: params.rawText,
+    },
+    kind: "holder-concentration",
+    readiness: {
+      state: "ready",
+    },
+    title: `Get top ${params.limit} holder concentration`,
+    viewSpec: {
+      kind: "holder-concentration",
+      limit: params.limit,
+      queryName: params.queryName,
+    },
+  };
+}
+
 export function createPlanFromIntent(intent: TopHoldersIntent, queryName: string): HolderListPlan;
 export function createPlanFromIntent(intent: AddressBalanceIntent, queryName: string): AddressBalancePlan;
 export function createPlanFromIntent(intent: CreateWatchIntent, queryName: string): BalanceWatchPlan;
+export function createPlanFromIntent(intent: HolderConcentrationIntent, queryName: string): HolderConcentrationPlan;
 export function createPlanFromIntent(intent: ViewIntent, queryName: string): ViewPlan {
   switch (intent.kind) {
     case "top-holders":
@@ -214,6 +276,12 @@ export function createPlanFromIntent(intent: ViewIntent, queryName: string): Vie
     case "balance":
       return createAddressBalancePlan({
         address: intent.address,
+        queryName,
+        rawText: intent.rawText,
+        });
+    case "holder-concentration":
+      return createHolderConcentrationPlan({
+        limit: intent.limit,
         queryName,
         rawText: intent.rawText,
       });

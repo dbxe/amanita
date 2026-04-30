@@ -14,6 +14,7 @@ Minimal MultiBaas event-query and webhook loop for the hackathon MVP.
 
 - query the saved MultiBaas event query `helloworld_balance`
 - show top holders
+- compute top-holder concentration
 - look up one address balance
 - save a whale watch in local state
 - persist a task record for balance-monitor requests
@@ -57,6 +58,9 @@ When the harness runs **inside NanoClaw**, authenticated MultiBaas calls should 
 # top holders
 npm run dev -- query top-holders --limit 5
 
+# top-holder concentration
+npm run dev -- query concentration --limit 5
+
 # one address balance
 npm run dev -- query balance --address 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172
 
@@ -81,6 +85,7 @@ This is the fastest end-to-end demo path right now:
 
 ```bash
 npm run dev -- agent "Give me the top 5 holders"
+npm run dev -- agent "What is the top 5 holder concentration?"
 npm run dev -- agent "What is the balance of 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172?"
 npm run dev -- agent "Alert me if the balance of 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172 moves"
 ```
@@ -88,6 +93,7 @@ npm run dev -- agent "Alert me if the balance of 0xF9450D254A66ab06b30Cfa9c6e7AE
 The `agent` command currently recognizes:
 
 - top-holder requests
+- holder-concentration requests
 - single-address balance requests
 - balance-watch creation
 - list watches
@@ -138,6 +144,7 @@ npm run mcp
 Tools exposed:
 
 - `get_top_holders`
+- `get_holder_concentration`
 - `get_address_balance`
 - `create_balance_watch`
 - `list_balance_watches`
