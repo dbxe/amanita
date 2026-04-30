@@ -3,8 +3,10 @@ import { randomUUID } from "node:crypto";
 import {
   classifyReadinessFailure,
   createBalanceWatchPlan,
+  createHolderListPlan,
   type BalanceWatchPlan,
   type ExecutionPlan,
+  type HolderListPlan,
   type TaskState,
   type ViewSpec,
   type WaitCondition,
@@ -12,21 +14,38 @@ import {
 
 export type { ExecutionPlan, TaskState, ViewSpec, WaitCondition } from "./planning.js";
 
-export interface TaskRecord {
+interface BaseTaskRecord {
+  addressAlias?: string;
+  contractLabel?: string;
+  contractVersion?: string;
   createdAt: string;
   executionPlan: ExecutionPlan;
   id: string;
   intent: string;
-  kind: "balance-watch";
+  kind: "balance-watch" | "holder-query";
   lastAlertAt?: string;
   lastKnownBalance?: string;
+  lastEvaluatedAt?: string;
+  lastReportedAt?: string;
+  resultText?: string;
   state: TaskState;
   title: string;
   updatedAt: string;
-  viewSpec: Extract<ViewSpec, { kind: "balance-watch" }>;
   waitCondition?: WaitCondition;
   watchId?: string;
 }
+
+export interface BalanceWatchTaskRecord extends BaseTaskRecord {
+  kind: "balance-watch";
+  viewSpec: Extract<ViewSpec, { kind: "balance-watch" }>;
+}
+
+export interface HolderQueryTaskRecord extends BaseTaskRecord {
+  kind: "holder-query";
+  viewSpec: Extract<ViewSpec, { kind: "holder-list" }>;
+}
+
+export type TaskRecord = BalanceWatchTaskRecord | HolderQueryTaskRecord;
 
 const ALLOWED_TRANSITIONS: Record<TaskState, TaskState[]> = {
   blocked: ["needs-abi", "needs-link", "syncing", "ready", "monitoring"],
@@ -52,6 +71,21 @@ export function createTaskFromBalanceWatchPlan(plan: BalanceWatchPlan, now = new
   };
 }
 
+export function createTaskFromHolderListPlan(plan: HolderListPlan, now = new Date().toISOString()): HolderQueryTaskRecord {
+  return {
+    createdAt: now,
+    executionPlan: plan.executionPlan,
+    id: randomUUID(),
+    intent: plan.intent.rawText,
+    kind: "holder-query",
+    state: plan.readiness.state,
+    title: plan.title,
+    updatedAt: now,
+    viewSpec: plan.viewSpec,
+    waitCondition: plan.readiness.waitCondition,
+  };
+}
+
 export function createBalanceWatchTask(params: {
   address: string;
   intent?: string;
@@ -69,6 +103,23 @@ export function createBalanceWatchTask(params: {
   return createTaskFromBalanceWatchPlan(plan, now);
 }
 
+export function createHolderQueryTask(params: {
+  contractAddress: string;
+  intent?: string;
+  limit: number;
+  now?: string;
+  queryName: string;
+}): HolderQueryTaskRecord {
+  const now = params.now ?? new Date().toISOString();
+  const plan = createHolderListPlan({
+    contractAddress: params.contractAddress,
+    limit: params.limit,
+    queryName: params.queryName,
+    rawText: params.intent ?? `Give me the top ${params.limit} holders for token ${params.contractAddress}`,
+  });
+  return createTaskFromHolderListPlan(plan, now);
+}
+
 export function findBalanceWatchTask(tasks: TaskRecord[], address: string, queryName: string): TaskRecord | undefined {
   return [...tasks]
     .reverse()
@@ -76,6 +127,23 @@ export function findBalanceWatchTask(tasks: TaskRecord[], address: string, query
       (task) =>
         task.kind === "balance-watch" &&
         task.viewSpec.address === address &&
+        task.viewSpec.queryName === queryName,
+    );
+}
+
+export function findHolderQueryTask(
+  tasks: TaskRecord[],
+  contractAddress: string,
+  limit: number,
+  queryName: string,
+): HolderQueryTaskRecord | undefined {
+  return [...tasks]
+    .reverse()
+    .find(
+      (task): task is HolderQueryTaskRecord =>
+        task.kind === "holder-query" &&
+        task.viewSpec.contractAddress === contractAddress &&
+        task.viewSpec.limit === limit &&
         task.viewSpec.queryName === queryName,
     );
 }

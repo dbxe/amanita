@@ -5,6 +5,7 @@ import { z } from "zod";
 import {
   DEFAULT_WEBHOOK_LABEL,
   ensureBalanceWebhook,
+  evaluatePendingHolderQueries,
   evaluateBalanceWatches,
   formatAlerts,
   formatSavedWatch,
@@ -12,14 +13,14 @@ import {
   formatWatches,
   listTasks,
   listBalanceWatches,
+  requestTopHolders,
   saveBalanceWatch,
 } from "./agent-tools.js";
+import { handleIntent } from "./intent.js";
 import {
   formatAnalyticalViewResult,
   getContractHolderConcentration,
-  getContractTopHolders,
   getHolderConcentration,
-  getTopHolders,
   lookupBalance,
 } from "./views.js";
 
@@ -29,21 +30,64 @@ const server = new McpServer({
 });
 
 server.tool(
-  "get_top_holders",
+  "handle_multibaas_request",
   {
-    contractAddress: z.string().min(1).optional(),
-    limit: z.number().int().min(1).max(100).optional(),
-    queryName: z.string().min(1).optional(),
+    text: z
+      .string()
+      .min(1)
+      .describe("The user's raw MultiBaas-related request. Prefer this high-level tool for balances, holders, concentration, watches, and task progress."),
   },
-  async ({ contractAddress, limit, queryName }) => {
-    const result = contractAddress
-      ? await getContractTopHolders(contractAddress, limit ?? 20, queryName)
-      : await getTopHolders(limit ?? 20, queryName);
+  async ({ text }) => {
     return {
-      content: [{ type: "text", text: formatAnalyticalViewResult(result) }],
+      content: [{ type: "text", text: await handleIntent(text) }],
     };
   },
 );
+
+server.tool(
+  "get_top_holders",
+  {
+    contractAddress: z
+      .string()
+      .min(1)
+      .describe("ERC-20 token contract address. Prefer this when the user provides an address.")
+      .optional(),
+    limit: z.number().int().min(1).max(100).optional(),
+    tokenName: z
+      .string()
+      .min(1)
+      .describe("Known token alias/name to resolve to a contract address before onboarding.")
+      .optional(),
+  },
+  async ({ contractAddress, limit, tokenName }) => {
+    const text = contractAddress
+      ? `Give me the top ${limit ?? 20} holders for token ${contractAddress}`
+      : tokenName
+        ? `Give me the top ${limit ?? 20} holders for token ${tokenName}`
+        : "";
+    const responseText =
+      contractAddress || tokenName
+        ? (
+            await requestTopHolders({
+              contractAddress,
+              limit: limit ?? 20,
+              rawText: text,
+              tokenName,
+            })
+          ).responseText
+        : "Tell me the ERC-20 token contract address or a known token name so I can resolve and query the holders.";
+    return {
+      content: [{ type: "text", text: responseText }],
+    };
+  },
+);
+
+server.tool("evaluate_tasks", {}, async () => {
+  const result = await evaluatePendingHolderQueries();
+  return {
+    content: [{ type: "text", text: result.messages.length > 0 ? result.messages.join("\n\n") : "No pending holder queries completed." }],
+  };
+});
 
 server.tool(
   "get_address_balance",

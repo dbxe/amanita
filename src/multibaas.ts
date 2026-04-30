@@ -22,6 +22,37 @@ export interface BalanceAlert {
   previousBalance: bigint;
 }
 
+export interface KnownAddress {
+  address: string;
+  alias: string;
+}
+
+export interface AddressRegistration {
+  address: string;
+  alias?: string;
+  contracts: Array<{
+    label: string;
+    name?: string;
+    version?: string;
+  }>;
+}
+
+export interface ContractCatalogEntry {
+  contractName?: string;
+  label: string;
+  version?: string;
+}
+
+export interface ContractDefinition {
+  abi?: {
+    events?: Record<string, unknown>;
+    methods?: Record<string, unknown>;
+  };
+  contractName?: string;
+  label: string;
+  version?: string;
+}
+
 const QUERY_PAGE_LIMIT = 100;
 const EVENT_EMITTED_WEBHOOK_SUBSCRIPTION = "event.emitted";
 
@@ -312,6 +343,93 @@ export async function inspectContractReadiness(
   return {
     contractLabel,
     isProcessingPastLogs: status.data.result?.isProcessingPastLogs ?? false,
+  };
+}
+
+export async function getAddressRegistration(config: RuntimeConfig, addressOrAlias: string): Promise<AddressRegistration> {
+  const normalizedAddressOrAlias = addressOrAlias.startsWith("0x") ? normalizeAddress(addressOrAlias) : addressOrAlias.trim();
+  const addressesApi = createAddressesApi(config);
+  const { data } = await addressesApi.getAddress(normalizedAddressOrAlias, ["contractLookup"]);
+  return {
+    address: normalizeAddress(data.result?.address ?? normalizedAddressOrAlias),
+    alias: data.result?.alias?.trim() || undefined,
+    contracts: (data.result?.contracts ?? []).map((contract) => ({
+      label: contract.label,
+      name: contract.name,
+      version: contract.version,
+    })),
+  };
+}
+
+export async function listKnownAddresses(config: RuntimeConfig): Promise<KnownAddress[]> {
+  const addressesApi = createAddressesApi(config);
+  const { data } = await addressesApi.listAddresses();
+  return (data.result ?? []).flatMap((entry) => {
+    if (!entry.alias || !entry.address) {
+      return [];
+    }
+    return [{ address: normalizeAddress(entry.address), alias: entry.alias }];
+  });
+}
+
+export async function resolveKnownAddress(config: RuntimeConfig, tokenName: string): Promise<KnownAddress | undefined> {
+  const normalizedTokenName = tokenName.trim().toLowerCase();
+  const knownAddresses = await listKnownAddresses(config);
+  return knownAddresses.find((entry) => entry.alias.toLowerCase() === normalizedTokenName);
+}
+
+export async function setAddressAlias(config: RuntimeConfig, address: string, alias: string): Promise<void> {
+  const addressesApi = createAddressesApi(config);
+  await addressesApi.setAddress({
+    address: normalizeAddress(address),
+    alias,
+  });
+}
+
+export async function listContractCatalog(config: RuntimeConfig): Promise<ContractCatalogEntry[]> {
+  const contractsApi = createContractsApi(config);
+  const { data } = await contractsApi.listContracts();
+  return (data.result ?? []).map((contract) => ({
+    contractName: contract.contractName,
+    label: contract.label,
+    version: contract.version,
+  }));
+}
+
+export async function getContractDefinition(config: RuntimeConfig, label: string): Promise<ContractDefinition> {
+  const contractsApi = createContractsApi(config);
+  const { data } = await contractsApi.getContract(label);
+  return {
+    abi: data.result?.abi
+      ? {
+          events: data.result.abi.events ?? {},
+          methods: data.result.abi.methods ?? {},
+        }
+      : undefined,
+    contractName: data.result?.contractName,
+    label: data.result?.label ?? label,
+    version: data.result?.version,
+  };
+}
+
+export async function linkAddressToContract(
+  config: RuntimeConfig,
+  addressOrAlias: string,
+  request: { label: string; startingBlock: string; version?: string },
+): Promise<void> {
+  const contractsApi = createContractsApi(config);
+  await contractsApi.linkAddressContract(addressOrAlias, request);
+}
+
+export async function getEventIndexingStatus(
+  config: RuntimeConfig,
+  addressOrAlias: string,
+  contract: string,
+): Promise<{ isProcessingPastLogs: boolean }> {
+  const contractsApi = createContractsApi(config);
+  const response = await contractsApi.getEventIndexingStatus(addressOrAlias, contract);
+  return {
+    isProcessingPastLogs: response.data.result?.isProcessingPastLogs ?? false,
   };
 }
 

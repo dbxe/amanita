@@ -66,11 +66,19 @@ function mountPathFor(containerPath: string): string {
   return `${EXTRA_MOUNTS_BASE}/${containerPath}`;
 }
 
-function containerInstructions(defaultQueryName: string): string {
+export function containerInstructions(_defaultQueryName: string): string {
   return [
     "Use this MCP server for MultiBaas event-query and watch tasks.",
-    `The default saved query is \`${defaultQueryName}\`.`,
-    "- For top-holder or current-holder requests, call `get_top_holders`.",
+    "- Prefer the high-level `handle_multibaas_request` tool for user requests about balances, holders, concentration, watches, or task progress.",
+    "- Pass the user's raw message to `handle_multibaas_request` unless you have a strong reason to call a lower-level tool directly.",
+    "- For ERC-20 top-holder requests, call `get_top_holders` with either `contractAddress` or `tokenName`.",
+    "- For a top-holder request that already includes a contract address or a known token name, your first action should be the `get_top_holders` tool call.",
+    "- Do not ask the user for a saved query name for ERC-20 holder requests.",
+    "- If a user gives only an address and says 'top balances' or 'top holders', clarify whether that address is an ERC-20 token contract before calling a tool.",
+    "- If a token name does not resolve, ask the user for the token contract address.",
+    "- If `get_top_holders` reports that onboarding or syncing is still in progress, tell the user you will follow up once it is ready.",
+    "- When the user asks to check progress on waiting holder tasks, call `evaluate_tasks`.",
+    "- Do not reply with narration like 'I am calling the tool now' or 'Getting holders now'. Call the tool and answer from the result instead.",
     "- For one-address balance requests, call `get_address_balance`.",
     "- For 'alert me if this balance moves' requests, call `create_balance_watch`.",
     "- When asked what is currently being tracked, call `list_balance_watches`.",

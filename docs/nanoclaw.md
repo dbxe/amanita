@@ -52,6 +52,37 @@ SERVICE_LABEL=$(launchctl list | awk '/com\.nanoclaw-v2-/{print $3; exit}')
 launchctl kickstart -k "gui/$(id -u)/$SERVICE_LABEL"
 ```
 
+If OneCLI keeps showing `/v1/messages` traffic when nobody is chatting, first check for a stuck pending inbound message in the session DB. In the setup here, the live loop was caused by a `messages_in.status = 'pending'` row in:
+
+```text
+~/git/qwibitai/nanoclaw/data/v2-sessions/<agent-group-id>/<session-id>/inbound.db
+```
+
+The matching provider continuation is stored per session in:
+
+```text
+~/git/qwibitai/nanoclaw/data/v2-sessions/<agent-group-id>/<session-id>/outbound.db
+```
+
+under `session_state.key = continuation:claude`. It is not stored in the global `data/v2.db`.
+
+Practical recovery order:
+
+1. stop the noisy session container
+2. inspect `inbound.db` for `pending` rows
+3. mark the stuck inbound row completed or failed if needed
+4. clear the per-session continuation row only if the session still resumes into bad state
+
+If Discord or DM keeps re-sending the same choice card every ~15-20 seconds, check the central NanoClaw DB for repeated `pending_questions` rows:
+
+```text
+~/git/qwibitai/nanoclaw/data/v2.db
+```
+
+In the setup here, the repeated "Query name needed" loop was not the harness task model retrying. It was NanoClaw's interactive question flow repeatedly creating `pending_questions` entries for the same session. Clicking **Never mind** stopped the live loop because it wrote a matching `question_response` back into the session inbox.
+
+If you have changed `src/mcp.ts` or `src/nanoclaw.ts`, rerun `nanoclaw configure` for the affected group and restart NanoClaw before retesting. Existing session containers can keep older instructions or tool schemas alive long enough to reproduce outdated prompts.
+
 ## Wiring this repo into a NanoClaw group
 
 Use the harness helper to update the target group's `container.json`:

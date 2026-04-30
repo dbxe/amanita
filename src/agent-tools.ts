@@ -4,13 +4,22 @@ import { randomUUID } from "node:crypto";
 import type { NanoClawNotificationTarget } from "./nanoclaw-host.js";
 import { sendNanoClawNotification } from "./nanoclaw-host.js";
 import { resolveConfig } from "./config.js";
+import { evaluatePendingHolderQueries as evaluateStoredHolderQueries, requestTopHolders as requestStoredTopHolders } from "./holder-tasks.js";
 import {
   ensureEventWebhook,
   fetchBalanceSnapshot,
+  getAddressRegistration,
+  getContractDefinition,
+  getEventIndexingStatus,
   getAddressBalance,
+  linkAddressToContract,
+  listContractCatalog,
+  resolveKnownAddress,
   normalizeAddress,
+  setAddressAlias,
   verifyWebhookSignature,
 } from "./multibaas.js";
+import { ensureErc20HolderQueryReady } from "./onboarding.js";
 import {
   appendAlerts,
   loadState,
@@ -34,6 +43,7 @@ import {
   type BalanceWatchPlan,
   type TaskState,
 } from "./planning.js";
+import { executeAnalyticalView, formatAnalyticalViewResult } from "./views.js";
 
 export const DEFAULT_WEBHOOK_LABEL = "balance-watch";
 
@@ -54,6 +64,11 @@ export interface WatchEvaluationResult {
 
 export interface TaskListResult {
   tasks: TaskRecord[];
+}
+
+export interface HolderTaskEvaluationResult {
+  messages: string[];
+  state: LocalState;
 }
 
 export interface WebhookEnsureResult {
@@ -126,11 +141,20 @@ function formatTaskLine(task: TaskRecord): string {
   if (task.waitCondition) {
     details.push(`reason=${task.waitCondition.reason}`);
   }
-  if (task.watchId) {
+  if (task.kind === "balance-watch" && task.watchId) {
     details.push(`watch=${task.watchId}`);
   }
-  if (task.lastKnownBalance) {
+  if (task.kind === "balance-watch" && task.lastKnownBalance) {
     details.push(`balance=${task.lastKnownBalance}`);
+  }
+  if (task.kind === "holder-query" && task.viewSpec.contractAddress) {
+    details.push(`contract=${task.viewSpec.contractAddress}`);
+  }
+  if (task.kind === "holder-query" && task.addressAlias) {
+    details.push(`alias=${task.addressAlias}`);
+  }
+  if (task.kind === "holder-query" && task.contractLabel) {
+    details.push(`interface=${task.contractLabel}`);
   }
   return details.join("  ");
 }
@@ -197,6 +221,79 @@ export function listTasks(): TaskListResult {
   const config = resolveConfig();
   const state = loadState(config.stateDir);
   return { tasks: state.tasks };
+}
+
+export async function requestTopHolders(params: {
+  contractAddress?: string;
+  limit: number;
+  needsInterfaceClarification?: boolean;
+  rawText: string;
+  tokenName?: string;
+}): Promise<{ responseText: string; task?: TaskRecord }> {
+  const config = resolveConfig();
+  return requestStoredTopHolders(
+    config.stateDir,
+    params,
+    {
+      ensureReady: (contractAddress) =>
+        ensureErc20HolderQueryReady(contractAddress, {
+          getAddress: (addressOrAlias) => getAddressRegistration(config, addressOrAlias),
+          getContract: (label) => getContractDefinition(config, label),
+          getEventIndexingStatus: (addressOrAlias, contract) => getEventIndexingStatus(config, addressOrAlias, contract),
+          linkAddressContract: (addressOrAlias, request) => linkAddressToContract(config, addressOrAlias, request),
+          listContracts: () => listContractCatalog(config),
+          setAddressAlias: (address, alias) => setAddressAlias(config, address, alias),
+        }),
+      executeHolderQuery: async (task) => {
+        const result = await executeAnalyticalViewFromTask(task);
+        return result;
+      },
+      resolveTokenName: (tokenName) => resolveKnownAddress(config, tokenName),
+    },
+    config.defaultQueryName,
+  );
+}
+
+export async function evaluatePendingHolderQueries(queryName?: string): Promise<HolderTaskEvaluationResult> {
+  const config = resolveConfig();
+  return evaluateStoredHolderQueries(
+    config.stateDir,
+    {
+      ensureReady: (contractAddress) =>
+        ensureErc20HolderQueryReady(contractAddress, {
+          getAddress: (addressOrAlias) => getAddressRegistration(config, addressOrAlias),
+          getContract: (label) => getContractDefinition(config, label),
+          getEventIndexingStatus: (addressOrAlias, contract) => getEventIndexingStatus(config, addressOrAlias, contract),
+          linkAddressContract: (addressOrAlias, request) => linkAddressToContract(config, addressOrAlias, request),
+          listContracts: () => listContractCatalog(config),
+          setAddressAlias: (address, alias) => setAddressAlias(config, address, alias),
+        }),
+      executeHolderQuery: async (task) => executeAnalyticalViewFromTask(task),
+    },
+    queryName ?? config.defaultQueryName,
+  );
+}
+
+async function executeAnalyticalViewFromTask(task: Extract<TaskRecord, { kind: "holder-query" }>): Promise<string> {
+  return formatAnalyticalViewResult(
+    await executeAnalyticalView({
+      executionPlan: task.executionPlan,
+      intent: {
+        contractAddress: task.viewSpec.contractAddress,
+        kind: "top-holders",
+        limit: task.viewSpec.limit,
+        rawText: task.intent,
+      },
+      kind: "holder-list",
+      readiness: {
+        contractAddress: task.viewSpec.contractAddress,
+        contractLabel: task.contractLabel,
+        state: "ready",
+      },
+      title: task.title,
+      viewSpec: task.viewSpec,
+    }),
+  );
 }
 
 export function listBalanceWatches(): WatchListResult {
@@ -290,7 +387,7 @@ export async function evaluateBalanceWatches(eventCount?: number): Promise<Watch
   const state = loadState(config.stateDir);
   const { alerts, nextState } = await evaluateWatches(state, eventCount);
   const updatedTasks = alerts.reduce((tasks, alert) => {
-    const task = tasks.find((candidate) => candidate.watchId === alert.watchId);
+    const task = tasks.find((candidate) => candidate.kind === "balance-watch" && candidate.watchId === alert.watchId);
     if (!task) {
       return tasks;
     }

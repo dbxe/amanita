@@ -33,3 +33,20 @@ test("parseIntent recognizes contract-targeted top-holder requests", () => {
     contractAddress: "0xd26fde38F244Dcbb13e8017347Ac37804d926Bb5",
   });
 });
+
+test("parseIntent recognizes top-balance requests that need interface clarification", () => {
+  assert.deepEqual(parseIntent("What are the top balances of this address 0xd26fde38F244Dcbb13e8017347Ac37804d926Bb5"), {
+    kind: "top-holders",
+    limit: 20,
+    contractAddress: "0xd26fde38F244Dcbb13e8017347Ac37804d926Bb5",
+    needsInterfaceClarification: true,
+  });
+});
+
+test("parseIntent recognizes token-name top-balance requests", () => {
+  assert.deepEqual(parseIntent("What are the top balances of sampletoken?"), {
+    kind: "top-holders",
+    limit: 20,
+    tokenName: "sampletoken",
+  });
+});

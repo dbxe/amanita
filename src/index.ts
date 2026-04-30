@@ -1,6 +1,7 @@
 import {
   DEFAULT_WEBHOOK_LABEL,
   ensureBalanceWebhook,
+  evaluatePendingHolderQueries,
   evaluateBalanceWatches,
   formatAlerts,
   formatSavedWatch,
@@ -9,6 +10,7 @@ import {
   formatWatches,
   listTasks,
   listBalanceWatches,
+  requestTopHolders,
   saveBalanceWatch,
   startWebhookServer,
 } from "./agent-tools.js";
@@ -18,7 +20,6 @@ import { configureNanoClawGroup } from "./nanoclaw.js";
 import {
   formatAnalyticalViewResult,
   getContractHolderConcentration,
-  getContractTopHolders,
   getHolderConcentration,
   getTopHolders,
   lookupBalance,
@@ -35,6 +36,7 @@ Usage:
   npm run dev -- watch list
   npm run dev -- watch evaluate
   npm run dev -- task list
+  npm run dev -- task evaluate
   npm run dev -- webhook ensure --url https://example.test/webhooks/multibaas [--label ${DEFAULT_WEBHOOK_LABEL}]
   npm run dev -- webhook serve [--port 8787] [--path /webhooks/multibaas] [--secret <secret>] [--nanoclaw-dir <path>] [--group-folder <folder>]
   npm run dev -- agent "<natural language intent>"
@@ -84,9 +86,15 @@ async function handleQuery(args: string[]): Promise<void> {
   if (subcommand === "top-holders") {
     const limit = parsePositiveIntegerFlag(args, "--limit", 20);
     console.log(
-      formatAnalyticalViewResult(
-        contractAddress ? await getContractTopHolders(contractAddress, limit, queryName) : await getTopHolders(limit, queryName),
-      ),
+      contractAddress
+        ? (
+            await requestTopHolders({
+              contractAddress,
+              limit,
+              rawText: `Give me the top ${limit} holders for token ${contractAddress}`,
+            })
+          ).responseText
+        : formatAnalyticalViewResult(await getTopHolders(limit, queryName)),
     );
     return;
   }
@@ -181,6 +189,12 @@ async function handleTask(args: string[]): Promise<void> {
 
   if (subcommand === "list") {
     console.log(formatTasks(listTasks()));
+    return;
+  }
+
+  if (subcommand === "evaluate") {
+    const result = await evaluatePendingHolderQueries();
+    console.log(result.messages.length > 0 ? result.messages.join("\n\n") : "No pending holder queries completed.");
     return;
   }
 

@@ -16,6 +16,7 @@ Minimal MultiBaas event-query and webhook loop for the hackathon MVP.
 - show top holders
 - compute top-holder concentration
 - query top holders and concentration for linked, indexed ERC-20 contract addresses
+- resolve known token aliases for top-holder requests and ask for clarification when the contract/interface is ambiguous
 - look up one address balance
 - save a whale watch in local state
 - persist a task record for balance-monitor requests
@@ -80,6 +81,9 @@ npm run dev -- watch list
 # inspect persisted tasks
 npm run dev -- task list
 
+# reevaluate pending holder-query tasks
+npm run dev -- task evaluate
+
 # reevaluate all watches against the latest saved-query snapshot
 npm run dev -- watch evaluate
 ```
@@ -93,12 +97,19 @@ This is the fastest end-to-end demo path right now:
 ```bash
 npm run dev -- agent "Give me the top 5 holders"
 npm run dev -- agent "Give me the top 5 holders for token 0xd26fde38F244Dcbb13e8017347Ac37804d926Bb5"
+npm run dev -- agent "What are the top balances of sampletoken?"
 npm run dev -- agent "What is the top 5 holder concentration?"
 npm run dev -- agent "What is the balance of 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172?"
 npm run dev -- agent "Alert me if the balance of 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172 moves"
 ```
 
-For contract-address holder requests, the agent now checks MultiBaas readiness first: linked and indexed contracts execute immediately; unlinked contracts return an explicit `needs-link` response instead of a raw query failure.
+For ERC-20 holder requests, the agent now:
+
+- asks for clarification when the request names only an address but not the interface
+- resolves known token aliases like `sampletoken`
+- asks for the contract address when the token name is unknown
+- checks readiness before answering
+- persists waiting holder-query tasks and exposes `task evaluate` for follow-up checks
 
 The `agent` command currently recognizes:
 
@@ -159,10 +170,11 @@ Tools exposed:
 - `create_balance_watch`
 - `list_balance_watches`
 - `list_tasks`
+- `evaluate_tasks`
 - `evaluate_balance_watches`
 - `ensure_event_webhook`
 
-`get_top_holders` and `get_holder_concentration` also accept an optional `contractAddress` for linked ERC-20 contracts.
+`get_top_holders` accepts optional `contractAddress` and `tokenName` inputs for the ERC-20 onboarding flow, and `get_holder_concentration` also accepts an optional `contractAddress` for linked ERC-20 contracts.
 
 ## NanoClaw bridge
 

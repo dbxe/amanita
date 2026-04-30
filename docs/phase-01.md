@@ -256,6 +256,13 @@ Phase 01 is now partially implemented.
    - linked and indexed contracts execute immediately
    - unlinked or still-syncing contracts return explicit `needs-link` / `syncing` responses
 
+5. **Clarification and resumable ERC-20 onboarding**
+   - ambiguous "top balances of this address" requests now ask the user to confirm the ERC-20 interface
+   - token-name holder requests resolve through known MultiBaas aliases when possible
+   - unknown token names prompt for a contract address instead of guessing
+   - holder-query requests persist as resumable tasks while onboarding or syncing is still in progress
+   - onboarding follows a `GET -> decide -> write -> GET confirm` pattern for aliasing and linking
+
 ### Remaining slices
 
 1. **Stablecoin control-plane views**
@@ -264,9 +271,9 @@ Phase 01 is now partially implemented.
    - admin and role changes
    - upgrade lineage
 
-2. **Resumable analytical tasks**
-   - waiting analytical requests should persist as tasks, not only return one-shot wait responses
-   - readiness context should be structured enough to resume cleanly after linking or sync progress changes
+2. **Automatic task follow-up delivery**
+   - completed analytical tasks should be able to route their answer back to the original user/session automatically
+   - the current slice persists and reevaluates holder-query tasks, but follow-up delivery still depends on an explicit evaluation step
 
 3. **Semantic monitor model**
    - monitors should target a `ViewSpec` plus thresholds or conditions

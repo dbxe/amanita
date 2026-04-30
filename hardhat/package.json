@@ -9,7 +9,9 @@
   },
   "scripts": {
     "deploy": "HARDHAT_NETWORK=development HARDHAT_IGNITION_CONFIRM_DEPLOYMENT=true HARDHAT_IGNITION_CONFIRM_RESET=true hardhat ignition deploy ignition/modules/HelloWorldModule.ts --reset",
+    "deploy-unlinked": "HARDHAT_NETWORK=development HARDHAT_IGNITION_CONFIRM_DEPLOYMENT=true HARDHAT_IGNITION_CONFIRM_RESET=true hardhat ignition deploy ignition/modules/UnlinkedHelloWorldModule.ts --reset",
     "mint": "hardhat run scripts/mint.ts",
+    "mint-unlinked": "hardhat run scripts/mint-unlinked.ts",
     "setup-event-query": "hardhat run scripts/setup-event-query.ts"
   },
   "devDependencies": {

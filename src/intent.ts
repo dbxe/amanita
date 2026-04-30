@@ -1,4 +1,5 @@
 import {
+  evaluatePendingHolderQueries,
   evaluateBalanceWatches,
   formatAlerts,
   formatSavedWatch,
@@ -6,21 +7,22 @@ import {
   formatWatches,
   listTasks,
   listBalanceWatches,
+  requestTopHolders,
   saveBalanceWatch,
 } from "./agent-tools.js";
 import { resolveConfig } from "./config.js";
-import { inspectContractReadiness } from "./multibaas.js";
-import { createPlanFromIntent, evaluateHolderViewReadiness } from "./planning.js";
+import { createPlanFromIntent } from "./planning.js";
 import { executeAnalyticalView, formatAnalyticalViewResult } from "./views.js";
 
 type Intent =
-  | { kind: "top-holders"; contractAddress?: string; limit: number }
+  | { kind: "top-holders"; contractAddress?: string; limit: number; needsInterfaceClarification?: boolean; tokenName?: string }
   | { kind: "holder-concentration"; contractAddress?: string; limit: number }
   | { kind: "balance"; address: string }
   | { kind: "create-watch"; address: string; label?: string }
   | { kind: "list-watches" }
   | { kind: "list-tasks" }
-  | { kind: "evaluate-watches" };
+  | { kind: "evaluate-watches" }
+  | { kind: "evaluate-tasks" };
 
 const ADDRESS_PATTERN = /0x[a-fA-F0-9]{40}/;
 
@@ -29,6 +31,9 @@ export function parseIntent(text: string): Intent | null {
   const lower = normalized.toLowerCase();
   const address = normalized.match(ADDRESS_PATTERN)?.[0];
   const topMatch = lower.match(/\btop\s+(\d+)\b.*\bholders?\b|\bholders?\b.*\btop\s+(\d+)\b/);
+  const hasTopBalances = /\btop\b.*\bbalances?\b|\bbalances?\b.*\btop\b/.test(lower);
+  const targetMatch = normalized.match(/\b(?:holders?|balances?)\b(?:\s+for|\s+of)\s+(?:token\s+|contract\s+)?([^?.!,]+)/i);
+  const tokenName = !address ? targetMatch?.[1]?.trim() : undefined;
 
   if (/\b(list|show)\b.*\bwatches?\b/.test(lower) || /\bwhat\b.*\btracking\b/.test(lower)) {
     return { kind: "list-watches" };
@@ -36,6 +41,10 @@ export function parseIntent(text: string): Intent | null {
 
   if (/\b(list|show)\b.*\btasks?\b/.test(lower) || /\bwhat\b.*\bwaiting\b/.test(lower)) {
     return { kind: "list-tasks" };
+  }
+
+  if (/\b(evaluate|check|refresh)\b.*\btasks?\b/.test(lower)) {
+    return { kind: "evaluate-tasks" };
   }
 
   if (/\b(evaluate|check|refresh)\b.*\bwatches?\b/.test(lower)) {
@@ -57,6 +66,17 @@ export function parseIntent(text: string): Intent | null {
       kind: "top-holders",
       limit: Number.isInteger(parsedLimit) && parsedLimit > 0 ? parsedLimit : 20,
       ...(address ? { contractAddress: address } : {}),
+      ...(tokenName ? { tokenName } : {}),
+    };
+  }
+
+  if (hasTopBalances) {
+    return {
+      kind: "top-holders",
+      limit: 20,
+      ...(address ? { contractAddress: address } : {}),
+      ...(tokenName ? { tokenName } : {}),
+      ...(address && !/\b(token|contract|erc[- ]?20)\b/.test(lower) ? { needsInterfaceClarification: true } : {}),
     };
   }
 
@@ -76,14 +96,6 @@ export function parseIntent(text: string): Intent | null {
   return null;
 }
 
-function formatHolderReadiness(
-  action: "top holders" | "holder concentration",
-  readiness: { state: string; contractAddress?: string; waitCondition?: { reason: string } },
-): string {
-  const target = readiness.contractAddress ? ` for ${readiness.contractAddress}` : "";
-  return [`I can't answer ${action}${target} yet.`, readiness.waitCondition?.reason ?? readiness.state].join("\n");
-}
-
 export async function handleIntent(text: string): Promise<string> {
   const intent = parseIntent(text);
 
@@ -100,26 +112,23 @@ export async function handleIntent(text: string): Promise<string> {
       ].join("\n");
   }
 
-  const queryName = resolveConfig().defaultQueryName;
+    const queryName = resolveConfig().defaultQueryName;
   switch (intent.kind) {
     case "top-holders": {
-      const plan = await evaluateHolderViewReadiness(
-        createPlanFromIntent({ ...intent, rawText: text }, queryName),
-        { inspectContract: (address) => inspectContractReadiness(resolveConfig(), address) },
-      );
-      if (plan.readiness?.state === "needs-link" || plan.readiness?.state === "syncing") {
-        return formatHolderReadiness("top holders", plan.readiness);
-      }
-      return formatAnalyticalViewResult(await executeAnalyticalView(plan));
+      return (
+        await requestTopHolders(
+          {
+            contractAddress: intent.contractAddress,
+            limit: intent.limit,
+            needsInterfaceClarification: intent.needsInterfaceClarification,
+            rawText: text,
+            tokenName: intent.tokenName,
+          },
+        )
+      ).responseText;
     }
     case "holder-concentration": {
-      const plan = await evaluateHolderViewReadiness(
-        createPlanFromIntent({ ...intent, rawText: text }, queryName),
-        { inspectContract: (address) => inspectContractReadiness(resolveConfig(), address) },
-      );
-      if (plan.readiness?.state === "needs-link" || plan.readiness?.state === "syncing") {
-        return formatHolderReadiness("holder concentration", plan.readiness);
-      }
+      const plan = createPlanFromIntent({ ...intent, rawText: text }, queryName);
       return formatAnalyticalViewResult(await executeAnalyticalView(plan));
     }
     case "balance": {
@@ -137,6 +146,10 @@ export async function handleIntent(text: string): Promise<string> {
     case "evaluate-watches": {
       const result = await evaluateBalanceWatches();
       return formatAlerts(result.state, result.alerts);
+    }
+    case "evaluate-tasks": {
+      const result = await evaluatePendingHolderQueries(queryName);
+      return result.messages.length > 0 ? result.messages.join("\n\n") : "No pending holder queries completed.";
     }
   }
 }

@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { configureNanoClawGroup, deriveContainerBaseUrl } from "./nanoclaw.js";
+import { configureNanoClawGroup, containerInstructions, deriveContainerBaseUrl } from "./nanoclaw.js";
 
 test("deriveContainerBaseUrl rewrites localhost for container access", () => {
   assert.equal(deriveContainerBaseUrl("http://localhost:8080"), "http://host.docker.internal:8080");
@@ -13,6 +13,17 @@ test("deriveContainerBaseUrl rewrites localhost for container access", () => {
 
 test("deriveContainerBaseUrl preserves non-local hosts", () => {
   assert.equal(deriveContainerBaseUrl("https://example.multibaas.com"), "https://example.multibaas.com");
+});
+
+test("containerInstructions steer NanoClaw away from saved queries for ERC-20 holder requests", () => {
+  const instructions = containerInstructions("helloworld_balance");
+
+  assert.match(instructions, /handle_multibaas_request/i);
+  assert.match(instructions, /do not ask the user for a saved query name/i);
+  assert.match(instructions, /get_top_holders.*contractAddress.*tokenName/i);
+  assert.match(instructions, /evaluate_tasks/i);
+  assert.match(instructions, /do not reply with narration like .*calling the tool now/i);
+  assert.doesNotMatch(instructions, /default saved query/i);
 });
 
 test("configureNanoClawGroup writes a relative mount and workspace/extra MCP path", () => {
@@ -43,10 +54,10 @@ test("configureNanoClawGroup writes a relative mount and workspace/extra MCP pat
 
     assert.equal(result.mountPath, "/workspace/extra/multibaas-agent-harness");
 
-    const containerConfig = JSON.parse(fs.readFileSync(containerConfigPath, "utf8")) as {
-      additionalMounts: Array<{ hostPath: string; containerPath: string; readonly?: boolean }>;
-      mcpServers: Record<string, { command: string; args?: string[]; env?: Record<string, string> }>;
-    };
+      const containerConfig = JSON.parse(fs.readFileSync(containerConfigPath, "utf8")) as {
+        additionalMounts: Array<{ hostPath: string; containerPath: string; readonly?: boolean }>;
+        mcpServers: Record<string, { command: string; args?: string[]; env?: Record<string, string>; instructions?: string }>;
+      };
 
     assert.deepEqual(containerConfig.additionalMounts, [
       {
@@ -68,11 +79,12 @@ test("configureNanoClawGroup writes a relative mount and workspace/extra MCP pat
       containerConfig.mcpServers["multibaas-agent"].env?.MULTIBAAS_QUERY_NAME,
       "helloworld_balance",
     );
-    assert.equal(
-      containerConfig.mcpServers["multibaas-agent"].env?.MULTIBAAS_AGENT_STATE_DIR,
-      "/workspace/agent/.agent-state",
-    );
-  } finally {
+     assert.equal(
+       containerConfig.mcpServers["multibaas-agent"].env?.MULTIBAAS_AGENT_STATE_DIR,
+       "/workspace/agent/.agent-state",
+     );
+      assert.match(containerConfig.mcpServers["multibaas-agent"].instructions ?? "", /do not ask the user for a saved query name/i);
+    } finally {
     if (previousBaseUrl === undefined) {
       delete process.env.MULTIBAAS_BASE_URL;
     } else {
