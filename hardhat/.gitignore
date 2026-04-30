@@ -10,3 +10,4 @@ coverage.json
 ignition/deployments
 deployment-config.*.ts
 !deployment-config.template.ts
+AGENTS.md
