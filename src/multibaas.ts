@@ -25,7 +25,7 @@ const QUERY_PAGE_LIMIT = 100;
 
 function buildConfiguration(config: RuntimeConfig): Configuration {
   return new Configuration({
-    accessToken: config.apiKey,
+    accessToken: config.apiKey ?? "placeholder",
     basePath: new URL("/api/v0", config.baseUrl).toString(),
   });
 }

@@ -40,6 +40,8 @@ npm install
 - `MULTIBAAS_BASE_URL` and `MULTIBAAS_API_KEY`, or
 - `hardhat/deployment-config.<network>.ts`
 
+When the harness runs **inside NanoClaw**, authenticated MultiBaas calls should use **OneCLI path-scoped secret injection** rather than a raw API key in `container.json`. The harness will send a placeholder bearer token when no direct key is configured so OneCLI can rewrite it on `/api/v0/*` requests.
+
 ## Minimal product loop
 
 ```bash
@@ -128,10 +130,27 @@ What that does:
 - adds a read-only mount for this repo into the NanoClaw container
 - registers the `multibaas-agent` MCP server in the target group's `container.json`
 - rewrites a host-local MultiBaas base URL like `localhost` to `host.docker.internal` for container access
+- sets a stable in-container state directory for balance watches
 - optionally adds this repo to NanoClaw's mount allowlist
 
 NanoClaw itself still needs to be installed and initialized separately (`pnpm install`, credentials, group/session setup, daemon running).
 
+For authenticated MultiBaas access through NanoClaw:
+
+- keep Anthropic-compatible model credentials scoped to `/v1/*`
+- add a separate OneCLI generic secret for MultiBaas scoped to `/api/v0/*`
+- do **not** put a raw `MULTIBAAS_API_KEY` in the NanoClaw group `container.json`
+
 ## Next layer
 
-The current local demo path is working. The next full runtime step is to initialize NanoClaw locally, wire a CLI group, and message the mounted MCP-backed agent through `pnpm run chat ...`.
+The current local demo path is working through NanoClaw CLI:
+
+```bash
+cd ~/git/qwibitai/nanoclaw
+pnpm run chat -- "What is the balance of 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172?"
+pnpm run chat -- "Give me the top 5 holders for the token"
+pnpm run chat -- "Alert me if the balance of 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172 moves"
+pnpm run chat -- "List watches"
+```
+
+The remaining MVP step is the **event-driven alert loop**: trigger a watched balance change, receive the MultiBaas webhook, and surface the resulting alert back through the runtime.

@@ -65,6 +65,103 @@ Recommended use:
 - **Reference for MCP boilerplate only**: `multibaas-mcp-poc`
 - **Local host/runtime**: `nanoclaw`
 
+## NanoClaw integration notes
+
+These are the setup details that mattered in practice on this machine. Keep them here so future integration work does not have to rediscover them.
+
+### 1. Fetch the NanoClaw `channels` branch before channel setup
+
+Before running the standard NanoClaw install flow, fetch the `channels` branch so Discord setup is available later:
+
+```bash
+cd ~/git/qwibitai/nanoclaw
+git fetch origin channels:refs/remotes/origin/channels
+```
+
+### 2. Use the standard installer, but seed the custom model endpoint
+
+The working local install here used the normal `nanoclaw.sh` flow, with these environment variables:
+
+```bash
+NANOCLAW_NO_DIAGNOSTICS=1 \
+POSTGRES_PORT=5433 \
+NANOCLAW_ANTHROPIC_BASE_URL=http://host.docker.internal:18080 \
+NANOCLAW_ANTHROPIC_AUTH_TOKEN=placeholder \
+bash nanoclaw.sh
+```
+
+Why this matters:
+
+- the local model endpoint is reachable from the container via `host.docker.internal`
+- the auth token is intentionally a placeholder so OneCLI can rewrite the outgoing auth header
+- this was done with the **standard** installer path, not the advanced/manual path
+
+### 3. If NanoClaw defaults back to Sonnet, pin the active groups to the served model
+
+For the local Qwen-backed setup here, the active NanoClaw groups needed:
+
+```json
+"model": "qwen36-35b"
+```
+
+in each active group's:
+
+```text
+~/git/qwibitai/nanoclaw/data/v2-sessions/<agent-group-id>/.claude-shared/settings.json
+```
+
+In practice, this mattered for both the Discord-facing group and the CLI-facing group. Without this, NanoClaw could fall back to a default Claude model like `claude-sonnet-4-6`, which then failed against the local inference backend.
+
+After editing those settings files, restart the launchd service:
+
+```bash
+launchctl kickstart -k gui/$(id -u)/com.nanoclaw-v2-ccd863cf
+```
+
+### 4. Wire the harness into the NanoClaw groups
+
+Use the harness helper to update the target group's `container.json`:
+
+```bash
+cd ~/git/dbxe/amanita
+npm run dev -- nanoclaw configure \
+  --nanoclaw-dir ~/git/qwibitai/nanoclaw \
+  --group-folder cli-with-<name> \
+  --write-allowlist
+```
+
+Run the same command for any DM/Discord group you want the harness mounted into.
+
+This writes the required:
+
+- `mcpServers.multibaas-agent`
+- `additionalMounts` entry for this repo
+- in-container state dir for watches
+- rewritten MultiBaas base URL for container access
+
+### 5. Use OneCLI path-scoped secrets, not raw container env secrets
+
+For NanoClaw-backed runs, do **not** put a real `MULTIBAAS_API_KEY` into `container.json`.
+
+The working setup uses:
+
+- Anthropic-compatible/local model auth scoped to `/v1/*`
+- MultiBaas auth scoped to `/api/v0/*`
+
+That means the harness can send a placeholder bearer token and OneCLI rewrites it on the correct path.
+
+This separation matters because both services may be reached through `host.docker.internal`, so host matching alone is not enough.
+
+### 6. Useful cleanup / recovery command
+
+If a previous OneCLI secret install is dirty or duplicated, this was a useful cleanup pattern:
+
+```bash
+onecli secrets delete --id <secret-id>
+```
+
+Use it to remove stale secrets before recreating them with the correct host/path scope.
+
 ## Local MVP target
 
 The current local MVP should prove this loop inside the harness itself:
@@ -160,6 +257,14 @@ Prefer:
 - **harness-owned query builders over free-form LLM-generated event-query JSON**
 - **one reusable webhook ingress + local monitor store** over one webhook per watch
 - **NanoClaw MCP integration** over shelling out to arbitrary CLI commands from the agent
+- **OneCLI path-scoped secret injection** over raw API keys in NanoClaw `container.json`
+
+For NanoClaw-specific auth wiring:
+
+- keep model-provider secrets scoped to their own API paths (for example `/v1/*`)
+- scope MultiBaas credentials to `/api/v0/*`
+- allow the harness to use a placeholder bearer token when running in NanoClaw so OneCLI can rewrite it
+- do not add a real `MULTIBAAS_API_KEY` to group container env unless there is no safer option
 
 ## Naming guidance
 

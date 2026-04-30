@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 export interface RuntimeConfig {
-  apiKey: string;
+  apiKey?: string;
   baseUrl: string;
   defaultQueryName: string;
   hardhatNetwork: string;
@@ -47,10 +47,8 @@ export function resolveConfig(): RuntimeConfig {
   const baseUrl = process.env.MULTIBAAS_BASE_URL ?? fallback.baseUrl;
   const apiKey = process.env.MULTIBAAS_API_KEY ?? fallback.apiKey;
 
-  if (!baseUrl || !apiKey) {
-    throw new Error(
-      "Missing MultiBaas config. Set MULTIBAAS_BASE_URL and MULTIBAAS_API_KEY, or provide hardhat/deployment-config.<network>.ts.",
-    );
+  if (!baseUrl) {
+    throw new Error("Missing MultiBaas base URL. Set MULTIBAAS_BASE_URL or provide hardhat/deployment-config.<network>.ts.");
   }
 
   return {

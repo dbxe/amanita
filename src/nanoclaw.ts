@@ -155,6 +155,8 @@ export function configureNanoClawGroup(options: ConfigureNanoClawOptions): Confi
     args: ["run", `${mountPathFor(CONTAINER_MOUNT_NAME)}/src/mcp.ts`],
     env: {
       MULTIBAAS_BASE_URL: containerBaseUrl,
+      MULTIBAAS_QUERY_NAME: config.defaultQueryName,
+      MULTIBAAS_AGENT_STATE_DIR: "/workspace/agent/.agent-state",
     },
     instructions: containerInstructions(config.defaultQueryName),
   };

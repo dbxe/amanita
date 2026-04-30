@@ -64,6 +64,14 @@ test("configureNanoClawGroup writes a relative mount and workspace/extra MCP pat
       containerConfig.mcpServers["multibaas-agent"].env?.MULTIBAAS_BASE_URL,
       "http://host.docker.internal:8080",
     );
+    assert.equal(
+      containerConfig.mcpServers["multibaas-agent"].env?.MULTIBAAS_QUERY_NAME,
+      "helloworld_balance",
+    );
+    assert.equal(
+      containerConfig.mcpServers["multibaas-agent"].env?.MULTIBAAS_AGENT_STATE_DIR,
+      "/workspace/agent/.agent-state",
+    );
   } finally {
     if (previousBaseUrl === undefined) {
       delete process.env.MULTIBAAS_BASE_URL;
