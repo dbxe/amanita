@@ -9,9 +9,11 @@ import {
   formatAlerts,
   formatBalance,
   formatSavedWatch,
+  formatTasks,
   formatTopHolders,
   formatWatches,
   getTopHolders,
+  listTasks,
   listBalanceWatches,
   lookupBalance,
   saveBalanceWatch,
@@ -69,6 +71,13 @@ server.tool("list_balance_watches", {}, async () => {
   const result = listBalanceWatches();
   return {
     content: [{ type: "text", text: formatWatches(result) }],
+  };
+});
+
+server.tool("list_tasks", {}, async () => {
+  const result = listTasks();
+  return {
+    content: [{ type: "text", text: formatTasks(result) }],
   };
 });
 

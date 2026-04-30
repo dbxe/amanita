@@ -5,10 +5,12 @@ import {
   formatAlerts,
   formatBalance,
   formatSavedWatch,
+  formatTasks,
   formatTopHolders,
   formatWebhook,
   formatWatches,
   getTopHolders,
+  listTasks,
   listBalanceWatches,
   lookupBalance,
   saveBalanceWatch,
@@ -27,6 +29,7 @@ Usage:
   npm run dev -- watch add --address 0x... [--label whale] [--query helloworld_balance]
   npm run dev -- watch list
   npm run dev -- watch evaluate
+  npm run dev -- task list
   npm run dev -- webhook ensure --url https://example.test/webhooks/multibaas [--label ${DEFAULT_WEBHOOK_LABEL}]
   npm run dev -- webhook serve [--port 8787] [--path /webhooks/multibaas] [--secret <secret>] [--nanoclaw-dir <path>] [--group-folder <folder>]
   npm run dev -- agent "<natural language intent>"
@@ -151,6 +154,17 @@ async function handleWebhook(args: string[]): Promise<void> {
   throw new Error(`Unknown webhook command: ${subcommand ?? "(missing)"}`);
 }
 
+async function handleTask(args: string[]): Promise<void> {
+  const subcommand = readCommand(args, 1);
+
+  if (subcommand === "list") {
+    console.log(formatTasks(listTasks()));
+    return;
+  }
+
+  throw new Error(`Unknown task command: ${subcommand ?? "(missing)"}`);
+}
+
 async function handleNanoClaw(args: string[]): Promise<void> {
   const subcommand = readCommand(args, 1);
 
@@ -228,6 +242,11 @@ async function main(): Promise<void> {
 
   if (command === "webhook") {
     await handleWebhook(args);
+    return;
+  }
+
+  if (command === "task") {
+    await handleTask(args);
     return;
   }
 

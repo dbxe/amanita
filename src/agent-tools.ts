@@ -21,6 +21,17 @@ import {
   type LocalState,
   type Watch,
 } from "./state.js";
+import {
+  applyTaskFailure,
+  attachWatchToTask,
+  createBalanceWatchTask,
+  findBalanceWatchTask,
+  recordTaskAlert,
+  transitionTask,
+  upsertTask,
+  type TaskRecord,
+  type TaskState,
+} from "./tasks.js";
 
 export const DEFAULT_WEBHOOK_LABEL = "balance-watch";
 
@@ -37,16 +48,21 @@ export interface BalanceResult {
 }
 
 export interface WatchListResult {
-  watches: Watch[];
+  watches: Array<Watch & { taskState?: TaskState }>;
 }
 
 export interface WatchSaveResult {
-  watch: Watch;
+  task: TaskRecord;
+  watch?: Watch;
 }
 
 export interface WatchEvaluationResult {
   alerts: AlertRecord[];
   state: LocalState;
+}
+
+export interface TaskListResult {
+  tasks: TaskRecord[];
 }
 
 export interface WebhookEnsureResult {
@@ -76,7 +92,8 @@ async function evaluateWatches(
   const config = resolveConfig();
   const nextState: LocalState = {
     ...state,
-    watches: [...state.watches],
+    tasks: [...state.tasks],
+    watches: state.watches.map((watch) => ({ ...watch })),
   };
 
   const alerts: AlertRecord[] = [];
@@ -125,18 +142,50 @@ export function formatBalance(result: BalanceResult): string {
   return [`Query: ${result.queryName}`, `Address: ${result.address}`, `Balance: ${result.balance}`].join("\n");
 }
 
+function formatTaskLine(task: TaskRecord): string {
+  const details = [`${task.id}  ${task.state}  ${task.title}`];
+  if (task.waitCondition) {
+    details.push(`reason=${task.waitCondition.reason}`);
+  }
+  if (task.watchId) {
+    details.push(`watch=${task.watchId}`);
+  }
+  if (task.lastKnownBalance) {
+    details.push(`balance=${task.lastKnownBalance}`);
+  }
+  return details.join("  ");
+}
+
+export function formatTasks(result: TaskListResult): string {
+  if (result.tasks.length === 0) {
+    return "No tasks recorded.";
+  }
+
+  return result.tasks.map((task) => formatTaskLine(task)).join("\n");
+}
+
 export function formatWatches(result: WatchListResult): string {
   if (result.watches.length === 0) {
     return "No watches registered.";
   }
 
   return result.watches
-    .map((watch) => `${watch.id}  ${watch.label}  ${watch.address}  ${watch.lastKnownBalance}`)
+    .map((watch) =>
+      [watch.id, watch.label, watch.address, watch.lastKnownBalance, watch.taskState ? `task=${watch.taskState}` : undefined]
+        .filter((value) => value !== undefined)
+        .join("  "),
+    )
     .join("\n");
 }
 
 export function formatSavedWatch(result: WatchSaveResult): string {
-  return `Saved watch ${result.watch.label} for ${result.watch.address} at balance ${result.watch.lastKnownBalance}`;
+  const lines = [formatTaskLine(result.task)];
+  if (result.watch) {
+    lines.push(
+      `Saved watch ${result.watch.label} for ${result.watch.address} at balance ${result.watch.lastKnownBalance}`,
+    );
+  }
+  return lines.join("\n");
 }
 
 export function formatAlerts(state: LocalState, alerts: AlertRecord[]): string {
@@ -190,10 +239,22 @@ export async function lookupBalance(address: string, queryName?: string): Promis
   };
 }
 
+export function listTasks(): TaskListResult {
+  const config = resolveConfig();
+  const state = loadState(config.stateDir);
+  return { tasks: state.tasks };
+}
+
 export function listBalanceWatches(): WatchListResult {
   const config = resolveConfig();
   const state = loadState(config.stateDir);
-  return { watches: state.watches };
+  const taskStateById = new Map(state.tasks.map((task) => [task.id, task.state]));
+  return {
+    watches: state.watches.map((watch) => ({
+      ...watch,
+      taskState: watch.taskId ? taskStateById.get(watch.taskId) : undefined,
+    })),
+  };
 }
 
 export async function saveBalanceWatch(address: string, label?: string, queryName?: string): Promise<WatchSaveResult> {
@@ -201,47 +262,87 @@ export async function saveBalanceWatch(address: string, label?: string, queryNam
   const state = loadState(config.stateDir);
   const normalizedAddress = normalizeAddress(address);
   const effectiveQueryName = queryName ?? config.defaultQueryName;
-  const snapshot = await getAddressBalance(config, effectiveQueryName, normalizedAddress);
-  const existing = state.watches.find(
-    (watch) => normalizeAddress(watch.address) === normalizedAddress && watch.queryName === effectiveQueryName,
-  );
-
   const now = new Date().toISOString();
-  const watch: Watch = existing
-    ? {
-        ...existing,
-        label: label ?? existing.label,
-        lastKnownBalance: snapshot.rawBalance,
-        updatedAt: now,
-      }
-    : {
-        address: normalizedAddress,
-        createdAt: now,
-        id: randomUUID(),
-        label: label ?? createWatchLabel(normalizedAddress),
-        lastKnownBalance: snapshot.rawBalance,
-        queryName: effectiveQueryName,
-        updatedAt: now,
-      };
+  const existingTask = findBalanceWatchTask(state.tasks, normalizedAddress, effectiveQueryName);
+  const baseTask = existingTask ?? createBalanceWatchTask({ address: normalizedAddress, now, queryName: effectiveQueryName });
 
-  const nextState: LocalState = {
-    ...state,
-    watches: existing
-      ? state.watches.map((candidate) => (candidate.id === existing.id ? watch : candidate))
-      : [...state.watches, watch],
-  };
-  saveState(config.stateDir, nextState);
+  try {
+    const snapshot = await getAddressBalance(config, effectiveQueryName, normalizedAddress);
+    const readyTask =
+      baseTask.state === "monitoring" ? baseTask : transitionTask(baseTask, "ready", now, { waitCondition: undefined });
+    const existingWatch = state.watches.find(
+      (watch) => normalizeAddress(watch.address) === normalizedAddress && watch.queryName === effectiveQueryName,
+    );
+    const watch: Watch = existingWatch
+      ? {
+          ...existingWatch,
+          label: label ?? existingWatch.label,
+          lastKnownBalance: snapshot.rawBalance,
+          taskId: readyTask.id,
+          updatedAt: now,
+        }
+      : {
+          address: normalizedAddress,
+          createdAt: now,
+          id: randomUUID(),
+          label: label ?? createWatchLabel(normalizedAddress),
+          lastKnownBalance: snapshot.rawBalance,
+          queryName: effectiveQueryName,
+          taskId: readyTask.id,
+          updatedAt: now,
+        };
 
-  return { watch };
+    const monitoringTask = attachWatchToTask(readyTask, {
+      balance: snapshot.rawBalance,
+      now,
+      watchId: watch.id,
+    });
+    const nextState: LocalState = {
+      ...state,
+      tasks: upsertTask(state.tasks, monitoringTask),
+      watches: existingWatch
+        ? state.watches.map((candidate) => (candidate.id === existingWatch.id ? watch : candidate))
+        : [...state.watches, watch],
+    };
+    saveState(config.stateDir, nextState);
+
+    return { task: monitoringTask, watch };
+  } catch (error) {
+    const failedTask = applyTaskFailure(baseTask, error, now);
+    const nextState: LocalState = {
+      ...state,
+      tasks: upsertTask(state.tasks, failedTask),
+    };
+    saveState(config.stateDir, nextState);
+    return { task: failedTask };
+  }
 }
 
 export async function evaluateBalanceWatches(eventCount?: number): Promise<WatchEvaluationResult> {
   const config = resolveConfig();
   const state = loadState(config.stateDir);
   const { alerts, nextState } = await evaluateWatches(state, eventCount);
-  saveState(config.stateDir, nextState);
+  const updatedTasks = alerts.reduce((tasks, alert) => {
+    const task = tasks.find((candidate) => candidate.watchId === alert.watchId);
+    if (!task) {
+      return tasks;
+    }
+    return upsertTask(
+      tasks,
+      recordTaskAlert(task, {
+        currentBalance: alert.currentBalance,
+        now: alert.observedAt,
+        watchId: alert.watchId,
+      }),
+    );
+  }, nextState.tasks);
+  const finalState: LocalState = {
+    ...nextState,
+    tasks: updatedTasks,
+  };
+  saveState(config.stateDir, finalState);
   appendAlerts(config.stateDir, alerts);
-  return { alerts, state: nextState };
+  return { alerts, state: finalState };
 }
 
 export async function ensureBalanceWebhook(url: string, label = DEFAULT_WEBHOOK_LABEL): Promise<WebhookEnsureResult> {

@@ -1,6 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 
+import type { TaskRecord } from "./tasks.js";
+
 export interface Watch {
   address: string;
   createdAt: string;
@@ -8,6 +10,7 @@ export interface Watch {
   label: string;
   lastKnownBalance: string;
   queryName: string;
+  taskId?: string;
   updatedAt: string;
 }
 
@@ -21,7 +24,8 @@ export interface StoredWebhook {
 }
 
 export interface LocalState {
-  version: 1;
+  tasks: TaskRecord[];
+  version: 2;
   watches: Watch[];
   webhook?: StoredWebhook;
 }
@@ -38,7 +42,8 @@ export interface AlertRecord {
 
 function createEmptyState(): LocalState {
   return {
-    version: 1,
+    tasks: [],
+    version: 2,
     watches: [],
   };
 }
@@ -64,7 +69,8 @@ export function loadState(stateDir: string): LocalState {
 
   const parsed = JSON.parse(fs.readFileSync(filePath, "utf8")) as Partial<LocalState>;
   return {
-    version: 1,
+    tasks: Array.isArray(parsed.tasks) ? parsed.tasks : [],
+    version: 2,
     watches: Array.isArray(parsed.watches) ? parsed.watches : [],
     webhook: parsed.webhook,
   };

@@ -16,6 +16,7 @@ Minimal MultiBaas event-query and webhook loop for the hackathon MVP.
 - show top holders
 - look up one address balance
 - save a whale watch in local state
+- persist a task record for balance-monitor requests
 - receive signed MultiBaas-style webhook payloads and reevaluate watches
 - accept a small set of natural-language intents through a local `agent` command
 - expose the same capabilities through a stdio MCP server for NanoClaw
@@ -65,6 +66,9 @@ npm run dev -- watch add --address 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172 --
 # inspect watches
 npm run dev -- watch list
 
+# inspect persisted tasks
+npm run dev -- task list
+
 # reevaluate all watches against the latest saved-query snapshot
 npm run dev -- watch evaluate
 ```
@@ -87,6 +91,7 @@ The `agent` command currently recognizes:
 - single-address balance requests
 - balance-watch creation
 - list watches
+- list tasks
 - evaluate watches
 
 ## Webhooks
@@ -136,6 +141,7 @@ Tools exposed:
 - `get_address_balance`
 - `create_balance_watch`
 - `list_balance_watches`
+- `list_tasks`
 - `evaluate_balance_watches`
 - `ensure_event_webhook`
 

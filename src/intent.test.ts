@@ -14,3 +14,7 @@ test("parseIntent recognizes balance watches", () => {
     label: undefined,
   });
 });
+
+test("parseIntent recognizes task listing requests", () => {
+  assert.deepEqual(parseIntent("List tasks"), { kind: "list-tasks" });
+});

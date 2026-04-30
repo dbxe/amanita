@@ -3,9 +3,11 @@ import {
   formatAlerts,
   formatBalance,
   formatSavedWatch,
+  formatTasks,
   formatTopHolders,
   formatWatches,
   getTopHolders,
+  listTasks,
   listBalanceWatches,
   lookupBalance,
   saveBalanceWatch,
@@ -16,6 +18,7 @@ type Intent =
   | { kind: "balance"; address: string }
   | { kind: "create-watch"; address: string; label?: string }
   | { kind: "list-watches" }
+  | { kind: "list-tasks" }
   | { kind: "evaluate-watches" };
 
 const ADDRESS_PATTERN = /0x[a-fA-F0-9]{40}/;
@@ -28,6 +31,10 @@ export function parseIntent(text: string): Intent | null {
 
   if (/\b(list|show)\b.*\bwatches?\b/.test(lower) || /\bwhat\b.*\btracking\b/.test(lower)) {
     return { kind: "list-watches" };
+  }
+
+  if (/\b(list|show)\b.*\btasks?\b/.test(lower) || /\bwhat\b.*\bwaiting\b/.test(lower)) {
+    return { kind: "list-tasks" };
   }
 
   if (/\b(evaluate|check|refresh)\b.*\bwatches?\b/.test(lower)) {
@@ -66,10 +73,11 @@ export async function handleIntent(text: string): Promise<string> {
       "I couldn't map that request to a supported action yet.",
       "Try one of:",
       '- "Give me the top 5 holders"',
-      '- "What is the balance of 0x...?"',
-      '- "Alert me if the balance of 0x... moves"',
-      '- "List watches"',
-    ].join("\n");
+        '- "What is the balance of 0x...?"',
+        '- "Alert me if the balance of 0x... moves"',
+        '- "List watches"',
+        '- "List tasks"',
+      ].join("\n");
   }
 
   switch (intent.kind) {
@@ -81,6 +89,8 @@ export async function handleIntent(text: string): Promise<string> {
       return formatSavedWatch(await saveBalanceWatch(intent.address, intent.label));
     case "list-watches":
       return formatWatches(listBalanceWatches());
+    case "list-tasks":
+      return formatTasks(listTasks());
     case "evaluate-watches": {
       const result = await evaluateBalanceWatches();
       return formatAlerts(result.state, result.alerts);
