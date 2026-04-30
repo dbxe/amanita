@@ -8,8 +8,9 @@
     "node": ">=24.0.0"
   },
   "scripts": {
-    "deploy": "HARDHAT_NETWORK=development HARDHAT_IGNITION_CONFIRM_DEPLOYMENT=false hardhat ignition deploy ignition/modules/HelloWorldModule.ts --reset",
-    "mint": "hardhat run scripts/mint.ts"
+    "deploy": "HARDHAT_NETWORK=development HARDHAT_IGNITION_CONFIRM_DEPLOYMENT=true HARDHAT_IGNITION_CONFIRM_RESET=true hardhat ignition deploy ignition/modules/HelloWorldModule.ts --reset",
+    "mint": "hardhat run scripts/mint.ts",
+    "setup-event-query": "hardhat run scripts/setup-event-query.ts"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-ethers": "^4.0.2",
