@@ -84,6 +84,11 @@ After that is stable, the next layer is:
 2. Register the harness as an MCP server in NanoClaw `container.json`
 3. Route CLI requests and later webhook-driven wakeups through NanoClaw
 
+At the moment, this repo supports both:
+
+- a local `agent` command for immediate natural-language demos
+- a stdio MCP server for NanoClaw integration
+
 Important design choice:
 
 - **MultiBaas webhook endpoints are broad event-delivery pipes**
