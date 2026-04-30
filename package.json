@@ -1,8 +1,8 @@
 {
-  "name": "amanita",
+  "name": "multibaas-agent-harness",
   "private": true,
   "version": "0.1.0",
-  "description": "Minimal MultiBaas event-query and webhook loop for Amanita",
+  "description": "Minimal MultiBaas event-query and webhook loop",
   "type": "module",
   "engines": {
     "node": ">=22"

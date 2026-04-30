@@ -16,21 +16,21 @@ import {
   loadState,
   saveState,
   type AlertRecord,
-  type AmanitaState,
+  type LocalState,
   type Watch,
 } from "./state.js";
 
 function printUsage(): void {
-  console.log(`Amanita minimal loop
+  console.log(`Local MultiBaas agent loop
 
 Usage:
-  amanita query top-holders [--limit 20] [--query helloworld_balance]
-  amanita query balance --address 0x... [--query helloworld_balance]
-  amanita watch add --address 0x... [--label whale] [--query helloworld_balance]
-  amanita watch list
-  amanita watch evaluate
-  amanita webhook ensure --url https://example.test/webhooks/multibaas [--label amanita-balance-watch]
-  amanita webhook serve [--port 8787] [--path /webhooks/multibaas] [--secret <secret>]
+  npm run dev -- query top-holders [--limit 20] [--query helloworld_balance]
+  npm run dev -- query balance --address 0x... [--query helloworld_balance]
+  npm run dev -- watch add --address 0x... [--label whale] [--query helloworld_balance]
+  npm run dev -- watch list
+  npm run dev -- watch evaluate
+  npm run dev -- webhook ensure --url https://example.test/webhooks/multibaas [--label balance-watch]
+  npm run dev -- webhook serve [--port 8787] [--path /webhooks/multibaas] [--secret <secret>]
 `);
 }
 
@@ -86,11 +86,11 @@ function createWatchLabel(address: string): string {
 }
 
 async function evaluateWatches(
-  state: AmanitaState,
+  state: LocalState,
   eventCount: number | undefined,
-): Promise<{ alerts: AlertRecord[]; nextState: AmanitaState }> {
+): Promise<{ alerts: AlertRecord[]; nextState: LocalState }> {
   const config = resolveConfig();
-  const nextState: AmanitaState = {
+  const nextState: LocalState = {
     ...state,
     watches: [...state.watches],
   };
@@ -129,7 +129,7 @@ async function evaluateWatches(
   return { alerts, nextState };
 }
 
-function printAlerts(state: AmanitaState, alerts: AlertRecord[]): void {
+function printAlerts(state: LocalState, alerts: AlertRecord[]): void {
   if (alerts.length === 0) {
     console.log("No balance changes detected.");
     return;
@@ -212,7 +212,7 @@ async function handleWatch(args: string[]): Promise<void> {
           updatedAt: now,
         };
 
-    const nextState: AmanitaState = {
+    const nextState: LocalState = {
       ...state,
       watches: existing
         ? state.watches.map((candidate) => (candidate.id === existing.id ? watch : candidate))
@@ -241,9 +241,9 @@ async function handleWebhook(args: string[]): Promise<void> {
 
   if (subcommand === "ensure") {
     const url = requireFlag(args, "--url");
-    const label = readFlag(args, "--label") ?? "amanita-balance-watch";
+    const label = readFlag(args, "--label") ?? "balance-watch";
     const webhook = await ensureEventWebhook(config, label, url);
-    const nextState: AmanitaState = {
+    const nextState: LocalState = {
       ...state,
       webhook: {
         id: webhook.id,
@@ -265,11 +265,11 @@ async function handleWebhook(args: string[]): Promise<void> {
   if (subcommand === "serve") {
     const port = parsePositiveIntegerFlag(args, "--port", 8787);
     const requestPath = readFlag(args, "--path") ?? "/webhooks/multibaas";
-    const secret = readFlag(args, "--secret") ?? state.webhook?.secret ?? process.env.AMANITA_WEBHOOK_SECRET;
+    const secret = readFlag(args, "--secret") ?? state.webhook?.secret ?? process.env.MULTIBAAS_WEBHOOK_SECRET;
 
     if (!secret) {
       throw new Error(
-        "Missing webhook secret. Run `amanita webhook ensure --url ...` first, or pass --secret / AMANITA_WEBHOOK_SECRET.",
+        "Missing webhook secret. Run `npm run dev -- webhook ensure --url ...` first, or pass --secret / MULTIBAAS_WEBHOOK_SECRET.",
       );
     }
 

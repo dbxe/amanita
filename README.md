@@ -1,4 +1,4 @@
-# Amanita
+# MultiBaas agent harness
 
 Minimal MultiBaas event-query and webhook loop for the hackathon MVP.
 
@@ -35,7 +35,7 @@ npm install
 
 `src/config.ts` will read MultiBaas settings from either:
 
-- `AMANITA_MULTIBAAS_BASE_URL` and `AMANITA_MULTIBAAS_API_KEY`, or
+- `MULTIBAAS_BASE_URL` and `MULTIBAAS_API_KEY`, or
 - `hardhat/deployment-config.<network>.ts`
 
 ## Minimal product loop
@@ -57,7 +57,7 @@ npm run dev -- watch list
 npm run dev -- watch evaluate
 ```
 
-Local watch state is stored under `.amanita/`.
+Local watch state is stored under `.agent-state/`.
 
 ## Webhooks
 
@@ -73,8 +73,8 @@ When you have a reachable callback URL, register or update the shared MultiBaas 
 npm run dev -- webhook ensure --url https://your-host.example/webhooks/multibaas
 ```
 
-The webhook handler validates `X-MultiBaas-Signature` and `X-MultiBaas-Timestamp`, refreshes the saved-query snapshot, and appends alerts to `.amanita/alerts.jsonl`.
+The webhook handler validates `X-MultiBaas-Signature` and `X-MultiBaas-Timestamp`, refreshes the saved-query snapshot, and appends alerts to `.agent-state/alerts.jsonl`.
 
 ## Next layer
 
-The current MVP is **Amanita-only**. The next step is to wrap these commands in a thin MCP server and mount that into NanoClaw.
+The current MVP is **harness-only**. The next step is to wrap these commands in a thin MCP server and mount that into NanoClaw.

@@ -1,4 +1,4 @@
-# Amanita
+# Web3 intelligence agent harness
 
 ## What this repo is for
 
@@ -7,7 +7,7 @@ This repo is the hackathon submission workspace for an **event-driven Web3 agent
 - **MultiBaas Event Queries** for event-sourced views over EVM contracts
 - **MultiBaas Webhooks** for waking the system on new onchain events
 - **NanoClaw** as the local agent host/runtime
-- **Amanita** as the integration layer / "secret sauce"
+- a thin local harness layer that holds the integration logic / "secret sauce"
 
 Core product idea:
 
@@ -15,7 +15,7 @@ Core product idea:
 2. Agent uses MultiBaas event queries to reconstruct hidden or non-enumerable state
 3. User saves a monitor/watch
 4. MultiBaas webhook fires later
-5. Amanita wakes the agent and the user gets an updated explanation / alert
+5. the harness wakes the agent and the user gets an updated explanation / alert
 
 ## Current repo shape
 
@@ -25,7 +25,7 @@ This repo currently contains a `hardhat/` subproject used as the **chain fixture
 - link it on MultiBaas
 - mint/distribute balances so holder queries are meaningful
 
-The **Amanita app/integration logic should live outside `hardhat/`**. Treat `hardhat/` as the local contract/test-data setup, not the final agent runtime.
+The harness app/integration logic should live outside `hardhat/`. Treat `hardhat/` as the local contract/test-data setup, not the final agent runtime.
 
 ## Chosen local architecture
 
@@ -39,7 +39,7 @@ We are using **NanoClaw** as the local host because it already provides:
 - agent containers
 - support for extra **MCP servers** via `container.json`
 
-Amanita should be structured as:
+The harness should be structured as:
 
 1. **Core library** — query builders, monitor logic, webhook validation, NanoClaw wake logic
 2. **CLI** — manual/debug entrypoints for local development
@@ -67,34 +67,34 @@ Recommended use:
 
 ## Local MVP target
 
-The current local MVP should prove this loop inside **Amanita itself**:
+The current local MVP should prove this loop inside the harness itself:
 
 1. Deploy + link a sample ERC-20 on MultiBaas
 2. Mint/distribute balances
 3. Save the MultiBaas query `helloworld_balance`
-4. Run Amanita locally and ask for top holders or one address balance
-5. Save a whale watch in Amanita local state
-6. Run Amanita's webhook receiver
+4. Run the local harness and ask for top holders or one address balance
+5. Save a whale watch in local state
+6. Run the webhook receiver
 7. Have MultiBaas deliver `event.emitted` payloads to the shared webhook
-8. Amanita reevaluates watches and writes alerts
+8. The harness reevaluates watches and writes alerts
 
 After that is stable, the next layer is:
 
-1. Mount Amanita into the NanoClaw agent container
-2. Register Amanita as an MCP server in NanoClaw `container.json`
+1. Mount the harness into the NanoClaw agent container
+2. Register the harness as an MCP server in NanoClaw `container.json`
 3. Route CLI requests and later webhook-driven wakeups through NanoClaw
 
 Important design choice:
 
 - **MultiBaas webhook endpoints are broad event-delivery pipes**
-- **Amanita owns the actual watch/monitor registry and filtering logic**
+- **The harness owns the actual watch/monitor registry and filtering logic**
 
 That means the normal model is:
 
 - one or a small number of MultiBaas webhook endpoints
-- many Amanita-managed watches
+- many harness-managed watches
 
-## First Amanita tool surface
+## First tool surface
 
 Keep the initial tool set narrow and high value:
 
@@ -152,6 +152,29 @@ Under the hood these should use:
 Prefer:
 
 - **typed SDK calls over ad hoc curl**
-- **Amanita-owned query builders over free-form LLM-generated event-query JSON**
+- **harness-owned query builders over free-form LLM-generated event-query JSON**
 - **one reusable webhook ingress + local monitor store** over one webhook per watch
 - **NanoClaw MCP integration** over shelling out to arbitrary CLI commands from the agent
+
+## Naming guidance
+
+The current repo directory name may change later, so new code and docs should stay naming-neutral.
+
+Use capability- or domain-based names instead of repo-name-based names.
+
+Prefer neutral names for:
+
+- package metadata
+- env vars
+- local state directories
+- webhook labels
+- CLI text
+
+When adding new surfaces, prefer names tied to the function of the system:
+
+- `MULTIBAAS_*` or other domain-scoped env vars over repo-scoped prefixes
+- generic runtime/state paths over repo-name paths
+- neutral labels like `balance-watch` over project-branded labels
+- user-facing CLI/help text that describes the tool, not the repo
+
+Treat the current repo name as a filesystem location, not as a naming source for new identifiers.

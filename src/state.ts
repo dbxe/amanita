@@ -20,7 +20,7 @@ export interface StoredWebhook {
   url: string;
 }
 
-export interface AmanitaState {
+export interface LocalState {
   version: 1;
   watches: Watch[];
   webhook?: StoredWebhook;
@@ -36,7 +36,7 @@ export interface AlertRecord {
   watchId: string;
 }
 
-function createEmptyState(): AmanitaState {
+function createEmptyState(): LocalState {
   return {
     version: 1,
     watches: [],
@@ -55,14 +55,14 @@ function alertsPath(stateDir: string): string {
   return path.join(stateDir, "alerts.jsonl");
 }
 
-export function loadState(stateDir: string): AmanitaState {
+export function loadState(stateDir: string): LocalState {
   ensureStateDir(stateDir);
   const filePath = statePath(stateDir);
   if (!fs.existsSync(filePath)) {
     return createEmptyState();
   }
 
-  const parsed = JSON.parse(fs.readFileSync(filePath, "utf8")) as Partial<AmanitaState>;
+  const parsed = JSON.parse(fs.readFileSync(filePath, "utf8")) as Partial<LocalState>;
   return {
     version: 1,
     watches: Array.isArray(parsed.watches) ? parsed.watches : [],
@@ -70,7 +70,7 @@ export function loadState(stateDir: string): AmanitaState {
   };
 }
 
-export function saveState(stateDir: string, state: AmanitaState): void {
+export function saveState(stateDir: string, state: LocalState): void {
   ensureStateDir(stateDir);
   fs.writeFileSync(statePath(stateDir), `${JSON.stringify(state, null, 2)}\n`);
 }

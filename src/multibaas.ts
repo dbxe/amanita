@@ -7,7 +7,7 @@ import {
   WebhookEventsType,
 } from "@curvegrid/multibaas-sdk";
 
-import type { AmanitaConfig } from "./config.js";
+import type { RuntimeConfig } from "./config.js";
 
 export interface BalanceRow {
   address: string;
@@ -23,18 +23,18 @@ export interface BalanceAlert {
 
 const QUERY_PAGE_LIMIT = 100;
 
-function buildConfiguration(config: AmanitaConfig): Configuration {
+function buildConfiguration(config: RuntimeConfig): Configuration {
   return new Configuration({
     accessToken: config.apiKey,
     basePath: new URL("/api/v0", config.baseUrl).toString(),
   });
 }
 
-function createEventQueriesApi(config: AmanitaConfig): EventQueriesApi {
+function createEventQueriesApi(config: RuntimeConfig): EventQueriesApi {
   return new EventQueriesApi(buildConfiguration(config));
 }
 
-function createWebhooksApi(config: AmanitaConfig): WebhooksApi {
+function createWebhooksApi(config: RuntimeConfig): WebhooksApi {
   return new WebhooksApi(buildConfiguration(config));
 }
 
@@ -110,7 +110,7 @@ export function selectTopPositiveHolders(rows: BalanceRow[], limit: number): Bal
 }
 
 export async function executeSavedBalanceQuery(
-  config: AmanitaConfig,
+  config: RuntimeConfig,
   queryName: string,
   limit: number,
   offset = 0,
@@ -121,7 +121,7 @@ export async function executeSavedBalanceQuery(
 }
 
 export async function fetchBalanceSnapshot(
-  config: AmanitaConfig,
+  config: RuntimeConfig,
   queryName: string,
   limit: number,
 ): Promise<Map<string, BalanceRow>> {
@@ -148,7 +148,7 @@ export async function fetchBalanceSnapshot(
 }
 
 export async function getAddressBalance(
-  config: AmanitaConfig,
+  config: RuntimeConfig,
   queryName: string,
   address: string,
 ): Promise<BalanceRow> {
@@ -164,7 +164,7 @@ export async function getAddressBalance(
 }
 
 export async function ensureEventWebhook(
-  config: AmanitaConfig,
+  config: RuntimeConfig,
   label: string,
   url: string,
 ): Promise<{
