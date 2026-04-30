@@ -115,6 +115,13 @@ npm run dev -- webhook ensure --url https://your-host.example/webhooks/multibaas
 
 The webhook handler validates `X-MultiBaas-Signature` and `X-MultiBaas-Timestamp`, refreshes the saved-query snapshot, and appends alerts to `.agent-state/alerts.jsonl`.
 
+When you evaluate a watch that was created inside a NanoClaw group, point the host-side receiver at that group's state directory instead of the repo root:
+
+```bash
+MULTIBAAS_AGENT_STATE_DIR=~/git/qwibitai/nanoclaw/groups/cli-with-<name>/.agent-state \
+  npm run dev -- webhook serve --secret <webhook-secret> --port 8787
+```
+
 ## MCP server
 
 The same live operations are also exposed over stdio MCP:
@@ -177,3 +184,5 @@ pnpm run chat -- "List watches"
 ```
 
 The remaining MVP step is the **event-driven alert loop**: trigger a watched balance change, receive the MultiBaas webhook, and surface the resulting alert back through the runtime.
+
+For the HelloWorld fixture, the deterministic replay path is to submit `transfer(address,uint256)` through the MultiBaas contract-method API using the whale address as `from`/`signer` with `signAndSubmit: true`. The initial deployer balance is exhausted by `hardhat/scripts/mint.ts`, so replaying from the deployer will revert with insufficient balance.

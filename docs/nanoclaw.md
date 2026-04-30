@@ -135,6 +135,7 @@ Webhook receiver with NanoClaw delivery enabled:
 
 ```bash
 cd ~/git/dbxe/amanita
+MULTIBAAS_AGENT_STATE_DIR=~/git/qwibitai/nanoclaw/groups/cli-with-<name>/.agent-state \
 npm run dev -- webhook serve \
   --secret <webhook-secret> \
   --port 8787 \
@@ -143,3 +144,23 @@ npm run dev -- webhook serve \
 ```
 
 The CLI channel remains useful for deterministic testing, but it is not a reliable push-notification surface because delivery only appears in a live connected terminal. For proactive alerts, prefer a DM or Discord-backed NanoClaw session.
+
+## Deterministic whale-movement replay
+
+For the HelloWorld fixture, do not assume the deployer still holds tokens after `hardhat/scripts/mint.ts`; that script distributes the full supply. To trigger the alert loop on demand, call the linked token through the MultiBaas contract-method API and submit the transaction from the whale address instead:
+
+```bash
+curl -sS -X POST "$MULTIBAAS_BASE_URL/api/v0/chains/ethereum/addresses/helloworld/contracts/helloworld/methods/transfer" \
+  -H "Authorization: Bearer $MULTIBAAS_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "signature": "transfer(address,uint256)",
+    "args": ["0xd0E2ac1033B2a26314095BbE2e56D2974455B8B6", "1000000000000000000"],
+    "from": "0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172",
+    "signer": "0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172",
+    "signAndSubmit": true,
+    "nonceManagement": true
+  }'
+```
+
+On success, MultiBaas returns `TransactionToSignResponse` with `submitted: true`, the saved query reflects the lower whale balance, and the webhook receiver can queue the resulting alert into the DM or Discord-backed NanoClaw session.
