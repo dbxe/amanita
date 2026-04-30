@@ -35,6 +35,17 @@ Prefer:
 - MCP integration over shelling out from the agent when NanoClaw is involved
 - OneCLI path-scoped secret injection over raw API keys in NanoClaw `container.json`
 
+## Working with MultiBaas
+
+- Use the repo's config resolution path rather than hardcoding a base URL or credentials. Prefer existing config/env surfaces and the local `hardhat/` deployment config fallback.
+- Prefer the wrapper layer in `src/multibaas.ts` and higher-level services over scattering raw REST calls throughout the codebase.
+- Before assuming a query should work, confirm the prerequisites conceptually: contract definition known, contract linked, indexing/sync sufficiently complete, and query/view ready to execute.
+- Treat contract onboarding and indexing as long-running states, not immediate failures. If a task depends on linking or sync progress, model it explicitly as waiting or blocked.
+- For testing, validate the smallest loop first: query or view execution -> watch creation -> webhook registration/receiver -> trigger an on-chain change -> confirm alert behavior.
+- Use local fixtures and short-history contracts for development. Avoid relying on large historical contracts for routine testing because indexing lag can dominate the workflow.
+- Prefer reusable, typed view patterns over bespoke one-off query JSON when adding new protocol support. If a raw event query is needed for diagnostics, keep it close to the view or service it belongs to.
+- If the SDK path is unreliable for a specific endpoint, isolate any direct HTTP fallback in the MultiBaas integration layer and document why instead of leaking that workaround across the repo.
+
 ## Testing expectations
 
 - For repo-local work, use the CLI paths in `README.md`.
