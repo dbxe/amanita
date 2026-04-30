@@ -230,6 +230,54 @@ The first useful slice is not a new protocol view. It is taking the existing wat
 
 If this layer is solid, the planner, typed views, and monitor model have a deterministic substrate to build on.
 
+## Implementation status
+
+Phase 01 is now partially implemented.
+
+### Completed slices
+
+1. **Task-backed balance monitoring**
+   - balance-watch requests persist as tasks in local state
+   - readiness and failure states are explicit
+   - task and watch state can be inspected through CLI, agent, and MCP
+
+2. **Planning and readiness IR**
+   - current supported intents map to typed `ViewSpec`, `ExecutionPlan`, and readiness state
+   - planning is separated from execution for balance lookup, holder views, and watch creation
+
+3. **Reusable ERC-20 analytical views**
+   - top holders
+   - holder concentration
+   - single-address balance lookup
+
+4. **Contract-targeted ERC-20 holder intelligence**
+   - top holders and concentration can now target an explicit ERC-20 contract address
+   - contract-targeted requests check MultiBaas readiness first
+   - linked and indexed contracts execute immediately
+   - unlinked or still-syncing contracts return explicit `needs-link` / `syncing` responses
+
+### Remaining slices
+
+1. **Stablecoin control-plane views**
+   - pause / unpause state
+   - blacklist changes
+   - admin and role changes
+   - upgrade lineage
+
+2. **Resumable analytical tasks**
+   - waiting analytical requests should persist as tasks, not only return one-shot wait responses
+   - readiness context should be structured enough to resume cleanly after linking or sync progress changes
+
+3. **Semantic monitor model**
+   - monitors should target a `ViewSpec` plus thresholds or conditions
+   - examples: concentration threshold breach, blacklist change, admin change, upgrade event
+
+4. **Execution-service split**
+   - split `src/agent-tools.ts` into clearer services for onboarding, query execution, monitoring, and webhooks
+
+5. **Confidence and explanation layer**
+   - each answer should state what view ran, why the result is trustworthy, and what limitations apply
+
 ## TDD approach
 
 Phase 01 should be driven by behavior-first TDD.
