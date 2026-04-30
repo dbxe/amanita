@@ -5,15 +5,26 @@ export interface WaitCondition {
   state: Exclude<TaskState, "ready" | "monitoring">;
 }
 
-export interface ViewSpec {
-  address: string;
-  kind: "balance-watch";
-  queryName: string;
-}
+export type ViewSpec =
+  | {
+      kind: "address-balance";
+      address: string;
+      queryName: string;
+    }
+  | {
+      kind: "balance-watch";
+      address: string;
+      queryName: string;
+    }
+  | {
+      kind: "holder-list";
+      limit: number;
+      queryName: string;
+    };
 
 export interface ExecutionStep {
   detail: string;
-  kind: "resolve-balance" | "persist-watch" | "evaluate-watch";
+  kind: "evaluate-watch" | "execute-holder-query" | "format-response" | "persist-watch" | "resolve-balance";
 }
 
 export interface ExecutionPlan {
@@ -27,6 +38,20 @@ export interface CreateWatchIntent {
   rawText: string;
 }
 
+export interface AddressBalanceIntent {
+  address: string;
+  kind: "balance";
+  rawText: string;
+}
+
+export interface TopHoldersIntent {
+  kind: "top-holders";
+  limit: number;
+  rawText: string;
+}
+
+export type ViewIntent = AddressBalanceIntent | CreateWatchIntent | TopHoldersIntent;
+
 export interface BalanceWatchReadiness {
   currentBalance?: string;
   state: Exclude<TaskState, "monitoring">;
@@ -39,8 +64,28 @@ export interface BalanceWatchPlan {
   kind: "balance-watch";
   readiness: BalanceWatchReadiness;
   title: string;
-  viewSpec: ViewSpec;
+  viewSpec: Extract<ViewSpec, { kind: "balance-watch" }>;
 }
+
+export interface AddressBalancePlan {
+  executionPlan: ExecutionPlan;
+  intent: AddressBalanceIntent;
+  kind: "address-balance";
+  readiness: BalanceWatchReadiness;
+  title: string;
+  viewSpec: Extract<ViewSpec, { kind: "address-balance" }>;
+}
+
+export interface HolderListPlan {
+  executionPlan: ExecutionPlan;
+  intent: TopHoldersIntent;
+  kind: "holder-list";
+  readiness: BalanceWatchReadiness;
+  title: string;
+  viewSpec: Extract<ViewSpec, { kind: "holder-list" }>;
+}
+
+export type ViewPlan = AddressBalancePlan | BalanceWatchPlan | HolderListPlan;
 
 export interface BalanceWatchReadinessDeps {
   lookupBalance: (address: string, queryName: string) => Promise<{ rawBalance: string }>;
@@ -50,12 +95,30 @@ function createTaskTitle(address: string): string {
   return `Monitor balance for ${address}`;
 }
 
-function createExecutionPlan(queryName: string): ExecutionPlan {
+function createBalanceWatchExecutionPlan(queryName: string): ExecutionPlan {
   return {
     steps: [
       { detail: `Resolve the current balance from saved query ${queryName}.`, kind: "resolve-balance" },
       { detail: "Persist a local watch once prerequisites are satisfied.", kind: "persist-watch" },
       { detail: "Reevaluate the watch when webhook-triggered events arrive.", kind: "evaluate-watch" },
+    ],
+  };
+}
+
+function createAddressBalanceExecutionPlan(queryName: string): ExecutionPlan {
+  return {
+    steps: [
+      { detail: `Resolve the current balance from saved query ${queryName}.`, kind: "resolve-balance" },
+      { detail: "Format the balance answer for the user.", kind: "format-response" },
+    ],
+  };
+}
+
+function createHolderListExecutionPlan(queryName: string): ExecutionPlan {
+  return {
+    steps: [
+      { detail: `Execute the holder view from saved query ${queryName}.`, kind: "execute-holder-query" },
+      { detail: "Format the holder list for the user.", kind: "format-response" },
     ],
   };
 }
@@ -67,7 +130,7 @@ export function createBalanceWatchPlan(params: {
   rawText: string;
 }): BalanceWatchPlan {
   return {
-    executionPlan: createExecutionPlan(params.queryName),
+    executionPlan: createBalanceWatchExecutionPlan(params.queryName),
     intent: {
       address: params.address,
       kind: "create-watch",
@@ -85,6 +148,83 @@ export function createBalanceWatchPlan(params: {
       queryName: params.queryName,
     },
   };
+}
+
+export function createAddressBalancePlan(params: {
+  address: string;
+  queryName: string;
+  rawText: string;
+}): AddressBalancePlan {
+  return {
+    executionPlan: createAddressBalanceExecutionPlan(params.queryName),
+    intent: {
+      address: params.address,
+      kind: "balance",
+      rawText: params.rawText,
+    },
+    kind: "address-balance",
+    readiness: {
+      state: "ready",
+    },
+    title: `Get balance for ${params.address}`,
+    viewSpec: {
+      address: params.address,
+      kind: "address-balance",
+      queryName: params.queryName,
+    },
+  };
+}
+
+export function createHolderListPlan(params: {
+  limit: number;
+  queryName: string;
+  rawText: string;
+}): HolderListPlan {
+  return {
+    executionPlan: createHolderListExecutionPlan(params.queryName),
+    intent: {
+      kind: "top-holders",
+      limit: params.limit,
+      rawText: params.rawText,
+    },
+    kind: "holder-list",
+    readiness: {
+      state: "ready",
+    },
+    title: `Get top ${params.limit} holders`,
+    viewSpec: {
+      kind: "holder-list",
+      limit: params.limit,
+      queryName: params.queryName,
+    },
+  };
+}
+
+export function createPlanFromIntent(intent: TopHoldersIntent, queryName: string): HolderListPlan;
+export function createPlanFromIntent(intent: AddressBalanceIntent, queryName: string): AddressBalancePlan;
+export function createPlanFromIntent(intent: CreateWatchIntent, queryName: string): BalanceWatchPlan;
+export function createPlanFromIntent(intent: ViewIntent, queryName: string): ViewPlan {
+  switch (intent.kind) {
+    case "top-holders":
+      return createHolderListPlan({
+        limit: intent.limit,
+        queryName,
+        rawText: intent.rawText,
+      });
+    case "balance":
+      return createAddressBalancePlan({
+        address: intent.address,
+        queryName,
+        rawText: intent.rawText,
+      });
+    case "create-watch":
+      return createBalanceWatchPlan({
+        address: intent.address,
+        label: intent.label,
+        queryName,
+        rawText: intent.rawText,
+      });
+  }
 }
 
 export function classifyReadinessFailure(error: unknown): BalanceWatchReadiness {

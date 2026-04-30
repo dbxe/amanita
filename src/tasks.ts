@@ -23,7 +23,7 @@ export interface TaskRecord {
   state: TaskState;
   title: string;
   updatedAt: string;
-  viewSpec: ViewSpec;
+  viewSpec: Extract<ViewSpec, { kind: "balance-watch" }>;
   waitCondition?: WaitCondition;
   watchId?: string;
 }

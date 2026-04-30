@@ -12,6 +12,8 @@ import {
   lookupBalance,
   saveBalanceWatch,
 } from "./agent-tools.js";
+import { resolveConfig } from "./config.js";
+import { createPlanFromIntent } from "./planning.js";
 
 type Intent =
   | { kind: "top-holders"; limit: number }
@@ -80,13 +82,20 @@ export async function handleIntent(text: string): Promise<string> {
       ].join("\n");
   }
 
+  const queryName = resolveConfig().defaultQueryName;
   switch (intent.kind) {
-    case "top-holders":
-      return formatTopHolders(await getTopHolders(intent.limit));
-    case "balance":
-      return formatBalance(await lookupBalance(intent.address));
-    case "create-watch":
-      return formatSavedWatch(await saveBalanceWatch(intent.address, intent.label));
+    case "top-holders": {
+      const plan = createPlanFromIntent({ ...intent, rawText: text }, queryName);
+      return formatTopHolders(await getTopHolders(plan.viewSpec.limit, plan.viewSpec.queryName));
+    }
+    case "balance": {
+      const plan = createPlanFromIntent({ ...intent, rawText: text }, queryName);
+      return formatBalance(await lookupBalance(plan.viewSpec.address, plan.viewSpec.queryName));
+    }
+    case "create-watch": {
+      const plan = createPlanFromIntent({ ...intent, rawText: text }, queryName);
+      return formatSavedWatch(await saveBalanceWatch(plan.viewSpec.address, plan.intent.label, plan.viewSpec.queryName));
+    }
     case "list-watches":
       return formatWatches(listBalanceWatches());
     case "list-tasks":

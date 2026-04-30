@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   createBalanceWatchPlan,
+  createPlanFromIntent,
   evaluateBalanceWatchReadiness,
 } from "./planning.js";
 
@@ -56,4 +57,36 @@ test("evaluateBalanceWatchReadiness turns link failures into explicit wait state
   assert.equal(waitingPlan.readiness.state, "needs-link");
   assert.equal(waitingPlan.readiness.waitCondition?.state, "needs-link");
   assert.match(waitingPlan.readiness.waitCondition?.reason ?? "", /not linked/i);
+});
+
+test("createPlanFromIntent maps top-holder requests to a holder-list view", () => {
+  const plan = createPlanFromIntent(
+    {
+      kind: "top-holders",
+      limit: 5,
+      rawText: "Give me the top 5 holders",
+    },
+    "helloworld_balance",
+  );
+
+  assert.equal(plan.kind, "holder-list");
+  assert.equal(plan.viewSpec.kind, "holder-list");
+  assert.equal(plan.viewSpec.limit, 5);
+  assert.equal(plan.readiness.state, "ready");
+});
+
+test("createPlanFromIntent maps balance requests to an address-balance view", () => {
+  const plan = createPlanFromIntent(
+    {
+      address: "0xabc",
+      kind: "balance",
+      rawText: "What is the balance of 0xabc?",
+    },
+    "helloworld_balance",
+  );
+
+  assert.equal(plan.kind, "address-balance");
+  assert.equal(plan.viewSpec.kind, "address-balance");
+  assert.equal(plan.viewSpec.address, "0xabc");
+  assert.equal(plan.executionPlan.steps.map((step) => step.kind).join(","), "resolve-balance,format-response");
 });
