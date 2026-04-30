@@ -73,7 +73,7 @@ const defaultQueryBody = {
           name: "tokens",
           type: "input" as const,
           alias: "balance",
-          aggregator: "add" as const,
+          aggregator: "subtract" as const,
           inputIndex: 2,
         },
       ],
