@@ -13,6 +13,7 @@ dist/
 build/
 coverage/
 coverage.json
+.amanita/
 *.log
 *.tsbuildinfo
 

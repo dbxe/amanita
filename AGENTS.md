@@ -67,19 +67,22 @@ Recommended use:
 
 ## Local MVP target
 
-The local MVP should prove this loop:
+The current local MVP should prove this loop inside **Amanita itself**:
 
 1. Deploy + link a sample ERC-20 on MultiBaas
 2. Mint/distribute balances
-3. Run NanoClaw locally and wire an agent to `cli/local`
-4. Mount Amanita into the NanoClaw agent container
-5. Register Amanita as an MCP server in NanoClaw `container.json`
-6. Ask:
-   - "Give me the top 20 holders for token X"
-7. Amanita executes a MultiBaas event query and returns a readable answer
-8. Ask:
-   - "Alert me if whale Y moves balance"
-9. Amanita stores the watch, creates/reuses a shared MultiBaas webhook, and later wakes NanoClaw when a matching event arrives
+3. Save the MultiBaas query `helloworld_balance`
+4. Run Amanita locally and ask for top holders or one address balance
+5. Save a whale watch in Amanita local state
+6. Run Amanita's webhook receiver
+7. Have MultiBaas deliver `event.emitted` payloads to the shared webhook
+8. Amanita reevaluates watches and writes alerts
+
+After that is stable, the next layer is:
+
+1. Mount Amanita into the NanoClaw agent container
+2. Register Amanita as an MCP server in NanoClaw `container.json`
+3. Route CLI requests and later webhook-driven wakeups through NanoClaw
 
 Important design choice:
 
