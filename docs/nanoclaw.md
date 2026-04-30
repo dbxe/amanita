@@ -83,6 +83,33 @@ In the setup here, the repeated "Query name needed" loop was not the harness tas
 
 If you have changed `src/mcp.ts` or `src/nanoclaw.ts`, rerun `nanoclaw configure` for the affected group and restart NanoClaw before retesting. Existing session containers can keep older instructions or tool schemas alive long enough to reproduce outdated prompts.
 
+## When to rerun `nanoclaw configure` vs restart
+
+For live NanoClaw validation, treat the runtime as **sticky**:
+
+- NanoClaw session containers are long-lived
+- the agent-runner reads `container.json` **once at startup**
+- active sessions can keep continuation state and pending interactive questions across turns
+
+That means a repo change is not automatically the same thing as a fresh live NanoClaw test.
+
+Use this rule:
+
+| Change type | Rerun `nanoclaw configure` | Restart NanoClaw / affected session | Notes |
+| --- | --- | --- | --- |
+| `src/nanoclaw.ts` or anything that changes generated `groups/<folder>/container.json` | Yes | Yes | This includes MCP instructions, env vars, mounts, server definitions, or group config shape. |
+| MCP/business-logic files used by the mounted harness (`src/mcp.ts`, `src/intent.ts`, `src/agent-tools.ts`, `src/holder-tasks.ts`, `src/onboarding.ts`, `src/multibaas.ts`) | No | Yes for live NanoClaw retests | The repo is mounted into the container, but active session state can still make the next Discord/DM test non-fresh. Restart before trusting the result. |
+| Docs-only or test-only changes | No | No | Unless you are explicitly testing the live NanoClaw UX text. |
+| Pure local harness tests (`npm test`, `npm run build`, local CLI entrypoints) | No | No | These do not depend on NanoClaw session containers. |
+
+Practical default for channel-facing tests:
+
+1. if `container.json` generation changed, rerun `nanoclaw configure` for the target group
+2. restart NanoClaw or stop the affected session container
+3. retest with a fresh message
+
+If you skip step 2 after business-logic changes, the live Discord/DM result is **suspect**, because you may still be exercising stale session state rather than the code you just changed.
+
 ## Wiring this repo into a NanoClaw group
 
 Use the harness helper to update the target group's `container.json`:
@@ -125,6 +152,12 @@ onecli secrets delete --id <secret-id>
 
 ## Test path for future coding agents
 
+Before any live NanoClaw retest, run this preflight:
+
+1. if the change touched `src/nanoclaw.ts` or any generated `container.json` behavior, rerun `nanoclaw configure` for the target group
+2. if the change touched mounted harness business logic (`src/mcp.ts`, `src/intent.ts`, `src/agent-tools.ts`, `src/holder-tasks.ts`, `src/onboarding.ts`, `src/multibaas.ts`), restart NanoClaw or stop the affected session container before trusting the next live result
+3. only skip restart for docs-only, test-only, or repo-local validation that does not use a live NanoClaw session
+
 Start with the deterministic local CLI channel:
 
 ```bash
@@ -140,13 +173,14 @@ After that works, validate the channel-facing experience through Discord or DM w
 
 Recommended validation order:
 
-1. confirm NanoClaw is alive with a ping or simple balance query
-2. confirm the harness mount exists in the target group's `container.json`
-3. confirm OneCLI secrets are scoped correctly
-4. run balance lookup
-5. run top holders
-6. create and list a watch
-7. move on to webhook and alert validation last
+1. run the preflight above so the live test starts from fresh runtime state
+2. confirm NanoClaw is alive with a ping or simple balance query
+3. confirm the harness mount exists in the target group's `container.json`
+4. confirm OneCLI secrets are scoped correctly
+5. run balance lookup
+6. run top holders
+7. create and list a watch
+8. move on to webhook and alert validation last
 
 ## Webhook-driven notifications
 
