@@ -5,6 +5,7 @@ import {
   createBalanceWatchPlan,
   createPlanFromIntent,
   evaluateBalanceWatchReadiness,
+  evaluateHolderViewReadiness,
 } from "./planning.js";
 
 test("createBalanceWatchPlan returns a typed plan for the balance-watch flow", () => {
@@ -105,4 +106,60 @@ test("createPlanFromIntent maps concentration requests to a holder-concentration
   assert.equal(plan.viewSpec.kind, "holder-concentration");
   assert.equal(plan.viewSpec.limit, 5);
   assert.equal(plan.executionPlan.steps.map((step) => step.kind).join(","), "execute-holder-query,compute-concentration,format-response");
+});
+
+test("createPlanFromIntent carries a contract target for contract-address holder requests", () => {
+  const plan = createPlanFromIntent(
+    {
+      kind: "top-holders",
+      limit: 5,
+      contractAddress: "0xd26fde38F244Dcbb13e8017347Ac37804d926Bb5",
+      rawText: "Give me the top 5 holders for token 0xd26fde38F244Dcbb13e8017347Ac37804d926Bb5",
+    },
+    "helloworld_balance",
+  );
+
+  assert.equal(plan.kind, "holder-list");
+  assert.equal(plan.viewSpec.contractAddress, "0xd26fde38f244dcbb13e8017347ac37804d926bb5");
+});
+
+test("evaluateHolderViewReadiness marks a linked indexed contract ready", async () => {
+  const plan = createPlanFromIntent(
+    {
+      kind: "top-holders",
+      limit: 5,
+      contractAddress: "0xd26fde38F244Dcbb13e8017347Ac37804d926Bb5",
+      rawText: "Give me the top 5 holders for token 0xd26fde38F244Dcbb13e8017347Ac37804d926Bb5",
+    },
+    "helloworld_balance",
+  );
+
+  const readyPlan = await evaluateHolderViewReadiness(plan, {
+    inspectContract: async () => ({
+      contractLabel: "sampletoken",
+      isProcessingPastLogs: false,
+    }),
+  });
+
+  assert.equal(readyPlan.readiness.state, "ready");
+  assert.equal(readyPlan.readiness.contractLabel, "sampletoken");
+});
+
+test("evaluateHolderViewReadiness turns an unlinked contract into needs-link", async () => {
+  const plan = createPlanFromIntent(
+    {
+      kind: "holder-concentration",
+      limit: 5,
+      contractAddress: "0xd26fde38F244Dcbb13e8017347Ac37804d926Bb5",
+      rawText: "What is the top 5 holder concentration for token 0xd26fde38F244Dcbb13e8017347Ac37804d926Bb5?",
+    },
+    "helloworld_balance",
+  );
+
+  const waitingPlan = await evaluateHolderViewReadiness(plan, {
+    inspectContract: async () => ({ isProcessingPastLogs: false }),
+  });
+
+  assert.equal(waitingPlan.readiness.state, "needs-link");
+  assert.equal(waitingPlan.readiness.waitCondition?.state, "needs-link");
 });

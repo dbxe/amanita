@@ -1,8 +1,11 @@
 import crypto from "node:crypto";
 
 import {
+  AddressesApi,
   Configuration,
+  ContractsApi,
   EventQueriesApi,
+  type EventQuery,
 } from "@curvegrid/multibaas-sdk";
 
 import type { RuntimeConfig } from "./config.js";
@@ -31,6 +34,14 @@ function buildConfiguration(config: RuntimeConfig): Configuration {
 
 function createEventQueriesApi(config: RuntimeConfig): EventQueriesApi {
   return new EventQueriesApi(buildConfiguration(config));
+}
+
+function createAddressesApi(config: RuntimeConfig): AddressesApi {
+  return new AddressesApi(buildConfiguration(config));
+}
+
+function createContractsApi(config: RuntimeConfig): ContractsApi {
+  return new ContractsApi(buildConfiguration(config));
 }
 
 function adminApiUrl(config: RuntimeConfig, pathname: string): string {
@@ -96,6 +107,73 @@ export function normalizeAddress(value: string): string {
   return value.trim().toLowerCase();
 }
 
+export function buildContractBalanceEventQuery(contractAddress: string): EventQuery {
+  const normalizedAddress = normalizeAddress(contractAddress);
+  return {
+    events: [
+      {
+        eventName: "Transfer(address,address,uint256)",
+        filter: {
+          children: [
+            {
+              fieldType: "contract_address",
+              operator: "equal",
+              value: normalizedAddress,
+            },
+          ],
+          rule: "and",
+        },
+        select: [
+          {
+            alias: "address",
+            inputIndex: 1,
+            name: "to",
+            type: "input" as const,
+          },
+          {
+            aggregator: "add" as const,
+            alias: "balance",
+            inputIndex: 2,
+            name: "tokens",
+            type: "input" as const,
+          },
+        ],
+      },
+      {
+        eventName: "Transfer(address,address,uint256)",
+        filter: {
+          children: [
+            {
+              fieldType: "contract_address",
+              operator: "equal",
+              value: normalizedAddress,
+            },
+          ],
+          rule: "and",
+        },
+        select: [
+          {
+            alias: "address",
+            inputIndex: 0,
+            name: "from",
+            type: "input" as const,
+          },
+          {
+            aggregator: "subtract" as const,
+            alias: "balance",
+            inputIndex: 2,
+            name: "tokens",
+            type: "input" as const,
+          },
+        ],
+      },
+    ],
+    groupBy: "address",
+    order: "DESC",
+    orderBy: "balance",
+  };
+}
+
 export function normalizeBalanceRows(rows: Array<Record<string, unknown>>): BalanceRow[] {
   const normalized: BalanceRow[] = [];
 
@@ -141,6 +219,21 @@ export async function executeSavedBalanceQuery(
   return normalizeBalanceRows(readRows(response.data as unknown));
 }
 
+export async function executeContractBalanceQuery(
+  config: RuntimeConfig,
+  contractAddress: string,
+  limit: number,
+  offset = 0,
+): Promise<BalanceRow[]> {
+  const api = createEventQueriesApi(config);
+  const response = await api.executeArbitraryEventQuery(
+    buildContractBalanceEventQuery(contractAddress),
+    offset,
+    limit,
+  );
+  return normalizeBalanceRows(readRows(response.data as unknown));
+}
+
 export async function fetchBalanceSnapshot(
   config: RuntimeConfig,
   queryName: string,
@@ -166,6 +259,60 @@ export async function fetchBalanceSnapshot(
     snapshot.set(row.address, row);
   }
   return snapshot;
+}
+
+export async function fetchContractBalanceSnapshot(
+  config: RuntimeConfig,
+  contractAddress: string,
+  limit: number,
+): Promise<Map<string, BalanceRow>> {
+  const rows: BalanceRow[] = [];
+  let offset = 0;
+
+  while (rows.length < limit) {
+    const pageLimit = Math.min(QUERY_PAGE_LIMIT, limit - rows.length);
+    const page = await executeContractBalanceQuery(config, contractAddress, pageLimit, offset);
+    rows.push(...page);
+
+    if (page.length < pageLimit) {
+      break;
+    }
+
+    offset += page.length;
+  }
+
+  const snapshot = new Map<string, BalanceRow>();
+  for (const row of rows) {
+    snapshot.set(row.address, row);
+  }
+  return snapshot;
+}
+
+export async function inspectContractReadiness(
+  config: RuntimeConfig,
+  address: string,
+): Promise<{
+  contractLabel?: string;
+  isProcessingPastLogs: boolean;
+}> {
+  const normalizedAddress = normalizeAddress(address);
+  const addressesApi = createAddressesApi(config);
+  const { data } = await addressesApi.getAddress(normalizedAddress, ["contractLookup"]);
+  const linkedContracts = data.result?.contracts ?? [];
+  const contractLabel = linkedContracts[0]?.label;
+
+  if (!contractLabel) {
+    return {
+      isProcessingPastLogs: false,
+    };
+  }
+
+  const contractsApi = createContractsApi(config);
+  const status = await contractsApi.getEventIndexingStatus(normalizedAddress, contractLabel);
+  return {
+    contractLabel,
+    isProcessingPastLogs: status.data.result?.isProcessingPastLogs ?? false,
+  };
 }
 
 export async function getAddressBalance(

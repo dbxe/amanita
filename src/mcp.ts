@@ -16,6 +16,8 @@ import {
 } from "./agent-tools.js";
 import {
   formatAnalyticalViewResult,
+  getContractHolderConcentration,
+  getContractTopHolders,
   getHolderConcentration,
   getTopHolders,
   lookupBalance,
@@ -29,11 +31,14 @@ const server = new McpServer({
 server.tool(
   "get_top_holders",
   {
+    contractAddress: z.string().min(1).optional(),
     limit: z.number().int().min(1).max(100).optional(),
     queryName: z.string().min(1).optional(),
   },
-  async ({ limit, queryName }) => {
-    const result = await getTopHolders(limit ?? 20, queryName);
+  async ({ contractAddress, limit, queryName }) => {
+    const result = contractAddress
+      ? await getContractTopHolders(contractAddress, limit ?? 20, queryName)
+      : await getTopHolders(limit ?? 20, queryName);
     return {
       content: [{ type: "text", text: formatAnalyticalViewResult(result) }],
     };
@@ -57,11 +62,14 @@ server.tool(
 server.tool(
   "get_holder_concentration",
   {
+    contractAddress: z.string().min(1).optional(),
     limit: z.number().int().min(1).max(100).optional(),
     queryName: z.string().min(1).optional(),
   },
-  async ({ limit, queryName }) => {
-    const result = await getHolderConcentration(limit ?? 5, queryName);
+  async ({ contractAddress, limit, queryName }) => {
+    const result = contractAddress
+      ? await getContractHolderConcentration(contractAddress, limit ?? 5, queryName)
+      : await getHolderConcentration(limit ?? 5, queryName);
     return {
       content: [{ type: "text", text: formatAnalyticalViewResult(result) }],
     };

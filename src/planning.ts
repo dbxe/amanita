@@ -18,10 +18,12 @@ export type ViewSpec =
     }
   | {
       kind: "holder-list";
+      contractAddress?: string;
       limit: number;
       queryName: string;
     }
   | {
+      contractAddress?: string;
       kind: "holder-concentration";
       limit: number;
       queryName: string;
@@ -56,12 +58,14 @@ export interface AddressBalanceIntent {
 }
 
 export interface TopHoldersIntent {
+  contractAddress?: string;
   kind: "top-holders";
   limit: number;
   rawText: string;
 }
 
 export interface HolderConcentrationIntent {
+  contractAddress?: string;
   kind: "holder-concentration";
   limit: number;
   rawText: string;
@@ -70,6 +74,8 @@ export interface HolderConcentrationIntent {
 export type ViewIntent = AddressBalanceIntent | CreateWatchIntent | HolderConcentrationIntent | TopHoldersIntent;
 
 export interface BalanceWatchReadiness {
+  contractAddress?: string;
+  contractLabel?: string;
   currentBalance?: string;
   state: Exclude<TaskState, "monitoring">;
   waitCondition?: WaitCondition;
@@ -115,6 +121,17 @@ export type ViewPlan = AddressBalancePlan | BalanceWatchPlan | HolderConcentrati
 
 export interface BalanceWatchReadinessDeps {
   lookupBalance: (address: string, queryName: string) => Promise<{ rawBalance: string }>;
+}
+
+export interface HolderViewReadinessDeps {
+  inspectContract: (address: string) => Promise<{
+    contractLabel?: string;
+    isProcessingPastLogs: boolean;
+  }>;
+}
+
+function normalizeContractAddress(value: string): string {
+  return value.trim().toLowerCase();
 }
 
 function createTaskTitle(address: string): string {
@@ -212,6 +229,7 @@ export function createAddressBalancePlan(params: {
 }
 
 export function createHolderListPlan(params: {
+  contractAddress?: string;
   limit: number;
   queryName: string;
   rawText: string;
@@ -219,6 +237,7 @@ export function createHolderListPlan(params: {
   return {
     executionPlan: createHolderListExecutionPlan(params.queryName),
     intent: {
+      contractAddress: params.contractAddress ? normalizeContractAddress(params.contractAddress) : undefined,
       kind: "top-holders",
       limit: params.limit,
       rawText: params.rawText,
@@ -229,6 +248,7 @@ export function createHolderListPlan(params: {
     },
     title: `Get top ${params.limit} holders`,
     viewSpec: {
+      contractAddress: params.contractAddress ? normalizeContractAddress(params.contractAddress) : undefined,
       kind: "holder-list",
       limit: params.limit,
       queryName: params.queryName,
@@ -237,6 +257,7 @@ export function createHolderListPlan(params: {
 }
 
 export function createHolderConcentrationPlan(params: {
+  contractAddress?: string;
   limit: number;
   queryName: string;
   rawText: string;
@@ -244,6 +265,7 @@ export function createHolderConcentrationPlan(params: {
   return {
     executionPlan: createHolderConcentrationExecutionPlan(params.queryName),
     intent: {
+      contractAddress: params.contractAddress ? normalizeContractAddress(params.contractAddress) : undefined,
       kind: "holder-concentration",
       limit: params.limit,
       rawText: params.rawText,
@@ -254,6 +276,7 @@ export function createHolderConcentrationPlan(params: {
     },
     title: `Get top ${params.limit} holder concentration`,
     viewSpec: {
+      contractAddress: params.contractAddress ? normalizeContractAddress(params.contractAddress) : undefined,
       kind: "holder-concentration",
       limit: params.limit,
       queryName: params.queryName,
@@ -269,6 +292,7 @@ export function createPlanFromIntent(intent: ViewIntent, queryName: string): Vie
   switch (intent.kind) {
     case "top-holders":
       return createHolderListPlan({
+        contractAddress: intent.contractAddress,
         limit: intent.limit,
         queryName,
         rawText: intent.rawText,
@@ -281,6 +305,7 @@ export function createPlanFromIntent(intent: ViewIntent, queryName: string): Vie
         });
     case "holder-concentration":
       return createHolderConcentrationPlan({
+        contractAddress: intent.contractAddress,
         limit: intent.limit,
         queryName,
         rawText: intent.rawText,
@@ -345,4 +370,52 @@ export async function evaluateBalanceWatchReadiness(
       readiness: classifyReadinessFailure(error),
     };
   }
+}
+
+export async function evaluateHolderViewReadiness<T extends HolderListPlan | HolderConcentrationPlan>(
+  plan: T,
+  deps: HolderViewReadinessDeps,
+): Promise<T> {
+  if (!plan.viewSpec.contractAddress) {
+    return plan;
+  }
+
+  const contract = await deps.inspectContract(plan.viewSpec.contractAddress);
+  if (!contract.contractLabel) {
+    return {
+      ...plan,
+      readiness: {
+        contractAddress: plan.viewSpec.contractAddress,
+        state: "needs-link",
+        waitCondition: {
+          reason: `Contract ${plan.viewSpec.contractAddress} is not linked in MultiBaas yet.`,
+          state: "needs-link",
+        },
+      },
+    };
+  }
+
+  if (contract.isProcessingPastLogs) {
+    return {
+      ...plan,
+      readiness: {
+        contractAddress: plan.viewSpec.contractAddress,
+        contractLabel: contract.contractLabel,
+        state: "syncing",
+        waitCondition: {
+          reason: `Contract ${plan.viewSpec.contractAddress} is still syncing historical events.`,
+          state: "syncing",
+        },
+      },
+    };
+  }
+
+  return {
+    ...plan,
+    readiness: {
+      contractAddress: plan.viewSpec.contractAddress,
+      contractLabel: contract.contractLabel,
+      state: "ready",
+    },
+  };
 }

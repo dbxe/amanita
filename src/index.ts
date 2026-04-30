@@ -15,14 +15,21 @@ import {
 import { handleIntent } from "./intent.js";
 import { sendNanoClawNotification } from "./nanoclaw-host.js";
 import { configureNanoClawGroup } from "./nanoclaw.js";
-import { formatAnalyticalViewResult, getHolderConcentration, getTopHolders, lookupBalance } from "./views.js";
+import {
+  formatAnalyticalViewResult,
+  getContractHolderConcentration,
+  getContractTopHolders,
+  getHolderConcentration,
+  getTopHolders,
+  lookupBalance,
+} from "./views.js";
 
 function printUsage(): void {
   console.log(`Local MultiBaas agent loop
 
 Usage:
-  npm run dev -- query top-holders [--limit 20] [--query helloworld_balance]
-  npm run dev -- query concentration [--limit 5] [--query helloworld_balance]
+  npm run dev -- query top-holders [--limit 20] [--query helloworld_balance] [--contract 0x...]
+  npm run dev -- query concentration [--limit 5] [--query helloworld_balance] [--contract 0x...]
   npm run dev -- query balance --address 0x... [--query helloworld_balance]
   npm run dev -- watch add --address 0x... [--label whale] [--query helloworld_balance]
   npm run dev -- watch list
@@ -72,16 +79,27 @@ function parsePositiveIntegerFlag(args: string[], name: string, fallback: number
 async function handleQuery(args: string[]): Promise<void> {
   const subcommand = readCommand(args, 1);
   const queryName = readFlag(args, "--query");
+  const contractAddress = readFlag(args, "--contract");
 
   if (subcommand === "top-holders") {
     const limit = parsePositiveIntegerFlag(args, "--limit", 20);
-    console.log(formatAnalyticalViewResult(await getTopHolders(limit, queryName)));
+    console.log(
+      formatAnalyticalViewResult(
+        contractAddress ? await getContractTopHolders(contractAddress, limit, queryName) : await getTopHolders(limit, queryName),
+      ),
+    );
     return;
   }
 
   if (subcommand === "concentration") {
     const limit = parsePositiveIntegerFlag(args, "--limit", 5);
-    console.log(formatAnalyticalViewResult(await getHolderConcentration(limit, queryName)));
+    console.log(
+      formatAnalyticalViewResult(
+        contractAddress
+          ? await getContractHolderConcentration(contractAddress, limit, queryName)
+          : await getHolderConcentration(limit, queryName),
+      ),
+    );
     return;
   }
 

@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  buildContractBalanceEventQuery,
   createSignature,
   normalizeBalanceRows,
   selectTopPositiveHolders,
@@ -50,4 +51,13 @@ test("verifyWebhookSignature accepts the signature generated from body + timesta
 
   assert.equal(verifyWebhookSignature(body, timestamp, signature, secret), true);
   assert.equal(verifyWebhookSignature(body, timestamp, "not-valid", secret), false);
+});
+
+test("buildContractBalanceEventQuery filters transfer math by contract address", () => {
+  const query = buildContractBalanceEventQuery("0xD26fde38F244Dcbb13e8017347Ac37804d926Bb5");
+  const children = query.events?.[0]?.filter?.children;
+
+  assert.equal(query.groupBy, "address");
+  assert.equal(children?.[0]?.fieldType, "contract_address");
+  assert.equal(children?.[0]?.value, "0xd26fde38f244dcbb13e8017347ac37804d926bb5");
 });

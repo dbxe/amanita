@@ -9,12 +9,13 @@ import {
   saveBalanceWatch,
 } from "./agent-tools.js";
 import { resolveConfig } from "./config.js";
-import { createPlanFromIntent } from "./planning.js";
+import { inspectContractReadiness } from "./multibaas.js";
+import { createPlanFromIntent, evaluateHolderViewReadiness } from "./planning.js";
 import { executeAnalyticalView, formatAnalyticalViewResult } from "./views.js";
 
 type Intent =
-  | { kind: "top-holders"; limit: number }
-  | { kind: "holder-concentration"; limit: number }
+  | { kind: "top-holders"; contractAddress?: string; limit: number }
+  | { kind: "holder-concentration"; contractAddress?: string; limit: number }
   | { kind: "balance"; address: string }
   | { kind: "create-watch"; address: string; label?: string }
   | { kind: "list-watches" }
@@ -46,6 +47,7 @@ export function parseIntent(text: string): Intent | null {
     return {
       kind: "holder-concentration",
       limit: Number.isInteger(parsedLimit) && parsedLimit > 0 ? parsedLimit : 5,
+      ...(address ? { contractAddress: address } : {}),
     };
   }
 
@@ -54,6 +56,7 @@ export function parseIntent(text: string): Intent | null {
     return {
       kind: "top-holders",
       limit: Number.isInteger(parsedLimit) && parsedLimit > 0 ? parsedLimit : 20,
+      ...(address ? { contractAddress: address } : {}),
     };
   }
 
@@ -71,6 +74,14 @@ export function parseIntent(text: string): Intent | null {
   }
 
   return null;
+}
+
+function formatHolderReadiness(
+  action: "top holders" | "holder concentration",
+  readiness: { state: string; contractAddress?: string; waitCondition?: { reason: string } },
+): string {
+  const target = readiness.contractAddress ? ` for ${readiness.contractAddress}` : "";
+  return [`I can't answer ${action}${target} yet.`, readiness.waitCondition?.reason ?? readiness.state].join("\n");
 }
 
 export async function handleIntent(text: string): Promise<string> {
@@ -92,11 +103,23 @@ export async function handleIntent(text: string): Promise<string> {
   const queryName = resolveConfig().defaultQueryName;
   switch (intent.kind) {
     case "top-holders": {
-      const plan = createPlanFromIntent({ ...intent, rawText: text }, queryName);
+      const plan = await evaluateHolderViewReadiness(
+        createPlanFromIntent({ ...intent, rawText: text }, queryName),
+        { inspectContract: (address) => inspectContractReadiness(resolveConfig(), address) },
+      );
+      if (plan.readiness?.state === "needs-link" || plan.readiness?.state === "syncing") {
+        return formatHolderReadiness("top holders", plan.readiness);
+      }
       return formatAnalyticalViewResult(await executeAnalyticalView(plan));
     }
     case "holder-concentration": {
-      const plan = createPlanFromIntent({ ...intent, rawText: text }, queryName);
+      const plan = await evaluateHolderViewReadiness(
+        createPlanFromIntent({ ...intent, rawText: text }, queryName),
+        { inspectContract: (address) => inspectContractReadiness(resolveConfig(), address) },
+      );
+      if (plan.readiness?.state === "needs-link" || plan.readiness?.state === "syncing") {
+        return formatHolderReadiness("holder concentration", plan.readiness);
+      }
       return formatAnalyticalViewResult(await executeAnalyticalView(plan));
     }
     case "balance": {

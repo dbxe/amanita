@@ -1,6 +1,8 @@
 import { resolveConfig } from "./config.js";
 import {
+  executeContractBalanceQuery,
   executeSavedBalanceQuery,
+  fetchContractBalanceSnapshot,
   fetchBalanceSnapshot,
   getAddressBalance,
   selectTopPositiveHolders,
@@ -9,6 +11,7 @@ import {
 import type { AddressBalancePlan, HolderConcentrationPlan, HolderListPlan } from "./planning.js";
 
 export interface TopHoldersResult {
+  contractAddress?: string;
   holders: Array<{ address: string; rawBalance: string }>;
   kind: "holder-list";
   limit: number;
@@ -25,6 +28,7 @@ export interface BalanceResult {
 export interface HolderConcentrationResult {
   concentrationBps: number;
   concentrationPct: string;
+  contractAddress?: string;
   coveredBalance: string;
   holderCount: number;
   holders: Array<{ address: string; rawBalance: string }>;
@@ -85,6 +89,27 @@ export async function getTopHolders(limit = 20, queryName?: string): Promise<Top
   };
 }
 
+export async function getContractTopHolders(
+  contractAddress: string,
+  limit = 20,
+  queryName?: string,
+): Promise<TopHoldersResult> {
+  const config = resolveConfig();
+  const effectiveQueryName = queryName ?? config.defaultQueryName;
+  const rows = await executeContractBalanceQuery(config, contractAddress, Math.min(limit, 100));
+
+  return {
+    contractAddress,
+    holders: selectTopPositiveHolders(rows, limit).map((row) => ({
+      address: row.address,
+      rawBalance: row.rawBalance,
+    })),
+    kind: "holder-list",
+    limit,
+    queryName: effectiveQueryName,
+  };
+}
+
 export async function lookupBalance(address: string, queryName?: string): Promise<BalanceResult> {
   const config = resolveConfig();
   const effectiveQueryName = queryName ?? config.defaultQueryName;
@@ -105,19 +130,40 @@ export async function getHolderConcentration(limit = 5, queryName?: string): Pro
   return computeHolderConcentration([...snapshot.values()], limit, effectiveQueryName);
 }
 
+export async function getContractHolderConcentration(
+  contractAddress: string,
+  limit = 5,
+  queryName?: string,
+): Promise<HolderConcentrationResult> {
+  const config = resolveConfig();
+  const effectiveQueryName = queryName ?? config.defaultQueryName;
+  const snapshot = await fetchContractBalanceSnapshot(config, contractAddress, config.scanLimit);
+  return {
+    ...computeHolderConcentration([...snapshot.values()], limit, effectiveQueryName),
+    contractAddress,
+  };
+}
+
 export async function executeAnalyticalView(plan: AnalyticalViewPlan): Promise<AnalyticalViewResult> {
   switch (plan.kind) {
     case "holder-list":
-      return getTopHolders(plan.viewSpec.limit, plan.viewSpec.queryName);
+      return plan.viewSpec.contractAddress
+        ? getContractTopHolders(plan.viewSpec.contractAddress, plan.viewSpec.limit, plan.viewSpec.queryName)
+        : getTopHolders(plan.viewSpec.limit, plan.viewSpec.queryName);
     case "address-balance":
       return lookupBalance(plan.viewSpec.address, plan.viewSpec.queryName);
     case "holder-concentration":
-      return getHolderConcentration(plan.viewSpec.limit, plan.viewSpec.queryName);
+      return plan.viewSpec.contractAddress
+        ? getContractHolderConcentration(plan.viewSpec.contractAddress, plan.viewSpec.limit, plan.viewSpec.queryName)
+        : getHolderConcentration(plan.viewSpec.limit, plan.viewSpec.queryName);
   }
 }
 
 export function formatTopHolders(result: TopHoldersResult): string {
   const lines = [`Top ${result.limit} holders`, ""];
+  if (result.contractAddress) {
+    lines.push(`Contract: ${result.contractAddress}`, "");
+  }
   result.holders.forEach((row, index) => {
     lines.push(`${String(index + 1).padStart(2, " ")}. ${row.address}  ${row.rawBalance}`);
   });
@@ -132,6 +178,7 @@ export function formatHolderConcentration(result: HolderConcentrationResult): st
   const lines = [
     `Top ${result.limit} holder concentration`,
     "",
+    ...(result.contractAddress ? [`Contract: ${result.contractAddress}`, ""] : []),
     `Tracked supply: ${result.totalTrackedBalance}`,
     `Covered balance: ${result.coveredBalance}`,
     `Tracked holders: ${result.holderCount}`,

@@ -15,6 +15,7 @@ Minimal MultiBaas event-query and webhook loop for the hackathon MVP.
 - query the saved MultiBaas event query `helloworld_balance`
 - show top holders
 - compute top-holder concentration
+- query top holders and concentration for linked, indexed ERC-20 contract addresses
 - look up one address balance
 - save a whale watch in local state
 - persist a task record for balance-monitor requests
@@ -58,8 +59,14 @@ When the harness runs **inside NanoClaw**, authenticated MultiBaas calls should 
 # top holders
 npm run dev -- query top-holders --limit 5
 
+# top holders for a linked ERC-20 contract
+npm run dev -- query top-holders --contract 0xd26fde38F244Dcbb13e8017347Ac37804d926Bb5 --limit 5
+
 # top-holder concentration
 npm run dev -- query concentration --limit 5
+
+# top-holder concentration for a linked ERC-20 contract
+npm run dev -- query concentration --contract 0xd26fde38F244Dcbb13e8017347Ac37804d926Bb5 --limit 5
 
 # one address balance
 npm run dev -- query balance --address 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172
@@ -85,10 +92,13 @@ This is the fastest end-to-end demo path right now:
 
 ```bash
 npm run dev -- agent "Give me the top 5 holders"
+npm run dev -- agent "Give me the top 5 holders for token 0xd26fde38F244Dcbb13e8017347Ac37804d926Bb5"
 npm run dev -- agent "What is the top 5 holder concentration?"
 npm run dev -- agent "What is the balance of 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172?"
 npm run dev -- agent "Alert me if the balance of 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172 moves"
 ```
+
+For contract-address holder requests, the agent now checks MultiBaas readiness first: linked and indexed contracts execute immediately; unlinked contracts return an explicit `needs-link` response instead of a raw query failure.
 
 The `agent` command currently recognizes:
 
@@ -151,6 +161,8 @@ Tools exposed:
 - `list_tasks`
 - `evaluate_balance_watches`
 - `ensure_event_webhook`
+
+`get_top_holders` and `get_holder_concentration` also accept an optional `contractAddress` for linked ERC-20 contracts.
 
 ## NanoClaw bridge
 

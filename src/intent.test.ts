@@ -25,3 +25,11 @@ test("parseIntent recognizes holder concentration requests", () => {
     limit: 5,
   });
 });
+
+test("parseIntent recognizes contract-targeted top-holder requests", () => {
+  assert.deepEqual(parseIntent("Give me the top 5 holders for token 0xd26fde38F244Dcbb13e8017347Ac37804d926Bb5"), {
+    kind: "top-holders",
+    limit: 5,
+    contractAddress: "0xd26fde38F244Dcbb13e8017347Ac37804d926Bb5",
+  });
+});
