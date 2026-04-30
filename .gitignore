@@ -1,0 +1,28 @@
+# macOS
+.DS_Store
+
+# Environment / local secrets
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Node / TypeScript
+node_modules/
+dist/
+build/
+coverage/
+coverage.json
+*.log
+*.tsbuildinfo
+
+# Hardhat outputs
+hardhat/artifacts/
+hardhat/cache/
+hardhat/typechain/
+hardhat/typechain-types/
+hardhat/coverage/
+hardhat/coverage.json
+hardhat/ignition/deployments/
+hardhat/deployment-config.*.ts
+!hardhat/deployment-config.template.ts
