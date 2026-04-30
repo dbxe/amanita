@@ -5,8 +5,8 @@ const helloWorldModule = buildModule("HelloWorldModule", (m) => {
   const helloWorldToken = m.contract("HelloWorldToken", [
     "Hello World Token",
     "HWT",
-    // 100 tokens with 18 decimals = 100 * 10^18
-    100n * 10n ** 18n,
+    // 1000 tokens with 18 decimals = 1000 * 10^18
+    1000n * 10n ** 18n,
   ]);
 
   mb.link(helloWorldToken, {
