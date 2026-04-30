@@ -112,10 +112,17 @@ in each active group's:
 
 In practice, this mattered for both the Discord-facing group and the CLI-facing group. Without this, NanoClaw could fall back to a default Claude model like `claude-sonnet-4-6`, which then failed against the local inference backend.
 
-After editing those settings files, restart the launchd service:
+After editing those settings files, restart the launchd service.
+
+Do **not** hardcode the launchd label suffix. The installed service name on this machine is:
+
+- `com.nanoclaw-v2-ccd863cf`
+
+but the trailing suffix appears to be installation-specific and may change across installs. Discover the active label first, then restart it:
 
 ```bash
-launchctl kickstart -k gui/$(id -u)/com.nanoclaw-v2-ccd863cf
+SERVICE_LABEL=$(launchctl list | awk '/com\\.nanoclaw-v2-/{print $3; exit}')
+launchctl kickstart -k "gui/$(id -u)/$SERVICE_LABEL"
 ```
 
 ### 4. Wire the harness into the NanoClaw groups
@@ -161,6 +168,36 @@ onecli secrets delete --id <secret-id>
 ```
 
 Use it to remove stale secrets before recreating them with the correct host/path scope.
+
+### 7. How future coding agents should test the NanoClaw integration
+
+There are two practical ways to exercise the bot after setup:
+
+1. **Local CLI path** — fastest deterministic test path for coding agents:
+
+```bash
+cd ~/git/qwibitai/nanoclaw
+pnpm run chat -- "What is the balance of 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172?"
+pnpm run chat -- "Give me the top 5 holders for the token"
+pnpm run chat -- "Alert me if the balance of 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172 moves"
+pnpm run chat -- "List watches"
+pnpm run chat -- "Check watches"
+```
+
+2. **Discord/DM path** — useful when validating the real channel-facing experience:
+
+- message the NanoClaw-wired Discord bot/user in the group that is mapped to the target agent group
+- use the same prompts as above
+
+Recommended validation order for future agents:
+
+1. confirm NanoClaw is alive with `pnpm run chat -- "ping"` or a simple balance query
+2. confirm the harness mount exists in the target group's `container.json`
+3. confirm OneCLI secrets are scoped correctly (`/v1/*` for the model endpoint, `/api/v0/*` for MultiBaas)
+4. run balance lookup
+5. run top holders
+6. create and list a watch
+7. only then move on to webhook/alert validation
 
 ## Local MVP target
 
