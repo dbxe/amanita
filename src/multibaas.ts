@@ -3,8 +3,6 @@ import crypto from "node:crypto";
 import {
   Configuration,
   EventQueriesApi,
-  WebhooksApi,
-  WebhookEventsType,
 } from "@curvegrid/multibaas-sdk";
 
 import type { RuntimeConfig } from "./config.js";
@@ -22,6 +20,7 @@ export interface BalanceAlert {
 }
 
 const QUERY_PAGE_LIMIT = 100;
+const EVENT_EMITTED_WEBHOOK_SUBSCRIPTION = "event.emitted";
 
 function buildConfiguration(config: RuntimeConfig): Configuration {
   return new Configuration({
@@ -34,8 +33,30 @@ function createEventQueriesApi(config: RuntimeConfig): EventQueriesApi {
   return new EventQueriesApi(buildConfiguration(config));
 }
 
-function createWebhooksApi(config: RuntimeConfig): WebhooksApi {
-  return new WebhooksApi(buildConfiguration(config));
+function adminApiUrl(config: RuntimeConfig, pathname: string): string {
+  return new URL(pathname.replace(/^\/+/, ""), new URL("/api/v0/", config.baseUrl)).toString();
+}
+
+async function requestAdminJson<T>(
+  config: RuntimeConfig,
+  pathname: string,
+  init?: RequestInit,
+): Promise<T> {
+  const response = await fetch(adminApiUrl(config, pathname), {
+    ...init,
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${config.apiKey ?? "placeholder"}`,
+      ...(init?.body ? { "Content-Type": "application/json" } : {}),
+      ...(init?.headers ?? {}),
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`MultiBaas admin request failed (${response.status}): ${await response.text()}`);
+  }
+
+  return (await response.json()) as T;
 }
 
 function readRows(result: unknown): Array<Record<string, unknown>> {
@@ -174,36 +195,64 @@ export async function ensureEventWebhook(
   subscriptions: string[];
   url: string;
 }> {
-  const api = createWebhooksApi(config);
-  const existing = (await api.listWebhooks(200, 0)).data.result ?? [];
+  const existingResponse = await requestAdminJson<{
+    result?: Array<{
+      id: number;
+      label: string;
+      subscriptions: string[];
+      url: string;
+    }>;
+  }>(config, "/webhooks");
+  const existing = existingResponse.result ?? [];
   const found = existing.find((webhook) => webhook.label === label);
 
   if (found) {
-    const updated = await api.updateWebhook(found.id, {
-      label,
-      subscriptions: [WebhookEventsType.EventEmitted],
-      url,
+    const updated = await requestAdminJson<{
+      result: {
+        id: number;
+        label: string;
+        subscriptions: string[];
+        url: string;
+      };
+    }>(config, `/webhooks/${found.id}`, {
+      body: JSON.stringify({
+        label,
+        subscriptions: [EVENT_EMITTED_WEBHOOK_SUBSCRIPTION],
+        url,
+      }),
+      method: "PUT",
     });
     return {
-      id: updated.data.result.id,
-      label: updated.data.result.label,
-      subscriptions: [...updated.data.result.subscriptions],
-      url: updated.data.result.url,
+      id: updated.result.id,
+      label: updated.result.label,
+      subscriptions: [...updated.result.subscriptions],
+      url: updated.result.url,
     };
   }
 
-  const created = await api.createWebhook({
-    label,
-    subscriptions: [WebhookEventsType.EventEmitted],
-    url,
+  const created = await requestAdminJson<{
+    result: {
+      id: number;
+      label: string;
+      secret?: string;
+      subscriptions: string[];
+      url: string;
+    };
+  }>(config, "/webhooks", {
+    body: JSON.stringify({
+      label,
+      subscriptions: [EVENT_EMITTED_WEBHOOK_SUBSCRIPTION],
+      url,
+    }),
+    method: "POST",
   });
 
   return {
-    id: created.data.result.id,
-    label: created.data.result.label,
-    secret: created.data.result.secret,
-    subscriptions: [...created.data.result.subscriptions],
-    url: created.data.result.url,
+    id: created.result.id,
+    label: created.result.label,
+    secret: created.result.secret,
+    subscriptions: [...created.result.subscriptions],
+    url: created.result.url,
   };
 }
 

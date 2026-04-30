@@ -1,6 +1,8 @@
 import http from "node:http";
 import { randomUUID } from "node:crypto";
 
+import type { NanoClawNotificationTarget } from "./nanoclaw-host.js";
+import { sendNanoClawNotification } from "./nanoclaw-host.js";
 import { resolveConfig } from "./config.js";
 import {
   ensureEventWebhook,
@@ -57,6 +59,7 @@ export interface WebhookEnsureResult {
 }
 
 export interface WebhookServerOptions {
+  nanoclawTarget?: NanoClawNotificationTarget;
   port: number;
   requestPath: string;
   secret?: string;
@@ -310,10 +313,23 @@ export async function startWebhookServer(options: WebhookServerOptions): Promise
       return;
     }
 
-    const { alerts } = await evaluateBalanceWatches(events.length);
+    const result = await evaluateBalanceWatches(events.length);
+    let notifyError: string | undefined;
+
+    if (result.alerts.length > 0 && options.nanoclawTarget) {
+      try {
+        sendNanoClawNotification(
+          options.nanoclawTarget,
+          [`[MultiBaas alert]`, formatAlerts(result.state, result.alerts)].join("\n"),
+        );
+      } catch (error) {
+        notifyError = error instanceof Error ? error.message : String(error);
+        console.error(`Failed to deliver NanoClaw alert: ${notifyError}`);
+      }
+    }
 
     response.writeHead(200, { "Content-Type": "application/json" });
-    response.end(JSON.stringify({ alerts: alerts.length, received: events.length }));
+    response.end(JSON.stringify({ alerts: result.alerts.length, notifyError, received: events.length }));
   });
 
   await new Promise<void>((resolve) => {

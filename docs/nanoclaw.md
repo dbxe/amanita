@@ -116,3 +116,30 @@ Recommended validation order:
 5. run top holders
 6. create and list a watch
 7. move on to webhook and alert validation last
+
+## Webhook-driven notifications
+
+For the final alert loop, the harness can write a normal outbound chat row into the target NanoClaw session so the existing delivery poll sends it through the channel adapter.
+
+Manual notification test:
+
+```bash
+cd ~/git/dbxe/amanita
+npm run dev -- nanoclaw notify \
+  --nanoclaw-dir ~/git/qwibitai/nanoclaw \
+  --group-folder dm-with-<name> \
+  --text "test alert"
+```
+
+Webhook receiver with NanoClaw delivery enabled:
+
+```bash
+cd ~/git/dbxe/amanita
+npm run dev -- webhook serve \
+  --secret <webhook-secret> \
+  --port 8787 \
+  --nanoclaw-dir ~/git/qwibitai/nanoclaw \
+  --group-folder dm-with-<name>
+```
+
+The CLI channel remains useful for deterministic testing, but it is not a reliable push-notification surface because delivery only appears in a live connected terminal. For proactive alerts, prefer a DM or Discord-backed NanoClaw session.

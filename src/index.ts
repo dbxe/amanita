@@ -15,6 +15,7 @@ import {
   startWebhookServer,
 } from "./agent-tools.js";
 import { handleIntent } from "./intent.js";
+import { sendNanoClawNotification } from "./nanoclaw-host.js";
 import { configureNanoClawGroup } from "./nanoclaw.js";
 
 function printUsage(): void {
@@ -27,9 +28,10 @@ Usage:
   npm run dev -- watch list
   npm run dev -- watch evaluate
   npm run dev -- webhook ensure --url https://example.test/webhooks/multibaas [--label ${DEFAULT_WEBHOOK_LABEL}]
-  npm run dev -- webhook serve [--port 8787] [--path /webhooks/multibaas] [--secret <secret>]
+  npm run dev -- webhook serve [--port 8787] [--path /webhooks/multibaas] [--secret <secret>] [--nanoclaw-dir <path>] [--group-folder <folder>]
   npm run dev -- agent "<natural language intent>"
   npm run dev -- nanoclaw configure --nanoclaw-dir ~/git/qwibitai/nanoclaw --group-folder cli-with-<name> [--write-allowlist]
+  npm run dev -- nanoclaw notify --nanoclaw-dir ~/git/qwibitai/nanoclaw [--group-folder dm-with-<name> | --agent-group-id ag-...] --text "test alert"
 `);
 }
 
@@ -124,7 +126,24 @@ async function handleWebhook(args: string[]): Promise<void> {
     const port = parsePositiveIntegerFlag(args, "--port", 8787);
     const requestPath = readFlag(args, "--path") ?? "/webhooks/multibaas";
     const secret = readFlag(args, "--secret");
-    await startWebhookServer({ port, requestPath, secret });
+    const nanoclawDir = readFlag(args, "--nanoclaw-dir");
+    const groupFolder = readFlag(args, "--group-folder");
+    const agentGroupId = readFlag(args, "--agent-group-id");
+    const sessionId = readFlag(args, "--session-id");
+    await startWebhookServer({
+      nanoclawTarget:
+        nanoclawDir && (groupFolder || agentGroupId || sessionId)
+          ? {
+              agentGroupId,
+              groupFolder,
+              nanoclawDir,
+              sessionId,
+            }
+          : undefined,
+      port,
+      requestPath,
+      secret,
+    });
     console.log(`Listening for MultiBaas webhooks on http://0.0.0.0:${port}${requestPath}`);
     return;
   }
@@ -151,6 +170,28 @@ async function handleNanoClaw(args: string[]): Promise<void> {
     if (result.allowlistPath) {
       console.log(`Updated mount allowlist: ${result.allowlistPath}`);
     }
+    return;
+  }
+
+  if (subcommand === "notify") {
+    const nanoclawDir = requireFlag(args, "--nanoclaw-dir");
+    const text = requireFlag(args, "--text");
+    const groupFolder = readFlag(args, "--group-folder");
+    const agentGroupId = readFlag(args, "--agent-group-id");
+    const sessionId = readFlag(args, "--session-id");
+    const result = sendNanoClawNotification(
+      {
+        agentGroupId,
+        groupFolder,
+        nanoclawDir,
+        sessionId,
+      },
+      text,
+    );
+
+    console.log(`Queued NanoClaw notification ${result.messageId}`);
+    console.log(`Target session: ${result.sessionId}`);
+    console.log(`Target route: ${result.channelType} ${result.platformId}`);
     return;
   }
 

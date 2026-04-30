@@ -96,6 +96,16 @@ Run the local webhook receiver:
 npm run dev -- webhook serve --secret <webhook-secret> --port 8787
 ```
 
+To have webhook-triggered alerts delivered back through a NanoClaw session, add the NanoClaw target flags:
+
+```bash
+npm run dev -- webhook serve \
+  --secret <webhook-secret> \
+  --port 8787 \
+  --nanoclaw-dir ~/git/qwibitai/nanoclaw \
+  --group-folder dm-with-<name>
+```
+
 When you have a reachable callback URL, register or update the shared MultiBaas webhook:
 
 ```bash
@@ -143,6 +153,15 @@ What that does:
 NanoClaw itself still needs to be installed and initialized separately (`pnpm install`, credentials, group/session setup, daemon running).
 
 For the working local NanoClaw install pattern, model pinning, OneCLI path-scoped secrets, restart flow, and deterministic test path, see [`docs/nanoclaw.md`](docs/nanoclaw.md).
+
+You can also queue a manual notification into NanoClaw's normal outbound delivery path:
+
+```bash
+npm run dev -- nanoclaw notify \
+  --nanoclaw-dir ~/git/qwibitai/nanoclaw \
+  --group-folder dm-with-<name> \
+  --text "test alert"
+```
 
 ## Next layer
 
