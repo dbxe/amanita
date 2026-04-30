@@ -13,6 +13,8 @@ const WHALE_BALANCE = 100;
 const TOTAL_SUPPLY = 1000;
 const NUM_RANDOM = 99;
 const REMAINING = TOTAL_SUPPLY - WHALE_BALANCE; // 900
+const DECIMALS = 18n;
+const toWei = (n: number) => BigInt(n) * 10n ** DECIMALS;
 
 function randomAddress(): string {
   const hex = Array.from({ length: 40 }, () =>
@@ -39,7 +41,7 @@ async function main() {
 
   // Whale gets 100
   console.log(`Transferring ${WHALE_BALANCE} HWT to whale ${WHALE}...`);
-  const whaleTx = await token.connect(deployer).transfer(WHALE, WHALE_BALANCE);
+  const whaleTx = await token.connect(deployer).transfer(WHALE, toWei(WHALE_BALANCE));
   await whaleTx.wait();
 
   // Generate 99 random accounts with varying amounts that sum to 900
@@ -75,7 +77,7 @@ async function main() {
 
   let txCount = 0;
   for (const acct of accounts) {
-    const tx = await token.connect(deployer).transfer(acct.address, acct.amount);
+    const tx = await token.connect(deployer).transfer(acct.address, toWei(acct.amount));
     await tx.wait();
     txCount++;
     if (txCount % 10 === 0 || txCount === accounts.length) {
