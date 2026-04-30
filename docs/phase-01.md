@@ -207,3 +207,64 @@ Phase 01 is successful when the agent can:
 The end state is not "generic blockchain chatbot."
 
 The end state is a reliable event-sourced research and monitoring agent built on MultiBaas.
+
+## Immediate implementation slice
+
+The first concrete implementation step should be the **task state machine**.
+
+That means:
+
+- turning user requests into persistent tasks
+- making prerequisite checks explicit
+- distinguishing "can execute now" from "must wait"
+- resuming later from saved state instead of recomputing the whole flow
+
+The first useful slice is not a new protocol view. It is taking the existing watch and query loop and making it task-driven with explicit states such as:
+
+- `needs-abi`
+- `needs-link`
+- `syncing`
+- `ready`
+- `monitoring`
+- `blocked`
+
+If this layer is solid, the planner, typed views, and monitor model have a deterministic substrate to build on.
+
+## TDD approach
+
+Phase 01 should be driven by behavior-first TDD.
+
+Recommended order:
+
+1. **Acceptance tests**
+   - protocol-level request becomes either an executable plan or an explicit wait state
+   - a ready request executes and returns an answer or monitor
+   - a not-ready request persists and resumes later
+2. **Task state machine unit tests**
+   - task creation, persistence, reload, and allowed transitions
+   - resumption after prerequisites change
+3. **Readiness evaluator tests**
+   - mocked MultiBaas conditions yield `needs-abi`, `needs-link`, `syncing`, `ready`, or `blocked`
+4. **Planning IR tests**
+   - natural-language requests produce `Intent`, `ViewSpec`, `ExecutionPlan`, and `WaitCondition`
+5. **Execution and monitor integration tests**
+   - ready plans call the right service
+   - webhook-triggered reevaluation generates alerts only when the view output actually changes
+6. **Explanation tests**
+   - answers and alerts state what view was used, why the result is trustworthy, and what limits apply
+
+The key discipline is to keep task lifecycle, readiness, and explanation logic mostly pure and deterministic, while using fixture-based integration tests at the MultiBaas and webhook boundaries.
+
+## UAT-visible outcomes
+
+From a user-acceptance perspective, Phase 01 should unlock interactions that are not realistically possible in the current MVP.
+
+| Interaction | MVP now | After Phase 01 |
+|---|---|---|
+| "Watch this balance and notify me if it moves." | Narrow hardcoded flow | Task-backed, resumable monitoring |
+| "Monitor this stablecoin for blacklist changes, pauses, admin changes, upgrades, and treasury whale moves." | Not possible | Supported through typed stablecoin control-plane views |
+| "Tell me when this contract is ready to monitor, even if linking or indexing is still in progress." | Not possible | Supported through explicit waiting and resumption |
+| "Explain why this answer is trustworthy and what its limitations are." | Very limited | First-class explanation and confidence output |
+| "Track a semantic condition like holder concentration or role membership drift." | Not possible | Supported through view-level monitoring rather than one-off address checks |
+
+The practical UAT shift is that the system stops behaving like a demo with a few commands and starts behaving like an operator that can own an analytical or monitoring job end to end.
