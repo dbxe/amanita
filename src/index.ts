@@ -56,8 +56,8 @@ Usage:
   npm run dev -- task evaluate
   npm run dev -- webhook ensure --url https://example.test/webhooks/multibaas [--label ${DEFAULT_WEBHOOK_LABEL}]
   npm run dev -- webhook serve [--port 8787] [--path /webhooks/multibaas] [--secret <secret>] [--nanoclaw-dir <path>] [--group-folder <folder>]
-  npm run dev -- nanoclaw configure --nanoclaw-dir ~/git/qwibitai/nanoclaw --group-folder cli-with-<name> [--write-allowlist]
-  npm run dev -- nanoclaw notify --nanoclaw-dir ~/git/qwibitai/nanoclaw [--group-folder dm-with-<name> | --agent-group-id ag-...] --text "test alert"
+  npm run dev -- nanoclaw configure --nanoclaw-dir ~/git/dbxe/nanoclaw --group-folder cli-with-<name> [--write-allowlist]
+  npm run dev -- nanoclaw notify --nanoclaw-dir ~/git/dbxe/nanoclaw [--group-folder dm-with-<name> | --agent-group-id ag-...] --text "test alert"
 `);
 }
 

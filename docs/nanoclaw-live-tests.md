@@ -26,11 +26,11 @@ Before any live NanoClaw retest:
 cd ~/git/dbxe/amanita
 npm test
 npm run dev -- nanoclaw configure \
-  --nanoclaw-dir ~/git/qwibitai/nanoclaw \
+  --nanoclaw-dir ~/git/dbxe/nanoclaw \
   --group-folder cli-with-<name> \
   --write-allowlist
 npm run dev -- nanoclaw configure \
-  --nanoclaw-dir ~/git/qwibitai/nanoclaw \
+  --nanoclaw-dir ~/git/dbxe/nanoclaw \
   --group-folder dm-with-<name> \
   --write-allowlist
 SERVICE_LABEL=$(launchctl list | awk '/com\.nanoclaw-v2-/{print $3; exit}')
@@ -47,12 +47,12 @@ docker stop <exact-container-name>
 If the next message still resumes stale state, clear the exact session as well:
 
 ```bash
-sqlite3 ~/git/qwibitai/nanoclaw/data/v2.db \
+sqlite3 ~/git/dbxe/nanoclaw/data/v2.db \
   "delete from pending_questions where session_id = '<session-id>';
    delete from sessions where id = '<session-id>';"
 
-mv ~/git/qwibitai/nanoclaw/data/v2-sessions/<agent-group-id>/<session-id> \
-   ~/git/qwibitai/nanoclaw/data/v2-sessions/<agent-group-id>/<session-id>.bak-$(date +%Y%m%dT%H%M%S)
+mv ~/git/dbxe/nanoclaw/data/v2-sessions/<agent-group-id>/<session-id> \
+   ~/git/dbxe/nanoclaw/data/v2-sessions/<agent-group-id>/<session-id>.bak-$(date +%Y%m%dT%H%M%S)
 ```
 
 Use exact session cleanup when a restarted NanoClaw host still routes the next probe into preserved continuation or pending-question state.
@@ -139,7 +139,7 @@ Prefer additive growth:
 **Prompt**
 
 ```bash
-cd ~/git/qwibitai/nanoclaw
+cd ~/git/dbxe/nanoclaw
 pnpm run chat -- "Who are the 7 biggest holders of 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59?"
 ```
 
@@ -163,7 +163,7 @@ npm run dev -- query top-holders --contract 0x65a4C093c7652AB882FbA1aed0F0E461cb
 **Prompt**
 
 ```bash
-cd ~/git/qwibitai/nanoclaw
+cd ~/git/dbxe/nanoclaw
 pnpm run chat -- "Who are the 7 biggest holders of helloworld?"
 ```
 
@@ -179,7 +179,7 @@ pnpm run chat -- "Who are the 7 biggest holders of helloworld?"
 **Prompt**
 
 ```bash
-cd ~/git/qwibitai/nanoclaw
+cd ~/git/dbxe/nanoclaw
 pnpm run chat -- "Who are the 7 biggest holders of Hello World Token?"
 ```
 
@@ -195,7 +195,7 @@ pnpm run chat -- "Who are the 7 biggest holders of Hello World Token?"
 **Prompt**
 
 ```bash
-cd ~/git/qwibitai/nanoclaw
+cd ~/git/dbxe/nanoclaw
 pnpm run chat -- "Who owns most of mysterytoken?"
 ```
 
@@ -223,7 +223,7 @@ Use the emitted address from the deploy/mint scripts in the prompt below.
 **Prompt**
 
 ```bash
-cd ~/git/qwibitai/nanoclaw
+cd ~/git/dbxe/nanoclaw
 pnpm run chat -- "Who are the 10 biggest holders of <unlinked-contract-address>?"
 ```
 
@@ -261,7 +261,7 @@ EOF
 **Prompt**
 
 ```bash
-cd ~/git/qwibitai/nanoclaw
+cd ~/git/dbxe/nanoclaw
 pnpm run chat -- "Give me a quick investigation of 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59. What stands out?"
 ```
 
@@ -305,7 +305,7 @@ These cases have now been rerun successfully on the CLI path and should remain i
 **Prompt**
 
 ```bash
-cd ~/git/qwibitai/nanoclaw
+cd ~/git/dbxe/nanoclaw
 pnpm run chat -- "How many decimals does 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59 use?"
 ```
 
@@ -323,7 +323,7 @@ pnpm run chat -- "How many decimals does 0x65a4C093c7652AB882FbA1aed0F0E461cb50d
 **Prompt**
 
 ```bash
-cd ~/git/qwibitai/nanoclaw
+cd ~/git/dbxe/nanoclaw
 pnpm run chat -- "How much of 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59 does 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172 hold?"
 ```
 
@@ -342,7 +342,7 @@ pnpm run chat -- "How much of 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59 does 0x
 **Prompt**
 
 ```bash
-cd ~/git/qwibitai/nanoclaw
+cd ~/git/dbxe/nanoclaw
 pnpm run chat -- "How concentrated is ownership of 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59 among the top 5 holders?"
 ```
 
@@ -361,7 +361,7 @@ pnpm run chat -- "How concentrated is ownership of 0x65a4C093c7652AB882FbA1aed0F
 **Prompt**
 
 ```bash
-cd ~/git/qwibitai/nanoclaw
+cd ~/git/dbxe/nanoclaw
 pnpm run chat -- "Let me know if 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172's balance of 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59 changes."
 ```
 
@@ -379,7 +379,7 @@ pnpm run chat -- "Let me know if 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172's ba
 **Prompt**
 
 ```bash
-cd ~/git/qwibitai/nanoclaw
+cd ~/git/dbxe/nanoclaw
 pnpm run chat -- "How much does 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172 hold?"
 ```
 
@@ -398,7 +398,7 @@ pnpm run chat -- "How much does 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172 hold?
 **Prompt**
 
 ```bash
-cd ~/git/qwibitai/nanoclaw
+cd ~/git/dbxe/nanoclaw
 pnpm run chat -- "Let me know if 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172's balance changes."
 ```
 
@@ -418,21 +418,21 @@ If a live NanoClaw result looks wrong:
 1. inspect the live group config:
 
 ```bash
-cat ~/git/qwibitai/nanoclaw/groups/cli-with-<name>/container.json
+cat ~/git/dbxe/nanoclaw/groups/cli-with-<name>/container.json
 ```
 
 2. inspect live NanoClaw logs:
 
 ```bash
-tail -n 120 ~/git/qwibitai/nanoclaw/logs/nanoclaw.log
-tail -n 120 ~/git/qwibitai/nanoclaw/logs/nanoclaw.error.log
+tail -n 120 ~/git/dbxe/nanoclaw/logs/nanoclaw.log
+tail -n 120 ~/git/dbxe/nanoclaw/logs/nanoclaw.error.log
 ```
 
 3. inspect session DB state for pending inbound rows or stale continuations:
 
 ```bash
-~/git/qwibitai/nanoclaw/data/v2-sessions/<agent-group-id>/<session-id>/inbound.db
-~/git/qwibitai/nanoclaw/data/v2-sessions/<agent-group-id>/<session-id>/outbound.db
+~/git/dbxe/nanoclaw/data/v2-sessions/<agent-group-id>/<session-id>/inbound.db
+~/git/dbxe/nanoclaw/data/v2-sessions/<agent-group-id>/<session-id>/outbound.db
 ```
 
 4. confirm MultiBaas state from the host with the repo-local CLI or `dist/multibaas.js` helpers

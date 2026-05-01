@@ -138,7 +138,7 @@ To have webhook-triggered alerts delivered back through a NanoClaw session, add 
 npm run dev -- webhook serve \
   --secret <webhook-secret> \
   --port 8787 \
-  --nanoclaw-dir ~/git/qwibitai/nanoclaw \
+  --nanoclaw-dir ~/git/dbxe/nanoclaw \
   --group-folder dm-with-<name>
 ```
 
@@ -148,12 +148,17 @@ When you have a reachable callback URL, register or update the shared MultiBaas 
 npm run dev -- webhook ensure --url https://your-host.example/webhooks/multibaas
 ```
 
+For the local dev stack, match the callback URL to where MultiBaas is actually running:
+
+- if MultiBaas is running on the host, use `http://127.0.0.1:8787/webhooks/multibaas`
+- if MultiBaas is running in a container that can reach the host via Docker DNS, use `http://host.docker.internal:8787/webhooks/multibaas`
+
 The webhook handler validates `X-MultiBaas-Signature` and `X-MultiBaas-Timestamp`, refreshes the tracked balance snapshot for each watch source, and appends alerts to `.agent-state/alerts.jsonl`.
 
 When you evaluate a watch that was created inside a NanoClaw group, point the host-side receiver at that group's state directory instead of the repo root:
 
 ```bash
-MULTIBAAS_AGENT_STATE_DIR=~/git/qwibitai/nanoclaw/groups/cli-with-<name>/.agent-state \
+MULTIBAAS_AGENT_STATE_DIR=~/git/dbxe/nanoclaw/groups/cli-with-<name>/.agent-state \
   npm run dev -- webhook serve --secret <webhook-secret> --port 8787
 ```
 
@@ -213,7 +218,7 @@ This repo can write the NanoClaw group config needed to mount the runtime repo a
 
 ```bash
 npm run dev -- nanoclaw configure \
-  --nanoclaw-dir ~/git/qwibitai/nanoclaw \
+  --nanoclaw-dir ~/git/dbxe/nanoclaw \
   --group-folder cli-with-<name> \
   --write-allowlist
 ```
@@ -234,7 +239,7 @@ You can also queue a manual notification into NanoClaw's normal outbound deliver
 
 ```bash
 npm run dev -- nanoclaw notify \
-  --nanoclaw-dir ~/git/qwibitai/nanoclaw \
+  --nanoclaw-dir ~/git/dbxe/nanoclaw \
   --group-folder dm-with-<name> \
   --text "test alert"
 ```
@@ -244,7 +249,7 @@ npm run dev -- nanoclaw notify \
 The current capability-first CLI path is working through NanoClaw:
 
 ```bash
-cd ~/git/qwibitai/nanoclaw
+cd ~/git/dbxe/nanoclaw
 pnpm run chat -- "how many decimals does 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59 have?"
 pnpm run chat -- "Show me the recent control events for token 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59"
 pnpm run chat -- "Investigate token 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59"

@@ -87,7 +87,7 @@ These repos are the main adjacent references for this workspace:
 
 | Purpose | Path |
 | --- | --- |
-| NanoClaw runtime | `~/git/qwibitai/nanoclaw` |
+| NanoClaw runtime | `~/git/dbxe/nanoclaw` |
 | MultiBaas docs | `~/git/curvegrid/docs` |
 | Generated TypeScript SDK | `~/git/curvegrid/multibaas-sdk-typescript` |
 | Older MCP proof of concept | `~/git/curvegrid/multibaas-mcp-poc` |

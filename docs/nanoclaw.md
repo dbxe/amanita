@@ -4,44 +4,26 @@ This is the repo-local runbook for wiring the harness into NanoClaw and exercisi
 
 ## Install notes that mattered here
 
-Before running NanoClaw setup, fetch the `channels` branch so Discord setup is available later:
+Use the canonical local fork and branch:
 
 ```bash
-cd ~/git/qwibitai/nanoclaw
-git fetch origin channels:refs/remotes/origin/channels
+cd ~/git/dbxe/nanoclaw
+git checkout openagents
 ```
 
-The working local install here used the standard `nanoclaw.sh` flow with a custom model endpoint:
+The working local install here used the standard NanoClaw service/container setup with:
 
-```bash
-NANOCLAW_NO_DIAGNOSTICS=1 \
-POSTGRES_PORT=5433 \
-NANOCLAW_ANTHROPIC_BASE_URL=http://host.docker.internal:18080 \
-NANOCLAW_ANTHROPIC_AUTH_TOKEN=placeholder \
-bash nanoclaw.sh
-```
+- the `discord` channel adapter checked into the fork
+- the `opencode` provider checked into the fork
+- `OPENCODE_PROVIDER=openai`
+- `OPENCODE_MODEL=openai/qwen36-35b`
+- `OPENAI_BASE_URL=http://host.docker.internal:18080/v1`
 
 Why this mattered:
 
-- the local model endpoint is reachable from the container via `host.docker.internal`
-- the auth token is intentionally a placeholder so OneCLI can rewrite the outgoing header
-- this was done with the standard installer path, not the advanced/manual path
-
-## Model selection
-
-If NanoClaw falls back to a default Claude model, pin each active group to the served model in:
-
-```text
-~/git/qwibitai/nanoclaw/data/v2-sessions/<agent-group-id>/.claude-shared/settings.json
-```
-
-For the local Qwen-backed setup that worked here:
-
-```json
-"model": "qwen36-35b"
-```
-
-This mattered for both the CLI-facing group and the Discord-facing group.
+- the local llama-swap endpoint is reachable from the container via `host.docker.internal`
+- the agent is using an OpenAI-compatible `/v1/chat/completions` path, not the Anthropic `/v1/messages` path
+- Discord support is part of the forked source of truth instead of a local dirty diff
 
 ## Restarting NanoClaw
 
@@ -52,16 +34,16 @@ SERVICE_LABEL=$(launchctl list | awk '/com\.nanoclaw-v2-/{print $3; exit}')
 launchctl kickstart -k "gui/$(id -u)/$SERVICE_LABEL"
 ```
 
-If OneCLI keeps showing `/v1/messages` traffic when nobody is chatting, first check for a stuck pending inbound message in the session DB. In the setup here, the live loop was caused by a `messages_in.status = 'pending'` row in:
+If NanoClaw keeps showing background traffic when nobody is chatting, first check for a stuck pending inbound message in the session DB. In the setup here, the live loop was caused by a `messages_in.status = 'pending'` row in:
 
 ```text
-~/git/qwibitai/nanoclaw/data/v2-sessions/<agent-group-id>/<session-id>/inbound.db
+~/git/dbxe/nanoclaw/data/v2-sessions/<agent-group-id>/<session-id>/inbound.db
 ```
 
 The matching provider continuation is stored per session in:
 
 ```text
-~/git/qwibitai/nanoclaw/data/v2-sessions/<agent-group-id>/<session-id>/outbound.db
+~/git/dbxe/nanoclaw/data/v2-sessions/<agent-group-id>/<session-id>/outbound.db
 ```
 
 under `session_state.key = continuation:claude`. It is not stored in the global `data/v2.db`.
@@ -76,7 +58,7 @@ Practical recovery order:
 If Discord or DM keeps re-sending the same choice card every ~15-20 seconds, check the central NanoClaw DB for repeated `pending_questions` rows:
 
 ```text
-~/git/qwibitai/nanoclaw/data/v2.db
+~/git/dbxe/nanoclaw/data/v2.db
 ```
 
 In the setup here, the repeated "Query name needed" loop was not the harness task model retrying. It was NanoClaw's interactive question flow repeatedly creating `pending_questions` entries for the same session. Clicking **Never mind** stopped the live loop because it wrote a matching `question_response` back into the session inbox.
@@ -140,12 +122,12 @@ Example CLI reset flow:
 docker ps --format 'table {{.Names}}\t{{.Status}}'
 docker stop <exact-container-name>
 
-sqlite3 ~/git/qwibitai/nanoclaw/data/v2.db \
+sqlite3 ~/git/dbxe/nanoclaw/data/v2.db \
   "delete from pending_questions where session_id = '<session-id>';
    delete from sessions where id = '<session-id>';"
 
-mv ~/git/qwibitai/nanoclaw/data/v2-sessions/<agent-group-id>/<session-id> \
-   ~/git/qwibitai/nanoclaw/data/v2-sessions/<agent-group-id>/<session-id>.bak-$(date +%Y%m%dT%H%M%S)
+mv ~/git/dbxe/nanoclaw/data/v2-sessions/<agent-group-id>/<session-id> \
+   ~/git/dbxe/nanoclaw/data/v2-sessions/<agent-group-id>/<session-id>.bak-$(date +%Y%m%dT%H%M%S)
 ```
 
 Use that when:
@@ -161,7 +143,7 @@ Use the harness helper to update the target group's `container.json`:
 ```bash
 cd ~/git/dbxe/amanita
 npm run dev -- nanoclaw configure \
-  --nanoclaw-dir ~/git/qwibitai/nanoclaw \
+  --nanoclaw-dir ~/git/dbxe/nanoclaw \
   --group-folder cli-with-<name> \
   --write-allowlist
 ```
@@ -226,11 +208,11 @@ Use this concrete rebuild + reconfigure + restart sequence when step 1 or 2 appl
 cd ~/git/dbxe/amanita
 npm test
 npm run dev -- nanoclaw configure \
-  --nanoclaw-dir ~/git/qwibitai/nanoclaw \
+  --nanoclaw-dir ~/git/dbxe/nanoclaw \
   --group-folder cli-with-<name> \
   --write-allowlist
 npm run dev -- nanoclaw configure \
-  --nanoclaw-dir ~/git/qwibitai/nanoclaw \
+  --nanoclaw-dir ~/git/dbxe/nanoclaw \
   --group-folder dm-with-<name> \
   --write-allowlist
 SERVICE_LABEL=$(launchctl list | awk '/com\.nanoclaw-v2-/{print $3; exit}')
@@ -244,7 +226,7 @@ docker ps --format 'table {{.Names}}\t{{.Status}}'
 docker stop <exact-container-name>
 ```
 
-If the next message still resumes stale state, remove the matching session row from `~/git/qwibitai/nanoclaw/data/v2.db` and move the session directory aside as shown above.
+If the next message still resumes stale state, remove the matching session row from `~/git/dbxe/nanoclaw/data/v2.db` and move the session directory aside as shown above.
 
 Do **not** parallelize live NanoClaw chat tests. Run one `pnpm run chat -- "..."` request at a time and wait for it to finish before starting the next one. Overlapping CLI clients can supersede each other and shared session state makes the results unreliable.
 
@@ -253,7 +235,7 @@ Also note that `pnpm run chat` is a thin convenience client with a short silence
 Start with the deterministic local CLI channel:
 
 ```bash
-cd ~/git/qwibitai/nanoclaw
+cd ~/git/dbxe/nanoclaw
 pnpm run chat -- "how many decimals does 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59 have?"
 pnpm run chat -- "Investigate token 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59"
 pnpm run chat -- "What is the balance of 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172 for token 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59?"
@@ -291,7 +273,7 @@ Manual notification test:
 ```bash
 cd ~/git/dbxe/amanita
 npm run dev -- nanoclaw notify \
-  --nanoclaw-dir ~/git/qwibitai/nanoclaw \
+  --nanoclaw-dir ~/git/dbxe/nanoclaw \
   --group-folder dm-with-<name> \
   --text "test alert"
 ```
@@ -300,15 +282,20 @@ Webhook receiver with NanoClaw delivery enabled:
 
 ```bash
 cd ~/git/dbxe/amanita
-MULTIBAAS_AGENT_STATE_DIR=~/git/qwibitai/nanoclaw/groups/cli-with-<name>/.agent-state \
+MULTIBAAS_AGENT_STATE_DIR=~/git/dbxe/nanoclaw/groups/cli-with-<name>/.agent-state \
 npm run dev -- webhook serve \
   --secret <webhook-secret> \
   --port 8787 \
-  --nanoclaw-dir ~/git/qwibitai/nanoclaw \
+  --nanoclaw-dir ~/git/dbxe/nanoclaw \
   --group-folder dm-with-<name>
 ```
 
 The CLI channel remains useful for deterministic testing, but it is not a reliable push-notification surface because delivery only appears in a live connected terminal. For proactive alerts, prefer a DM or Discord-backed NanoClaw session.
+
+When you register the local MultiBaas callback URL, use the address that matches the actual MultiBaas process location:
+
+- host-run local MultiBaas: `http://127.0.0.1:8787/webhooks/multibaas`
+- container-run local MultiBaas with Docker host DNS: `http://host.docker.internal:8787/webhooks/multibaas`
 
 ## Deterministic whale-movement replay
 
