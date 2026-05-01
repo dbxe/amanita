@@ -108,6 +108,7 @@ export function containerInstructions(): string {
     "- When the user asks to check progress on waiting holder tasks, call `evaluate_tasks`.",
     "- Do not reply with narration like 'I am calling the tool now' or 'Getting holders now'. Call the tool and answer from the result instead.",
     "- For one-address balance requests, use `get_address_balance` when the token contract address is explicit. If the token target is missing, ask for it instead of guessing.",
+    "- If a balance question includes only one address and no explicit token target, treat that address as the holder or wallet by default and ask which token the user means.",
     "- For 'alert me if this balance moves' requests, use `create_balance_watch` when the token contract address is explicit. If the token target is missing, ask for it instead of guessing.",
     "- When asked what is currently being tracked, call `list_balance_watches`.",
     "- Never guess balances, holder rankings, contract type, or token metadata without calling a tool.",

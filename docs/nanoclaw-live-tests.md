@@ -140,7 +140,7 @@ Prefer additive growth:
 
 ```bash
 cd ~/git/qwibitai/nanoclaw
-pnpm run chat -- "give me the top 7 holders of 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59"
+pnpm run chat -- "Who are the 7 biggest holders of 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59?"
 ```
 
 **Expected live behavior**
@@ -164,7 +164,7 @@ npm run dev -- query top-holders --contract 0x65a4C093c7652AB882FbA1aed0F0E461cb
 
 ```bash
 cd ~/git/qwibitai/nanoclaw
-pnpm run chat -- "give me the top 7 holders of helloworld"
+pnpm run chat -- "Who are the 7 biggest holders of helloworld?"
 ```
 
 **Expected live behavior**
@@ -180,7 +180,7 @@ pnpm run chat -- "give me the top 7 holders of helloworld"
 
 ```bash
 cd ~/git/qwibitai/nanoclaw
-pnpm run chat -- "give me the top 7 holders of Hello World Token"
+pnpm run chat -- "Who are the 7 biggest holders of Hello World Token?"
 ```
 
 **Expected live behavior**
@@ -196,7 +196,7 @@ pnpm run chat -- "give me the top 7 holders of Hello World Token"
 
 ```bash
 cd ~/git/qwibitai/nanoclaw
-pnpm run chat -- "give me the top 7 holders of mysterytoken"
+pnpm run chat -- "Who owns most of mysterytoken?"
 ```
 
 **Expected live behavior**
@@ -224,7 +224,7 @@ Use the emitted address from the deploy/mint scripts in the prompt below.
 
 ```bash
 cd ~/git/qwibitai/nanoclaw
-pnpm run chat -- "give me the top 10 holders of <unlinked-contract-address>"
+pnpm run chat -- "Who are the 10 biggest holders of <unlinked-contract-address>?"
 ```
 
 **Expected live behavior**
@@ -262,7 +262,7 @@ EOF
 
 ```bash
 cd ~/git/qwibitai/nanoclaw
-pnpm run chat -- "Investigate token 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59"
+pnpm run chat -- "Give me a quick investigation of 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59. What stands out?"
 ```
 
 **Expected live behavior**
@@ -306,7 +306,7 @@ These cases have now been rerun successfully on the CLI path and should remain i
 
 ```bash
 cd ~/git/qwibitai/nanoclaw
-pnpm run chat -- "how many decimals does 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59 have?"
+pnpm run chat -- "How many decimals does 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59 use?"
 ```
 
 **Expected live behavior**
@@ -324,7 +324,7 @@ pnpm run chat -- "how many decimals does 0x65a4C093c7652AB882FbA1aed0F0E461cb50d
 
 ```bash
 cd ~/git/qwibitai/nanoclaw
-pnpm run chat -- "What is the balance of 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172 for token 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59?"
+pnpm run chat -- "How much of 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59 does 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172 hold?"
 ```
 
 **Expected live behavior**
@@ -343,7 +343,7 @@ pnpm run chat -- "What is the balance of 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7
 
 ```bash
 cd ~/git/qwibitai/nanoclaw
-pnpm run chat -- "What is the top 5 holder concentration for token 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59?"
+pnpm run chat -- "How concentrated is ownership of 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59 among the top 5 holders?"
 ```
 
 **Expected live behavior**
@@ -362,7 +362,7 @@ pnpm run chat -- "What is the top 5 holder concentration for token 0x65a4C093c76
 
 ```bash
 cd ~/git/qwibitai/nanoclaw
-pnpm run chat -- "Alert me if the balance of 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172 moves for token 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59"
+pnpm run chat -- "Let me know if 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172's balance of 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59 changes."
 ```
 
 **Expected live behavior**
@@ -380,7 +380,7 @@ pnpm run chat -- "Alert me if the balance of 0xF9450D254A66ab06b30Cfa9c6e7AE1B75
 
 ```bash
 cd ~/git/qwibitai/nanoclaw
-pnpm run chat -- "What is the balance of 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172?"
+pnpm run chat -- "How much does 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172 hold?"
 ```
 
 **Expected live behavior**
@@ -399,7 +399,7 @@ pnpm run chat -- "What is the balance of 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7
 
 ```bash
 cd ~/git/qwibitai/nanoclaw
-pnpm run chat -- "Alert me if the balance of 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172 moves"
+pnpm run chat -- "Let me know if 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172's balance changes."
 ```
 
 **Expected live behavior**

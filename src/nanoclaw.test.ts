@@ -48,6 +48,7 @@ test("containerInstructions steer NanoClaw away from saved queries for ERC-20 ho
   assert.match(instructions, /broader token investigation requests.*investigate_token/i);
   assert.match(instructions, /evaluate_tasks/i);
   assert.match(instructions, /do not reply with narration like .*calling the tool now/i);
+  assert.match(instructions, /if a balance question includes only one address.*treat that address as the holder or wallet by default.*ask which token/i);
   assert.match(instructions, /do not cite Etherscan or other external sources/i);
   assert.match(instructions, /Prefer event-query-backed tools when the user's question is about historical control changes/i);
   assert.doesNotMatch(instructions, /default saved query/i);
