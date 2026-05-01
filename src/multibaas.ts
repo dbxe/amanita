@@ -5,6 +5,7 @@ import { promisify } from "node:util";
 import {
   AddressesApi,
   type BaseContract,
+  ChainsApi,
   Configuration,
   ContractsApi,
   EventQueriesApi,
@@ -121,6 +122,10 @@ function createAddressesApi(config: RuntimeConfig): AddressesApi {
 
 function createContractsApi(config: RuntimeConfig): ContractsApi {
   return new ContractsApi(buildConfiguration(config));
+}
+
+function createChainsApi(config: RuntimeConfig): ChainsApi {
+  return new ChainsApi(buildConfiguration(config));
 }
 
 function adminApiUrl(config: RuntimeConfig, pathname: string): string {
@@ -964,6 +969,36 @@ export async function getEventIndexingStatus(
   return {
     isProcessingPastLogs: response.result?.isProcessingPastLogs ?? false,
   };
+}
+
+export async function getLatestBlockNumber(config: RuntimeConfig): Promise<number> {
+  const chainsApi = createChainsApi(config);
+  const response = await withCurlFallback(
+    async () => {
+      const result = await chainsApi.getBlock("latest");
+      return result.data;
+    },
+    () =>
+      requestJsonViaCurl<{
+        result?: {
+          number?: string | number;
+        };
+      }>(config, "/chains/ethereum/blocks/latest"),
+  );
+
+  const blockNumber = response.result?.number;
+  const parsed =
+    typeof blockNumber === "number"
+      ? blockNumber
+      : typeof blockNumber === "string"
+        ? Number.parseInt(blockNumber, 10)
+        : Number.NaN;
+
+  if (!Number.isInteger(parsed) || parsed < 0) {
+    throw new Error(`Unable to resolve the latest Ethereum block number from MultiBaas.`);
+  }
+
+  return parsed;
 }
 
 function readContractScalarOutput(output: unknown): string | undefined {

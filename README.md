@@ -97,6 +97,12 @@ npm run dev -- query controls --contract 0xd26fde38F244Dcbb13e8017347Ac37804d926
 # grounded token investigation
 npm run dev -- query investigate --contract 0xd26fde38F244Dcbb13e8017347Ac37804d926Bb5 --limit 5
 
+# inspect ABI/event capabilities and supported investigation leads
+npm run dev -- query event-capabilities --contract 0xd26fde38F244Dcbb13e8017347Ac37804d926Bb5
+
+# run a bounded event-backed investigation lead
+npm run dev -- query event-investigation --contract 0xd26fde38F244Dcbb13e8017347Ac37804d926Bb5 --lead holder_distribution --limit 10
+
 # inspect and preload the finite interface library
 npm run dev -- contract list-interfaces
 npm run dev -- contract lookup --contract 0xd26fde38F244Dcbb13e8017347Ac37804d926Bb5
@@ -181,6 +187,8 @@ Tools exposed:
 - `ensure_contract_interface`
 - `resolve_contract_target`
 - `get_token_metadata`
+- `inspect_event_capabilities`
+- `run_event_investigation`
 - `get_token_control_events`
 - `investigate_token`
 - `get_top_holders`
@@ -199,6 +207,8 @@ Preferred Phase 02 path:
 - `lookup_contract_candidates` and `import_contract_lookup_candidate` for live-address onboarding when MultiBaas should pull a verified ABI candidate before linking
 - `resolve_contract_target` for token resolution and readiness inspection
 - `get_token_metadata` for ERC-20 metadata such as name, symbol, decimals, and total supply
+- `inspect_event_capabilities` to discover which bounded event-backed investigations fit the currently linked or looked-up ABI surface
+- `run_event_investigation` to execute a bounded event-backed investigation lead once the contract is ready
 - `get_token_control_events` for event-sourced control-surface history such as blacklist, pause, role, ownership, and upgrade events
 - `investigate_token` for grounded token analysis that combines readiness, metadata, concentration, and top-holder context
 - `get_top_holders`, `get_holder_concentration`, `get_address_balance`, and `create_balance_watch` for typed analytical and monitoring actions

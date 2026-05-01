@@ -16,12 +16,18 @@ import {
 } from "./contract-interface-service.js";
 import { resolveConfig } from "./config.js";
 import { formatTokenControlEvents, getTokenControlEvents } from "./event-view-service.js";
+import {
+  formatEventCapabilityInspection,
+  formatEventInvestigation,
+  inspectEventCapabilities,
+  runEventInvestigation,
+} from "./event-intelligence-service.js";
 import { evaluatePendingHolderQueries, requestTopHolders } from "./holder-query-service.js";
 import { formatTokenInvestigation, investigateToken } from "./investigation-service.js";
 import { getAddressBalanceForTokenTarget, getHolderConcentrationForTokenTarget } from "./query-service.js";
 import { sendNanoClawNotification } from "./nanoclaw-host.js";
 import { configureNanoClawGroup } from "./nanoclaw.js";
-import { createContractBalanceSource } from "./multibaas.js";
+import { createContractBalanceSource, getLatestBlockNumber } from "./multibaas.js";
 import { loadState } from "./state.js";
 import { formatAlerts, formatSavedWatch, formatTasks, formatWebhook, formatWatches } from "./task-formatting.js";
 import {
@@ -48,8 +54,11 @@ Usage:
   npm run dev -- query concentration [--limit 5] [--query <saved-query>] [--contract 0x...]
   npm run dev -- query balance --address 0x... [--query <saved-query> | --contract 0x...]
   npm run dev -- query controls [--contract 0x... | --token <name>] [--limit 20]
+  npm run dev -- query event-capabilities [--contract 0x... | --token <name>]
+  npm run dev -- query event-investigation --lead <lead-id> [--contract 0x... | --token <name>] [--limit 10]
   npm run dev -- query investigate [--contract 0x... | --token <name>] [--limit 5]
   npm run dev -- contract list-interfaces
+  npm run dev -- contract latest-block
   npm run dev -- contract investigate --contract 0x...
   npm run dev -- contract lookup --contract 0x...
   npm run dev -- contract import-lookup --contract 0x... --candidate 0 [--label fiattokenv1] [--starting-block 0]
@@ -171,6 +180,34 @@ async function handleQuery(args: string[]): Promise<void> {
     return;
   }
 
+  if (subcommand === "event-capabilities") {
+    console.log(
+      formatEventCapabilityInspection(
+        await inspectEventCapabilities({
+          contractAddress,
+          tokenName,
+        }),
+      ),
+    );
+    return;
+  }
+
+  if (subcommand === "event-investigation") {
+    const leadId = requireFlag(args, "--lead");
+    const limit = parsePositiveIntegerFlag(args, "--limit", 10);
+    console.log(
+      formatEventInvestigation(
+        await runEventInvestigation({
+          contractAddress,
+          leadId: leadId as Parameters<typeof runEventInvestigation>[0]["leadId"],
+          limit,
+          tokenName,
+        }),
+      ),
+    );
+    return;
+  }
+
   throw new Error(`Unknown query command: ${subcommand ?? "(missing)"}`);
 }
 
@@ -179,6 +216,11 @@ async function handleContract(args: string[]): Promise<void> {
 
   if (subcommand === "list-interfaces") {
     console.log(formatPreloadedInterfaceStatuses(await getPreloadedInterfaceCatalogStatus()));
+    return;
+  }
+
+  if (subcommand === "latest-block") {
+    console.log(await getLatestBlockNumber(resolveConfig()));
     return;
   }
 

@@ -78,6 +78,10 @@ export function containerInstructions(): string {
     "- Use `inspect_contract_interfaces` when you need to understand which preloaded interfaces are available or already linked for a contract.",
     "- Use `resolve_contract_target` when you need to turn a token name or contract address into a concrete target plus readiness state.",
     "- Use `get_token_metadata` for ERC-20 metadata questions such as name, symbol, decimals, or total supply.",
+    "- Use `inspect_event_capabilities` to inspect a linked or looked-up ABI surface, detect event families, and discover which bounded event-backed investigations are appropriate.",
+    "- Use `run_event_investigation` after `inspect_event_capabilities` when the user is asking for protocol activity, issuer activity, LP concentration, recent flow events, liquidator behavior, or other event-ledger intelligence.",
+    "- When a user asks what kinds of investigations are possible for a contract, answer from `inspect_event_capabilities` only. Do not infer possible investigations from the preloaded-interface catalog or from missing interface labels.",
+    "- When reporting available investigations, enumerate only the lead ids explicitly returned by `inspect_event_capabilities`. Do not add unsupported leads, even as examples or as 'not supported here' commentary.",
     "- Use `get_token_control_events` for blacklist, pause, upgrade, ownership, or role-history questions when the answer depends on emitted events rather than only current contract state.",
     "- Use `investigate_token` when the user asks for a broader token analysis, investigation, or summary.",
     "- For a raw address whose ABI or contract family is not already established, your first action should usually be `investigate_contract_address`; if you need more control, start with `lookup_contract_candidates`.",
@@ -86,6 +90,8 @@ export function containerInstructions(): string {
     "- If the user asks for decimals, symbol, name, or total supply and provides a contract address that is already known to be ERC-20-compatible, use `get_token_metadata` for that exact address.",
     "- Do not classify an address as an EOA or as a non-token without first checking `lookup_contract_candidates`, `inspect_contract_interfaces`, or `resolve_contract_target`.",
     "- If a user asks about holders, concentration, or metadata for a raw address, identify the contract surface first through `lookup_contract_candidates` or linked-interface inspection before answering.",
+    "- If a user asks what a contract does, what can be learned from its event history, or asks for non-token protocol intelligence, inspect the event surface first instead of jumping to an ERC-20 tool.",
+    "- Prefer `inspect_event_capabilities` before `run_event_investigation`; the point is to choose an event-backed path that fits the discovered ABI surface, not to blindly force a canned lead.",
     "- For ERC-20 top-holder requests, call `get_top_holders` with either `contractAddress` or `tokenName`.",
     "- For explicit balance lookups, call `get_address_balance` with either `contractAddress` or `tokenName`.",
     "- For explicit holder-concentration requests, call `get_holder_concentration` with either `contractAddress` or `tokenName`.",
@@ -113,6 +119,7 @@ export function containerInstructions(): string {
     "- When asked what is currently being tracked, call `list_balance_watches`.",
     "- Never guess balances, holder rankings, contract type, or token metadata without calling a tool.",
     "- Prefer event-query-backed tools when the user's question is about historical control changes, holder reconstruction, or other state that is not enumerable from current storage reads alone.",
+    "- For contracts like Uniswap pools, Aave pools, and stablecoin issuer proxies, use event-surface inspection to decide whether recent activity, LP/liquidator concentration, control history, or issuer activity is the right investigation.",
     "- Do not cite Etherscan or other external sources for these questions when the MCP tools can answer them.",
   ].join("\n");
 }

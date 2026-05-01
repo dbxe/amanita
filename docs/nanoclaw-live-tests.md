@@ -411,6 +411,145 @@ pnpm run chat -- "Let me know if 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172's ba
 
 - confirmed on CLI with a fresh NanoClaw session
 
+### G. Event-surface inspection on a linked local ERC-20
+
+**Goal:** the model can inspect a contract's ABI/event surface and identify the supported bounded investigation leads without the user naming tools.
+
+**Prompt**
+
+```bash
+cd ~/git/dbxe/nanoclaw
+pnpm run chat -- "Give me a quick investigation of 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59. What stands out about holder distribution?"
+```
+
+**Expected live behavior**
+
+- identifies the contract as Hello World Token
+- returns grounded holder-distribution analysis
+- does not cite external sources
+- does not ask for a saved query name
+
+**Host-side verification**
+
+```bash
+cd ~/git/dbxe/amanita
+MULTIBAAS_PROFILE=development npm run dev -- query investigate --contract 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59 --limit 20
+```
+
+**Validation note**
+
+- confirmed on CLI with a fresh NanoClaw session
+
+**Known failure mode**
+
+- a broader prompt like "What kinds of investigations are possible?" is still prone to overgeneralize unsupported leads in NanoClaw prose even though the host-side `query event-capabilities` output is correct. Treat that as an open instruction/response-shaping issue, not a closed regression.
+
+### H. Mainnet JPYC issuer and control-history investigation
+
+**Goal:** the model can use contract lookup, linked ABI surface, and event-backed investigations to answer a real mainnet stablecoin question.
+
+**Preconditions**
+
+- NanoClaw group configured against `MULTIBAAS_PROFILE=mainnet-remote`
+- JPYC proxy `0xE7C3D8C9a439feDe00D2600032D5dB0Be71C3c29` linked to `fiattokenv1`
+
+**Prompt**
+
+```bash
+cd ~/git/dbxe/nanoclaw
+pnpm run chat -- "What can you tell me about 0xE7C3D8C9a439feDe00D2600032D5dB0Be71C3c29? I care most about issuer activity and any meaningful control or upgrade history."
+```
+
+**Expected live behavior**
+
+- identifies the contract as JPYC / FiatTokenV1 behind a proxy
+- returns recent mint/burn activity with concrete actors and amounts
+- returns meaningful control / upgrade events
+- does not rely on Etherscan prose instead of the tool path
+
+**Host-side verification**
+
+```bash
+cd ~/git/dbxe/amanita
+MULTIBAAS_PROFILE=mainnet-remote npm run dev -- query event-capabilities --contract 0xE7C3D8C9a439feDe00D2600032D5dB0Be71C3c29
+MULTIBAAS_PROFILE=mainnet-remote npm run dev -- query event-investigation --contract 0xE7C3D8C9a439feDe00D2600032D5dB0Be71C3c29 --lead stablecoin_issuer_activity --limit 10
+MULTIBAAS_PROFILE=mainnet-remote npm run dev -- query event-investigation --contract 0xE7C3D8C9a439feDe00D2600032D5dB0Be71C3c29 --lead token_control_timeline --limit 10
+```
+
+**Validation note**
+
+- confirmed on CLI with a fresh NanoClaw session
+
+### I. Mainnet Uniswap v3 waiting-state and lead discovery
+
+**Goal:** the model chooses the event-capability path for a live protocol pool and reports a correct syncing state instead of inventing recent activity.
+
+**Preconditions**
+
+- NanoClaw group configured against `MULTIBAAS_PROFILE=mainnet-remote`
+- Uniswap V3 USDC/WETH 0.05% pool `0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640` linked from a bounded recent starting block
+
+**Prompt**
+
+```bash
+cd ~/git/dbxe/nanoclaw
+pnpm run chat -- "What stands out about the recent event activity of 0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640? If it's still syncing, tell me what analysis you'll be able to do once it's ready."
+```
+
+**Expected live behavior**
+
+- identifies the address as the Uniswap V3 USDC/WETH pool
+- reports `syncing` instead of inventing recent activity
+- names the bounded investigations that will be available once ready, such as recent activity and net liquidity
+
+**Host-side verification**
+
+```bash
+cd ~/git/dbxe/amanita
+MULTIBAAS_PROFILE=mainnet-remote npm run dev -- query event-capabilities --contract 0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640
+MULTIBAAS_PROFILE=mainnet-remote npm run dev -- query event-investigation --contract 0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640 --lead uniswap_v3_recent_activity --limit 5
+```
+
+**Validation note**
+
+- confirmed on CLI with a fresh NanoClaw session for the syncing/waiting-state path
+- full recent-activity investigation remains pending until the bounded mainnet sync completes
+
+### J. Mainnet Aave v3 waiting-state and lead discovery
+
+**Goal:** the model chooses the event-capability path for a live lending pool and reports the correct waiting state plus supported investigations.
+
+**Preconditions**
+
+- NanoClaw group configured against `MULTIBAAS_PROFILE=mainnet-remote`
+- Aave V3 Pool `0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2` linked from a bounded recent starting block
+
+**Prompt**
+
+```bash
+cd ~/git/dbxe/nanoclaw
+pnpm run chat -- "Take a look at 0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2. I'm interested in borrower flow and liquidator behavior. If it's still syncing, tell me what you'll be able to analyze once it's ready."
+```
+
+**Expected live behavior**
+
+- identifies the address as the Aave V3 Pool
+- reports `syncing` instead of inventing borrower/liquidation results
+- names the supported bounded investigations: net borrowers, top liquidators, recent activity
+
+**Host-side verification**
+
+```bash
+cd ~/git/dbxe/amanita
+MULTIBAAS_PROFILE=mainnet-remote npm run dev -- query event-capabilities --contract 0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2
+MULTIBAAS_PROFILE=mainnet-remote npm run dev -- query event-investigation --contract 0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2 --lead aave_v3_recent_activity --limit 5
+```
+
+**Validation note**
+
+- confirmed on CLI with a fresh NanoClaw session for the syncing/waiting-state path
+- full borrower/liquidator investigation remains pending until the bounded mainnet sync completes
+
 ## Useful troubleshooting checks
 
 If a live NanoClaw result looks wrong:

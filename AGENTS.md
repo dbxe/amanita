@@ -36,6 +36,7 @@ Do not reintroduce a workflow-specific natural-language routing layer as the mai
 - `src/contract-interface-service.ts` — preloaded-interface status, linking, and contract-interface inspection
 - `src/event-view.ts` — bounded intermediate spec for event-sourced analytical views and compilation into MultiBaas event queries
 - `src/event-view-service.ts` — runtime execution/formatting for event-sourced control-history reads
+- `src/event-intelligence-service.ts` — ABI/event-surface inspection plus bounded event-backed investigation-lead discovery and execution
 - `src/investigation-service.ts` — typed token investigation and grounded signal synthesis over metadata plus analytical views
 - `src/runtime-types.ts` — neutral runtime state and execution-plan types
 - `src/readiness.ts` — readiness classification and balance-monitor readiness evaluation

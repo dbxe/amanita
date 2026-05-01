@@ -206,6 +206,14 @@ The decimals example should be solvable entirely through this layer.
 
 The next concrete milestone after metadata is a grounded investigation slice: a tool that can combine target resolution, readiness, metadata, concentration, and top-holder context into a bounded token analysis without inventing unsupported claims.
 
+That investigation slice should now be understood more broadly than token metadata plus holder concentration. The current Phase 02 runtime should expose:
+
+- event-surface inspection over linked or looked-up ABI definitions
+- supported bounded investigation leads derived from that detected event surface
+- bounded event-backed execution for those leads once MultiBaas readiness is `ready`
+
+This is the bridge between fixed workflow tools and the longer-term north star of compiling typed event-query intent from first principles.
+
 ### C. Typed state reads
 
 For supported interfaces and protocol families, add typed reads for:

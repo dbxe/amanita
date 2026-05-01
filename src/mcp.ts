@@ -18,6 +18,12 @@ import {
   lookupContractCandidatesForAddress,
 } from "./contract-lookup-service.js";
 import { resolveConfig } from "./config.js";
+import {
+  formatEventCapabilityInspection,
+  formatEventInvestigation,
+  inspectEventCapabilities,
+  runEventInvestigation,
+} from "./event-intelligence-service.js";
 import { formatTokenControlEvents, getTokenControlEvents } from "./event-view-service.js";
 import { evaluatePendingHolderQueries, getTopHoldersForTokenTarget } from "./holder-query-service.js";
 import { formatTokenInvestigation, investigateToken } from "./investigation-service.js";
@@ -228,6 +234,57 @@ server.tool(
       }],
     };
   },
+);
+
+server.tool(
+  "inspect_event_capabilities",
+  {
+    contractAddress: z.string().min(1).optional(),
+    tokenName: z.string().min(1).optional(),
+  },
+  async ({ contractAddress, tokenName }) => ({
+    content: [{
+      type: "text",
+      text: formatEventCapabilityInspection(
+        await inspectEventCapabilities({
+          contractAddress,
+          tokenName,
+        }),
+      ),
+    }],
+  }),
+);
+
+server.tool(
+  "run_event_investigation",
+  {
+    contractAddress: z.string().min(1).optional(),
+    leadId: z.enum([
+      "holder_distribution",
+      "token_control_timeline",
+      "stablecoin_issuer_activity",
+      "uniswap_v3_net_liquidity",
+      "uniswap_v3_recent_activity",
+      "aave_v3_net_borrowers",
+      "aave_v3_top_liquidators",
+      "aave_v3_recent_activity",
+    ]),
+    limit: z.number().int().min(1).max(100).optional(),
+    tokenName: z.string().min(1).optional(),
+  },
+  async ({ contractAddress, leadId, limit, tokenName }) => ({
+    content: [{
+      type: "text",
+      text: formatEventInvestigation(
+        await runEventInvestigation({
+          contractAddress,
+          leadId,
+          limit,
+          tokenName,
+        }),
+      ),
+    }],
+  }),
 );
 
 server.tool(

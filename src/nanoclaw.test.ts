@@ -24,6 +24,10 @@ test("containerInstructions steer NanoClaw away from saved queries for ERC-20 ho
   assert.match(instructions, /import_contract_lookup_candidate/i);
   assert.match(instructions, /inspect_contract_interfaces/i);
   assert.match(instructions, /get_token_metadata/i);
+  assert.match(instructions, /inspect_event_capabilities/i);
+  assert.match(instructions, /run_event_investigation/i);
+  assert.match(instructions, /what kinds of investigations are possible for a contract.*inspect_event_capabilities` only/i);
+  assert.match(instructions, /enumerate only the lead ids explicitly returned by `inspect_event_capabilities`/i);
   assert.match(instructions, /get_token_control_events/i);
   assert.match(instructions, /investigate_token/i);
   assert.match(instructions, /do not ask the user for a saved query name/i);
@@ -33,6 +37,8 @@ test("containerInstructions steer NanoClaw away from saved queries for ERC-20 ho
   assert.match(instructions, /if the user asks for decimals.*already known to be ERC-20-compatible.*get_token_metadata/i);
   assert.match(instructions, /do not classify an address as an EOA/i);
   assert.match(instructions, /if a user asks about holders, concentration, or metadata for a raw address.*identify the contract surface first/i);
+  assert.match(instructions, /what a contract does.*event history.*event surface first/i);
+  assert.match(instructions, /prefer `inspect_event_capabilities` before `run_event_investigation`/i);
   assert.match(instructions, /get_top_holders.*contractAddress.*tokenName/i);
   assert.match(instructions, /do not infer total supply, concentration, or percentages unless you separately call `get_holder_concentration` or `get_token_metadata`/i);
   assert.match(instructions, /get_address_balance.*contractAddress.*tokenName/i);
@@ -51,6 +57,7 @@ test("containerInstructions steer NanoClaw away from saved queries for ERC-20 ho
   assert.match(instructions, /if a balance question includes only one address.*treat that address as the holder or wallet by default.*ask which token/i);
   assert.match(instructions, /do not cite Etherscan or other external sources/i);
   assert.match(instructions, /Prefer event-query-backed tools when the user's question is about historical control changes/i);
+  assert.match(instructions, /Uniswap pools, Aave pools, and stablecoin issuer proxies.*event-surface inspection/i);
   assert.doesNotMatch(instructions, /default saved query/i);
 });
 
