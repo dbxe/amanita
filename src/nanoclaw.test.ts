@@ -18,6 +18,7 @@ test("deriveContainerBaseUrl preserves non-local hosts", () => {
 test("containerInstructions steer NanoClaw away from saved queries for ERC-20 holder requests", () => {
   const instructions = containerInstructions();
 
+  assert.match(instructions, /investigate_contract_address/i);
   assert.match(instructions, /resolve_contract_target/i);
   assert.match(instructions, /lookup_contract_candidates/i);
   assert.match(instructions, /import_contract_lookup_candidate/i);
@@ -26,16 +27,23 @@ test("containerInstructions steer NanoClaw away from saved queries for ERC-20 ho
   assert.match(instructions, /get_token_control_events/i);
   assert.match(instructions, /investigate_token/i);
   assert.match(instructions, /do not ask the user for a saved query name/i);
-  assert.match(instructions, /if the user asks for decimals.*get_token_metadata/i);
+  assert.match(instructions, /raw address whose ABI or contract family is not already established.*investigate_contract_address/i);
+  assert.match(instructions, /do not assume a raw address is an ERC-20/i);
+  assert.match(instructions, /only use ERC-20-specific tools.*after lookup or linked-interface evidence/i);
+  assert.match(instructions, /if the user asks for decimals.*already known to be ERC-20-compatible.*get_token_metadata/i);
   assert.match(instructions, /do not classify an address as an EOA/i);
-  assert.match(instructions, /if a user asks about holders, concentration, or metadata for a raw address/i);
+  assert.match(instructions, /if a user asks about holders, concentration, or metadata for a raw address.*identify the contract surface first/i);
   assert.match(instructions, /get_top_holders.*contractAddress.*tokenName/i);
   assert.match(instructions, /do not infer total supply, concentration, or percentages unless you separately call `get_holder_concentration` or `get_token_metadata`/i);
   assert.match(instructions, /get_address_balance.*contractAddress.*tokenName/i);
   assert.match(instructions, /get_holder_concentration.*contractAddress.*tokenName/i);
   assert.match(instructions, /create_balance_watch.*contractAddress.*tokenName/i);
-  assert.match(instructions, /contract-interface coverage or linking questions.*inspect_contract_interfaces.*ensure_contract_interface/i);
-  assert.match(instructions, /live address.*not yet known.*proxy.*lookup_contract_candidates.*import_contract_lookup_candidate/i);
+  assert.match(instructions, /contract-interface coverage questions.*inspect_contract_interfaces/i);
+  assert.match(instructions, /use `ensure_contract_interface` only for explicit manual linking requests/i);
+  assert.match(instructions, /do not use `ensure_contract_interface` as the default onboarding path/i);
+  assert.match(instructions, /live address.*not yet known.*proxy.*investigate_contract_address.*identify candidates.*import the clear best candidate.*report readiness/i);
+  assert.match(instructions, /if contract lookup returns a clear best candidate, import it and continue without asking the user to approve/i);
+  assert.match(instructions, /if contract lookup does not return a credible candidate, ask the user for clarification/i);
   assert.match(instructions, /blacklist, pause, ownership, role, or upgrade-history questions.*get_token_control_events/i);
   assert.match(instructions, /broader token investigation requests.*investigate_token/i);
   assert.match(instructions, /evaluate_tasks/i);

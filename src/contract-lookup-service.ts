@@ -2,6 +2,7 @@ import { resolveConfig } from "./config.js";
 import { inspectContractInterfaces, type ContractInterfaceInspection } from "./contract-interface-service.js";
 import {
   createContractDefinition,
+  getErc20Metadata,
   getContractDefinition,
   getContractLookupCandidates,
   linkAddressToContract,
@@ -26,6 +27,7 @@ export interface ContractLookupCandidateSummary {
 
 export interface ContractLookupResult {
   candidates: ContractLookupCandidateSummary[];
+  preferredCandidateIndex?: number;
   searchedAddress: string;
 }
 
@@ -35,6 +37,45 @@ export interface ImportContractLookupCandidateResult {
   contractVersion: string;
   inspection: ContractInterfaceInspection;
   searchedAddress: string;
+}
+
+export interface ContractAddressInvestigationResult {
+  importAttempted: boolean;
+  importError?: string;
+  importedCandidate?: ContractLookupCandidateSummary;
+  importedContractLabel?: string;
+  importedContractVersion?: string;
+  inspection: ContractInterfaceInspection;
+  lookup: ContractLookupResult;
+  metadata?: Awaited<ReturnType<typeof getErc20Metadata>>;
+}
+
+function scoreLookupCandidate(candidate: ContractLookupCandidate): number {
+  const functionCount = countAbiEntries(candidate.abi, "function");
+  const eventCount = countAbiEntries(candidate.abi, "event");
+  const proxyNamePenalty = /proxy/i.test(candidate.name ?? "") ? 5_000 : 0;
+
+  return (
+    (candidate.verified ? 100_000 : 0)
+    + (functionCount * 100)
+    + eventCount
+    + (candidate.bytecode && candidate.bytecode !== "0x" ? 10 : 0)
+    - proxyNamePenalty
+  );
+}
+
+export function selectBestContractLookupCandidateIndex(candidates: ContractLookupCandidate[]): number {
+  if (candidates.length === 0) {
+    throw new Error("No contract lookup candidates were provided.");
+  }
+
+  return candidates
+    .map((candidate, index) => ({
+      candidate,
+      index,
+      score: scoreLookupCandidate(candidate),
+    }))
+    .sort((left, right) => right.score - left.score)[0].index;
 }
 
 function countAbiEntries(abi: string, fragmentType: "event" | "function"): number {
@@ -122,12 +163,13 @@ async function ensureLookupDefinition(input: {
       version: input.contractVersion,
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    if (!message.includes("(409)")) {
+    let existing;
+    try {
+      existing = await getContractDefinition(config, input.contractLabel);
+    } catch {
       throw error;
     }
 
-    const existing = await getContractDefinition(config, input.contractLabel);
     if (
       input.candidate.name
       && existing.contractName
@@ -146,6 +188,7 @@ export async function lookupContractCandidatesForAddress(address: string): Promi
 
   return {
     candidates: candidates.map((candidate, index) => summarizeLookupCandidate(candidate, index)),
+    preferredCandidateIndex: candidates.length > 0 ? selectBestContractLookupCandidateIndex(candidates) : undefined,
     searchedAddress: normalizedAddress,
   };
 }
@@ -195,6 +238,72 @@ export async function importContractLookupCandidateForAddress(input: {
   };
 }
 
+export async function importBestContractLookupCandidateForAddress(input: {
+  address: string;
+  contractLabel?: string;
+  contractVersion?: string;
+  startingBlock?: string;
+}): Promise<ImportContractLookupCandidateResult> {
+  const normalizedAddress = normalizeAddress(input.address);
+  const candidates = await getContractLookupCandidates(resolveConfig(), normalizedAddress);
+  if (candidates.length === 0) {
+    throw new Error(`No contract lookup candidates were returned for ${normalizedAddress}.`);
+  }
+  return importContractLookupCandidateForAddress({
+    address: normalizedAddress,
+    candidateIndex: selectBestContractLookupCandidateIndex(candidates),
+    contractLabel: input.contractLabel,
+    contractVersion: input.contractVersion,
+    startingBlock: input.startingBlock,
+  });
+}
+
+export async function investigateContractAddress(address: string): Promise<ContractAddressInvestigationResult> {
+  const normalizedAddress = normalizeAddress(address);
+  const [lookup, initialInspection] = await Promise.all([
+    lookupContractCandidatesForAddress(normalizedAddress),
+    inspectContractInterfaces(normalizedAddress),
+  ]);
+
+  let inspection = initialInspection;
+  let importAttempted = false;
+  let importError: string | undefined;
+  let importedCandidate: ContractLookupCandidateSummary | undefined;
+  let importedContractLabel: string | undefined;
+  let importedContractVersion: string | undefined;
+
+  if (inspection.readiness.state === "needs-link" && lookup.preferredCandidateIndex !== undefined) {
+    importAttempted = true;
+    try {
+      const imported = await importContractLookupCandidateForAddress({
+        address: normalizedAddress,
+        candidateIndex: lookup.preferredCandidateIndex,
+      });
+      inspection = imported.inspection;
+      importedCandidate = imported.candidate;
+      importedContractLabel = imported.contractLabel;
+      importedContractVersion = imported.contractVersion;
+    } catch (error) {
+      importError = error instanceof Error ? error.message : String(error);
+    }
+  }
+
+  const metadata = inspection.readiness.state !== "needs-link"
+    ? await getErc20Metadata(resolveConfig(), normalizedAddress).catch(() => undefined)
+    : undefined;
+
+  return {
+    importAttempted,
+    importError,
+    importedCandidate,
+    importedContractLabel,
+    importedContractVersion,
+    inspection,
+    lookup,
+    metadata,
+  };
+}
+
 export function formatContractLookupResult(result: ContractLookupResult): string {
   const lines = [
     "Contract lookup candidates",
@@ -210,7 +319,7 @@ export function formatContractLookupResult(result: ContractLookupResult): string
   lines.push("", "Candidates");
   for (const candidate of result.candidates) {
     lines.push(
-      `- [${candidate.index}] ${candidate.name ?? "unnamed"} @ ${candidate.address}`,
+      `- [${candidate.index}] ${candidate.name ?? "unnamed"} @ ${candidate.address}${candidate.index === result.preferredCandidateIndex ? " [preferred]" : ""}`,
     );
     lines.push(
       `  verified=${candidate.verified ? "yes" : "no"}${candidate.verifiedSource ? ` source=${candidate.verifiedSource}` : ""} proxy=${candidate.proxy ? "yes" : "no"} functions=${candidate.abiFunctionCount} events=${candidate.abiEventCount}`,
@@ -233,6 +342,62 @@ export function formatImportContractLookupCandidateResult(result: ImportContract
     `Contract version: ${result.contractVersion}`,
     `Readiness: ${result.inspection.readiness.state}`,
   ];
+
+  if (result.inspection.linkedContracts.length > 0) {
+    lines.push("", "Linked contracts");
+    for (const linked of result.inspection.linkedContracts) {
+      lines.push(`- ${linked.contractLabel}${linked.contractVersion ? ` ${linked.contractVersion}` : ""}`);
+    }
+  }
+
+  return lines.join("\n");
+}
+
+export function formatContractAddressInvestigationResult(result: ContractAddressInvestigationResult): string {
+  const lines = [
+    "Contract address investigation",
+    "",
+    `Address: ${result.inspection.address}`,
+    `Readiness: ${result.inspection.readiness.state}`,
+  ];
+
+  if (result.lookup.candidates.length > 0) {
+    lines.push("", "Lookup candidates");
+    for (const candidate of result.lookup.candidates) {
+      lines.push(
+        `- [${candidate.index}] ${candidate.name ?? "unnamed"} @ ${candidate.address}${candidate.index === result.lookup.preferredCandidateIndex ? " [preferred]" : ""}`,
+      );
+      lines.push(
+        `  verified=${candidate.verified ? "yes" : "no"}${candidate.verifiedSource ? ` source=${candidate.verifiedSource}` : ""} proxy=${candidate.proxy ? "yes" : "no"} functions=${candidate.abiFunctionCount} events=${candidate.abiEventCount}`,
+      );
+    }
+  } else {
+    lines.push("", "Lookup candidates", "- none");
+  }
+
+  if (result.importAttempted) {
+    if (result.importedCandidate && result.importedContractLabel && result.importedContractVersion) {
+      lines.push(
+        "",
+        `Imported: [${result.importedCandidate.index}] ${result.importedCandidate.name ?? "unnamed"} as ${result.importedContractLabel} ${result.importedContractVersion}`,
+      );
+    } else if (result.importError) {
+      lines.push("", `Import failed: ${result.importError}`);
+    }
+  }
+
+  if (result.metadata?.name || result.metadata?.symbol) {
+    lines.push(
+      "",
+      `Token: ${result.metadata?.name ?? "unknown"}${result.metadata?.symbol ? ` (${result.metadata.symbol})` : ""}`,
+    );
+    if (result.metadata?.decimals !== undefined) {
+      lines.push(`Decimals: ${result.metadata.decimals}`);
+    }
+    if (result.metadata?.totalSupply) {
+      lines.push(`Total supply (raw): ${result.metadata.totalSupply}`);
+    }
+  }
 
   if (result.inspection.linkedContracts.length > 0) {
     lines.push("", "Linked contracts");

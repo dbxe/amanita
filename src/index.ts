@@ -1,6 +1,8 @@
 import {
+  formatContractAddressInvestigationResult,
   formatContractLookupResult,
   formatImportContractLookupCandidateResult,
+  investigateContractAddress,
   importContractLookupCandidateForAddress,
   lookupContractCandidatesForAddress,
 } from "./contract-lookup-service.js";
@@ -41,6 +43,7 @@ Usage:
   npm run dev -- query controls [--contract 0x... | --token <name>] [--limit 20]
   npm run dev -- query investigate [--contract 0x... | --token <name>] [--limit 5]
   npm run dev -- contract list-interfaces
+  npm run dev -- contract investigate --contract 0x...
   npm run dev -- contract lookup --contract 0x...
   npm run dev -- contract import-lookup --contract 0x... --candidate 0 [--label fiattokenv1] [--starting-block 0]
   npm run dev -- contract preload-interfaces [--labels erc20interface,fiattokenv2interface]
@@ -175,6 +178,12 @@ async function handleContract(args: string[]): Promise<void> {
   if (subcommand === "lookup") {
     const contractAddress = requireFlag(args, "--contract");
     console.log(formatContractLookupResult(await lookupContractCandidatesForAddress(contractAddress)));
+    return;
+  }
+
+  if (subcommand === "investigate") {
+    const contractAddress = requireFlag(args, "--contract");
+    console.log(formatContractAddressInvestigationResult(await investigateContractAddress(contractAddress)));
     return;
   }
 

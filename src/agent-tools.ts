@@ -7,8 +7,10 @@ export {
   preloadKnownInterfaces,
 } from "./contract-interface-service.js";
 export {
+  formatContractAddressInvestigationResult,
   formatContractLookupResult,
   formatImportContractLookupCandidateResult,
+  investigateContractAddress,
   importContractLookupCandidateForAddress,
   lookupContractCandidatesForAddress,
 } from "./contract-lookup-service.js";

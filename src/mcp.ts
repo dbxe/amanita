@@ -10,8 +10,10 @@ import {
   inspectContractInterfaces,
 } from "./contract-interface-service.js";
 import {
+  formatContractAddressInvestigationResult,
   formatContractLookupResult,
   formatImportContractLookupCandidateResult,
+  investigateContractAddress,
   importContractLookupCandidateForAddress,
   lookupContractCandidatesForAddress,
 } from "./contract-lookup-service.js";
@@ -41,6 +43,19 @@ server.tool("list_preloaded_interfaces", {}, async () => ({
     text: formatPreloadedInterfaceStatuses(await getPreloadedInterfaceCatalogStatus()),
   }],
 }));
+
+server.tool(
+  "investigate_contract_address",
+  {
+    contractAddress: z.string().min(1),
+  },
+  async ({ contractAddress }) => ({
+    content: [{
+      type: "text",
+      text: formatContractAddressInvestigationResult(await investigateContractAddress(contractAddress)),
+    }],
+  }),
+);
 
 server.tool(
   "lookup_contract_candidates",

@@ -37,6 +37,12 @@ test("formatTokenInvestigation renders readiness, concentration, and signals", (
       symbol: "HWT",
       totalSupply: "1000000000000000000000",
     },
+    onboarding: {
+      candidateAddress: "0ximpl",
+      candidateName: "FiatTokenV1",
+      contractLabel: "fiattokenv1",
+      contractVersion: "1.0",
+    },
     readiness: {
       address: "0xabc",
       isProcessingPastLogs: false,
@@ -56,6 +62,7 @@ test("formatTokenInvestigation renders readiness, concentration, and signals", (
 
   assert.match(text, /Token investigation/);
   assert.match(text, /Hello World Token/);
+  assert.match(text, /Onboarding: imported FiatTokenV1 @ 0ximpl as fiattokenv1 1.0/);
   assert.match(text, /Top 5 concentration: 15.60% \(1560 bps\)/);
   assert.match(text, /\[medium\] The largest holder alone controls 9.80%/);
 });

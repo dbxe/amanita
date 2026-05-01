@@ -1,4 +1,5 @@
 import { resolveConfig } from "./config.js";
+import { importBestContractLookupCandidateForAddress } from "./contract-lookup-service.js";
 import {
   type ContractReadiness,
   getErc20Metadata,
@@ -20,6 +21,12 @@ export interface InvestigationSignal {
 export interface TokenInvestigationResult {
   concentration?: Awaited<ReturnType<typeof getContractHolderConcentration>>;
   metadata?: Awaited<ReturnType<typeof getErc20Metadata>>;
+  onboarding?: {
+    candidateAddress: string;
+    candidateName?: string;
+    contractLabel: string;
+    contractVersion: string;
+  };
   readiness?: ContractReadiness;
   requestedLimit: number;
   resolvedAddress?: string;
@@ -112,12 +119,32 @@ export async function investigateToken(request: TokenInvestigationRequest): Prom
   }
 
   const config = resolveConfig();
-  const readiness = await resolveContractReadiness(config, resolved.address);
+  let readiness = await resolveContractReadiness(config, resolved.address);
+  let onboarding: TokenInvestigationResult["onboarding"];
+
+  if (request.contractAddress && readiness.state === "needs-link") {
+    try {
+      const imported = await importBestContractLookupCandidateForAddress({
+        address: resolved.address,
+      });
+      onboarding = {
+        candidateAddress: imported.candidate.address,
+        candidateName: imported.candidate.name,
+        contractLabel: imported.contractLabel,
+        contractVersion: imported.contractVersion,
+      };
+      readiness = imported.inspection.readiness;
+    } catch {
+      // Leave the token in its original waiting state when lookup import is unavailable.
+    }
+  }
+
   const metadata = await getErc20Metadata(config, resolved.address);
 
   if (readiness.state !== "ready") {
     return {
       metadata,
+      onboarding,
       readiness,
       requestedLimit,
       resolvedAddress: resolved.address,
@@ -134,6 +161,7 @@ export async function investigateToken(request: TokenInvestigationRequest): Prom
   return {
     concentration,
     metadata,
+    onboarding,
     readiness,
     requestedLimit,
     resolvedAddress: resolved.address,
@@ -172,6 +200,11 @@ export function formatTokenInvestigation(result: TokenInvestigationResult): stri
   }
   if (result.readiness) {
     lines.push(`Readiness: ${result.readiness.state}`);
+  }
+  if (result.onboarding) {
+    lines.push(
+      `Onboarding: imported ${result.onboarding.candidateName ?? "lookup candidate"} @ ${result.onboarding.candidateAddress} as ${result.onboarding.contractLabel} ${result.onboarding.contractVersion}`,
+    );
   }
 
   if (result.concentration) {

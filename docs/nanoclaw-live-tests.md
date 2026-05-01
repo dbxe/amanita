@@ -63,6 +63,8 @@ CLI success does **not** prove Discord or DM success. Those channels may resume 
 
 Judge a live NanoClaw run by capability correctness, not exact wording.
 
+Prompts should be phrased like normal user requests. Do not bake internal tool names or implementation steps into the live prompt unless you are explicitly testing whether the agent can explain or expose those internals.
+
 A pass means:
 
 - the model used the mounted tool surface successfully
@@ -75,6 +77,7 @@ Do not fail a run just because the phrasing changed. Do fail it if the answer:
 - invents values
 - cites external sources instead of the tool path
 - asks for a saved query name on an explicit contract-targeted request
+- only succeeds because the prompt told it exactly which internal tool to call
 - resumes stale session state and answers from the wrong context
 
 ## After CLI passes, how to reconfirm on Discord or DM
