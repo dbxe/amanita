@@ -5,6 +5,7 @@ This repo is evolving from a thin MultiBaas/NanoClaw harness into a **protocol i
 The architectural north star is:
 
 - reusable MultiBaas-backed domain capabilities
+- event-query-driven reconstruction of non-enumerable protocol state
 - explicit readiness, waiting, and execution state
 - LLM tool composition over those capabilities
 - less reliance over time on workflow-specific natural-language routing
@@ -49,6 +50,7 @@ The remaining pressure point is capability breadth, not a workflow router:
 
 - the current capability surface is still ERC-20-centric
 - multi-step investigation flows are still thin
+- event-query construction is still mostly runtime-authored rather than model-composed
 - Discord/DM validation still trails CLI validation
 
 Those are now the main architectural drag on the Phase 02 direction.
@@ -58,11 +60,15 @@ Those are now the main architectural drag on the Phase 02 direction.
 Do not do a broad refactor with vague abstractions. The next useful moves are narrow and directional:
 
 1. expand typed capability families beyond current ERC-20 reads
-2. add investigation-oriented multi-tool flows
-3. keep MCP and CLI entrypoints thin and schema-driven
-4. extend live validation from CLI into Discord/DM on the new capability paths
+2. add live-contract onboarding and ABI acquisition flows
+3. add investigation-oriented multi-tool flows
+4. add bounded event-query synthesis and compilation
+5. keep MCP and CLI entrypoints thin and schema-driven
+6. extend live validation from CLI into Discord/DM on the new capability paths
 
 That keeps the runtime oriented around capabilities rather than sliding back into prompt-matched workflow growth.
+
+Near-term, "ABI acquisition" should be read pragmatically. The hackathon-friendly version is a strong preloaded interface library plus runtime matching and linking on live contracts. Fully autonomous ABI discovery and upload can remain a later extension once the bounded event-query and live-network demo paths are solid.
 
 ## Local reference repos
 

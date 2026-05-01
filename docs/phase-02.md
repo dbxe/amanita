@@ -20,6 +20,10 @@ Turn the current harness from a small set of workflow-specific operations into a
 
 The target is not "support more canned prompts." The target is a reusable tool substrate that can answer a wider domain of protocol questions without hardcoding each path.
 
+The strongest form of that target is an agent that can be pointed at a live contract or contract suite, ensure the relevant interface is available, ensure the contract is onboarded and indexed in MultiBaas, and then synthesize the right event-sourced view or contract read to answer the user's question.
+
+Autonomous ABI discovery and upload is part of the longer-term direction, but it is not required to make Phase 02 real. For the hackathon path, a practical and acceptable strategy is to preload MultiBaas with a wide but finite set of useful interfaces and let the runtime match live contracts against that library before attempting more open-ended ABI acquisition flows.
+
 ## Why the direction changed
 
 The current MVP proved two things:
@@ -49,9 +53,12 @@ That means:
 The product value is in this combination:
 
 - domain-aware tool composition
+- event-query synthesis for non-enumerable onchain state
 - operational awareness of MultiBaas prerequisites
 - durable task state for long-running work
 - trustworthy answers tied to concrete execution
+
+This matters because many of the highest-value protocol questions cannot be answered from current contract state alone. They require reconstructing state from emitted events: holder sets hidden behind mappings, blacklist history, LP concentration by range, liquidation flows, bridge backlogs, governance/control-surface changes, and similar event-ledger problems.
 
 ## Core principle
 
@@ -75,6 +82,8 @@ Better direction:
 - create and evaluate typed monitors
 - persist and resume blocked work
 
+In the longer Phase 02 direction, "execute typed event-sourced analytical views" should grow into "synthesize typed event-query views from first principles," with the runtime owning the safety rails and compilation boundary.
+
 The model should compose these capabilities as needed.
 
 ## Architectural direction
@@ -90,9 +99,11 @@ It should expose reusable operations such as:
 - resolve token / contract target
 - inspect address registration, contract definition, and indexing readiness
 - ensure contract onboarding where policy allows it
+- acquire, validate, or select ABI/interface sources for live contracts where policy allows it
 - call read-only ERC-20 metadata methods
 - call read-only typed contract methods for supported interfaces
 - execute typed analytical views over event history
+- synthesize bounded event-query specs for reconstructable state
 - create and evaluate monitors against typed view specs
 
 These operations should live in the harness, not in prompt text.
@@ -109,6 +120,12 @@ This layer adapts the capability layer into MCP and CLI tools with:
 Phase 02 also needs runtime-surface health checks, not just more tools. A capability is not real if the mounted MCP server can fail during startup and silently disappear from the agent's toolset. Keep process-level smoke coverage for MCP startup as part of this layer.
 
 The model should be able to call these tools directly and combine them.
+
+For event-query work, the model should not emit unconstrained backend payloads as its primary interface. The safer boundary is:
+
+- the model reasons over a typed event-query intent or view-spec vocabulary
+- the runtime validates and compiles that spec into MultiBaas query syntax
+- the runtime owns network, ABI, onboarding, sync, and execution-state handling
 
 ### 3. Thin planner / interpreter layer
 
@@ -209,6 +226,31 @@ Keep and generalize the existing strengths:
 
 But represent them as typed analytical capabilities rather than fixed prompt paths.
 
+The north-star extension of this family is event-query synthesis over live contracts:
+
+- infer which event streams are relevant to the user's question
+- understand when storage is non-enumerable and event reconstruction is the right path
+- build a bounded analytical view spec
+- compile it to MultiBaas event-query syntax
+- execute it against a live indexed network
+- explain the answer in terms of the underlying event-derived evidence
+
+The canonical example is ERC-20 holder reconstruction from `Transfer(from,to,value)`, but the intended product surface extends to protocol suites where the important state is distributed across event-ledger transitions rather than enumerable storage reads.
+
+### E. Live-network onboarding and indexing
+
+The current local fixture is still useful for deterministic development, but Phase 02 must also support a live-network demo path.
+
+That means the runtime needs explicit capabilities for:
+
+- switching to a MultiBaas instance connected to a real network
+- resolving live contracts and contract suites
+- selecting from preloaded interfaces and, where needed, finding or accepting ABIs
+- uploading definitions and linking contracts where policy allows it
+- waiting for indexing / sync progress before analytical execution
+
+Hackathon demo readiness depends on this path, not only on the local fixture.
+
 ## Relationship to MultiBaas
 
 The system should rely on MultiBaas as the execution substrate, but the model should not need to understand raw API shapes to use it effectively.
@@ -219,11 +261,15 @@ The harness should continue to own:
 - isolated HTTP fallbacks where necessary
 - readiness and waiting-state interpretation
 - reusable event-query generation
+- bounded event-query compilation from typed intermediate specs
 - typed contract method access
+- live-contract onboarding and interface / ABI management policy
 
 Explicit contract-targeted analytical views must derive their own source from that target. Do not route explicit contract views back through `defaultQueryName` or any saved-query fallback.
 
 The model should consume this through tool descriptions and structured outputs, not by inventing backend requests.
+
+In practical terms, the runtime should gradually learn more of the underlying MultiBaas surface: SDK, OpenAPI-described endpoints, and docs-backed semantics. But that exposure should be mediated through runtime-owned tools and compilers, not by making the LLM hand-author raw backend payloads as the default interaction model.
 
 ## Proposed MCP evolution
 
@@ -239,6 +285,16 @@ The next MCP generation should include tools shaped more like:
 - `evaluate_tasks`
 - `list_balance_watches`
 
+The next stage after that should include event-query-oriented tools such as:
+
+- `find_contract_abi`
+- `register_contract_definition`
+- `link_contract_instance`
+- `inspect_indexing_status`
+- `build_event_view_spec`
+- `execute_event_view`
+- `investigate_protocol_surface`
+
 `get_token_metadata` can start with:
 
 - address
@@ -248,6 +304,8 @@ The next MCP generation should include tools shaped more like:
 - totalSupply
 
 That is already enough to answer a class of questions that the current workflow model cannot handle well.
+
+The eventual goal is not to expose the entire backend raw. The goal is to expose enough of the underlying capability surface that the model can investigate from first principles while the runtime preserves validation, boundedness, and execution trustworthiness.
 
 ## Interpretation policy
 
