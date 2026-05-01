@@ -215,6 +215,16 @@ pnpm run chat -- "Check watches"
 
 After that works, validate the channel-facing experience through Discord or DM with the same prompts.
 
+Do not call that handoff "live validated" unless the **target channel** was rerun after the relevant restart or session reset. CLI success is useful, but it does **not** prove Discord or DM success because those channels can resume a long-lived session with stale continuation or pending-question state.
+
+For any handoff that claims a live NanoClaw fix, record:
+
+1. the repo commit that was tested
+2. the exact group folder and channel that were rerun
+3. the exact prompt used
+4. whether you used full service restart or `docker stop <exact-container-name>`
+5. any channels you did **not** rerun yet
+
 Recommended validation order:
 
 1. run the preflight above so the live test starts from fresh runtime state
@@ -225,6 +235,8 @@ Recommended validation order:
 6. run top holders
 7. create and list a watch
 8. move on to webhook and alert validation last
+
+If the bug was reported in Discord or DM, rerun that same channel before concluding the fix is done. Do not substitute a CLI-only check for a Discord/DM regression.
 
 ## Webhook-driven notifications
 

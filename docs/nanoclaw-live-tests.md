@@ -42,6 +42,18 @@ docker ps --format 'table {{.Names}}\t{{.Status}}'
 docker stop <exact-container-name>
 ```
 
+CLI success does **not** prove Discord or DM success. Those channels may resume an older session with preserved continuation or pending-question state, so rerun the exact affected channel before calling a live issue fixed.
+
+## Handoff checklist
+
+Do not hand off a NanoClaw change as "working" without writing down:
+
+1. the repo commit that was tested
+2. the exact group folder and channel that were rerun
+3. the exact prompt or prompts used
+4. whether the test used a full NanoClaw restart or an exact-container reset
+5. which live channels were **not** rerun yet
+
 ## How to extend this file
 
 Add new tests as one section per scenario with:
@@ -216,3 +228,5 @@ tail -n 120 ~/git/qwibitai/nanoclaw/logs/nanoclaw.error.log
 ```
 
 4. confirm MultiBaas state from the host with the repo-local CLI or `dist/multibaas.js` helpers
+
+5. if CLI works but Discord or DM repeats an older question or tool prompt, treat that as a stale-session/channel-specific failure. Inspect the target session's `messages_out` and `session_state`, then stop the exact container for that channel before rerunning the same prompt there.
