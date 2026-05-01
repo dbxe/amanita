@@ -44,15 +44,32 @@ docker stop <exact-container-name>
 
 CLI success does **not** prove Discord or DM success. Those channels may resume an older session with preserved continuation or pending-question state, so rerun the exact affected channel before calling a live issue fixed.
 
+## After CLI passes, how to reconfirm on Discord or DM
+
+Use CLI as the development lane, then do this before asking the user to recheck the same behavior in Discord or DM:
+
+1. if mounted harness code changed, run `npm test` so `dist/` is current
+2. if `src/nanoclaw.ts` or generated `container.json` behavior changed, rerun `nanoclaw configure` for the target group
+3. stop the exact target-channel container so the next inbound message gets a fresh container and fresh MCP/session state
+4. resend the same prompt in the target channel
+
+Concrete reset:
+
+```bash
+docker ps --format 'table {{.Names}}\t{{.Status}}'
+docker stop <exact-container-name>
+```
+
+For this repo's normal developer flow, CLI validation can happen first, but Discord reconfirm should usually include an exact-container reset for `dm-with-<name>` so a stale long-lived session does not mask the new behavior.
+
 ## Handoff checklist
 
 Do not hand off a NanoClaw change as "working" without writing down:
 
-1. the repo commit that was tested
-2. the exact group folder and channel that were rerun
-3. the exact prompt or prompts used
-4. whether the test used a full NanoClaw restart or an exact-container reset
-5. which live channels were **not** rerun yet
+1. the exact group folder and channel that were rerun
+2. the exact prompt or prompts used
+3. whether the test used a full NanoClaw restart or an exact-container reset
+4. which live channels were **not** rerun yet
 
 ## How to extend this file
 

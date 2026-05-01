@@ -215,15 +215,9 @@ pnpm run chat -- "Check watches"
 
 After that works, validate the channel-facing experience through Discord or DM with the same prompts.
 
-Do not call that handoff "live validated" unless the **target channel** was rerun after the relevant restart or session reset. CLI success is useful, but it does **not** prove Discord or DM success because those channels can resume a long-lived session with stale continuation or pending-question state.
+For the canonical post-CLI reconfirm sequence and handoff notes, use `docs/nanoclaw-live-tests.md`.
 
-For any handoff that claims a live NanoClaw fix, record:
-
-1. the repo commit that was tested
-2. the exact group folder and channel that were rerun
-3. the exact prompt used
-4. whether you used full service restart or `docker stop <exact-container-name>`
-5. any channels you did **not** rerun yet
+The short version is: CLI success does **not** prove Discord or DM success. Before asking someone to recheck the same behavior in Discord or DM, follow the post-CLI reconfirm flow there so the target channel gets a fresh container/session on the new code.
 
 Recommended validation order:
 
