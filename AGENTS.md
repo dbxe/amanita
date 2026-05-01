@@ -32,6 +32,7 @@ Treat the current `src/intent.ts` and other workflow-specific entrypoints as com
 - `src/multibaas.ts` — MultiBaas SDK integration and webhook signature helpers
 - `src/token-target-service.ts` — token-name / contract-address resolution into explicit analytical sources
 - `src/query-service.ts` — typed balance and concentration execution over explicit token targets
+- `src/planning.ts` — remaining plan/readiness helpers; keep it narrow and do not reintroduce it as the main runtime router
 - `src/state.ts` — watch/webhook local persistence
 - `src/holder-query-service.ts` — holder query orchestration and readiness/onboarding wrapper
 - `src/watch-service.ts` — watch lifecycle orchestration and evaluation

@@ -1,7 +1,6 @@
-import { createPlanFromIntent } from "./planning.js";
 import { loadState, saveState, type LocalState } from "./state.js";
 import {
-  createTaskFromHolderListPlan,
+  createHolderQueryTask,
   findHolderQueryTask,
   transitionTask,
   upsertTask,
@@ -53,19 +52,16 @@ function formatWaitingResponse(task: HolderQueryTaskRecord): string {
 }
 
 function createOrReuseTask(state: LocalState, input: Required<Pick<HolderRequestInput, "contractAddress" | "limit" | "rawText">>, queryName: string) {
-  const plan = createPlanFromIntent(
-    {
-      contractAddress: input.contractAddress,
-      kind: "top-holders",
-      limit: input.limit,
-      rawText: input.rawText,
-    },
-    queryName,
-  );
   const existingTask = findHolderQueryTask(state.tasks, input.contractAddress, input.limit, queryName);
   return {
-    plan,
-    task: existingTask ?? createTaskFromHolderListPlan(plan),
+    task:
+      existingTask ??
+      createHolderQueryTask({
+        contractAddress: input.contractAddress,
+        intent: input.rawText,
+        limit: input.limit,
+        queryName,
+      }),
   };
 }
 

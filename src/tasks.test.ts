@@ -5,6 +5,7 @@ import {
   applyTaskFailure,
   attachWatchToTask,
   createBalanceWatchTask,
+  createHolderQueryTask,
   recordTaskAlert,
   transitionTask,
 } from "./tasks.js";
@@ -21,6 +22,21 @@ test("createBalanceWatchTask builds a ready task with a deterministic execution 
   assert.equal(task.viewSpec.kind, "balance-watch");
   assert.equal(task.viewSpec.address, "0xabc");
   assert.equal(task.executionPlan.steps.map((step) => step.kind).join(","), "resolve-balance,persist-watch,evaluate-watch");
+});
+
+test("createHolderQueryTask builds a ready holder-query task without going through intent planning", () => {
+  const task = createHolderQueryTask({
+    contractAddress: "0xd26fde38F244Dcbb13e8017347Ac37804d926Bb5",
+    limit: 5,
+    now: "2026-04-30T00:00:00.000Z",
+    queryName: "balance-source:0xd26fde38f244dcbb13e8017347ac37804d926bb5",
+  });
+
+  assert.equal(task.state, "ready");
+  assert.equal(task.kind, "holder-query");
+  assert.equal(task.viewSpec.kind, "holder-list");
+  assert.equal(task.viewSpec.contractAddress, "0xd26fde38f244dcbb13e8017347ac37804d926bb5");
+  assert.equal(task.executionPlan.steps.map((step) => step.kind).join(","), "execute-holder-query,format-response");
 });
 
 test("transitionTask rejects illegal transitions", () => {

@@ -3,10 +3,8 @@ import { randomUUID } from "node:crypto";
 import {
   classifyReadinessFailure,
   createBalanceWatchPlan,
-  createHolderListPlan,
   type BalanceWatchPlan,
   type ExecutionPlan,
-  type HolderListPlan,
   type TaskState,
   type ViewSpec,
   type WaitCondition,
@@ -56,6 +54,19 @@ const ALLOWED_TRANSITIONS: Record<TaskState, TaskState[]> = {
   syncing: ["blocked", "monitoring", "ready", "syncing"],
 };
 
+function normalizeHolderContractAddress(contractAddress: string): string {
+  return contractAddress.trim().toLowerCase();
+}
+
+function createHolderQueryExecutionPlan(queryName: string): ExecutionPlan {
+  return {
+    steps: [
+      { detail: `Execute the holder view from analytical source ${queryName}.`, kind: "execute-holder-query" },
+      { detail: "Format the holder list for the user.", kind: "format-response" },
+    ],
+  };
+}
+
 export function createTaskFromBalanceWatchPlan(plan: BalanceWatchPlan, now = new Date().toISOString()): TaskRecord {
   return {
     createdAt: now,
@@ -63,21 +74,6 @@ export function createTaskFromBalanceWatchPlan(plan: BalanceWatchPlan, now = new
     id: randomUUID(),
     intent: plan.intent.rawText,
     kind: "balance-watch",
-    state: plan.readiness.state,
-    title: plan.title,
-    updatedAt: now,
-    viewSpec: plan.viewSpec,
-    waitCondition: plan.readiness.waitCondition,
-  };
-}
-
-export function createTaskFromHolderListPlan(plan: HolderListPlan, now = new Date().toISOString()): HolderQueryTaskRecord {
-  return {
-    createdAt: now,
-    executionPlan: plan.executionPlan,
-    id: randomUUID(),
-    intent: plan.intent.rawText,
-    kind: "holder-query",
     state: plan.readiness.state,
     title: plan.title,
     updatedAt: now,
@@ -111,13 +107,23 @@ export function createHolderQueryTask(params: {
   queryName: string;
 }): HolderQueryTaskRecord {
   const now = params.now ?? new Date().toISOString();
-  const plan = createHolderListPlan({
-    contractAddress: params.contractAddress,
-    limit: params.limit,
-    queryName: params.queryName,
-    rawText: params.intent ?? `Give me the top ${params.limit} holders for token ${params.contractAddress}`,
-  });
-  return createTaskFromHolderListPlan(plan, now);
+  const contractAddress = normalizeHolderContractAddress(params.contractAddress);
+  return {
+    createdAt: now,
+    executionPlan: createHolderQueryExecutionPlan(params.queryName),
+    id: randomUUID(),
+    intent: params.intent ?? `Give me the top ${params.limit} holders for token ${params.contractAddress}`,
+    kind: "holder-query",
+    state: "ready",
+    title: `Get top ${params.limit} holders`,
+    updatedAt: now,
+    viewSpec: {
+      contractAddress,
+      kind: "holder-list",
+      limit: params.limit,
+      queryName: params.queryName,
+    },
+  };
 }
 
 export function findBalanceWatchTask(tasks: TaskRecord[], address: string, queryName: string): TaskRecord | undefined {

@@ -25,6 +25,7 @@ Treat `hardhat/` as fixture infrastructure, not as the home of the runtime.
 - `multibaas.ts` owns the MultiBaas SDK client and low-level helpers like balance normalization and webhook signatures.
 - `token-target-service.ts` resolves token names and contract addresses into explicit runtime targets.
 - `query-service.ts` owns typed balance and concentration execution over explicit token targets.
+- `planning.ts` is now mostly a narrow helper for watch/readiness planning and legacy plan tests rather than the center of the runtime.
 - `state.ts` owns local persistence for watches, webhook metadata, and alerts.
 - `holder-query-service.ts` owns holder-query orchestration and readiness/onboarding transitions.
 - `watch-service.ts` owns watch lifecycle orchestration and alert evaluation.
@@ -48,7 +49,7 @@ The remaining pressure point is the workflow-first model surface:
 
 - `src/intent.ts` encodes English-pattern routing
 - `src/mcp.ts` still privileges a high-level workflow tool
-- `src/planning.ts` is typed around today's narrow workflows rather than a broader capability vocabulary
+- the task model and `src/planning.ts` still carry workflow-shaped types even though the runtime no longer depends on them as broadly as before
 
 Those surfaces are the main architectural drag on the Phase 02 direction.
 
