@@ -1,5 +1,6 @@
 import { resolveConfig } from "./config.js";
 import {
+  createContractBalanceSource,
   executeBalanceSourceQuery,
   executeContractBalanceQuery,
   executeSavedBalanceQuery,
@@ -100,7 +101,7 @@ export async function getContractTopHolders(
   queryName?: string,
 ): Promise<TopHoldersResult> {
   const config = resolveConfig();
-  const effectiveQueryName = resolveBalanceSource(config, queryName);
+  const effectiveQueryName = queryName?.trim() || createContractBalanceSource(contractAddress);
   const rows = await executeContractBalanceQuery(config, contractAddress, Math.min(limit, 100));
 
   return {
@@ -144,7 +145,7 @@ export async function getContractHolderConcentration(
   queryName?: string,
 ): Promise<HolderConcentrationResult> {
   const config = resolveConfig();
-  const effectiveQueryName = resolveBalanceSource(config, queryName);
+  const effectiveQueryName = queryName?.trim() || createContractBalanceSource(contractAddress);
   const snapshot = await fetchContractBalanceSnapshot(config, contractAddress, config.scanLimit);
   return {
     ...computeHolderConcentration([...snapshot.values()], limit, effectiveQueryName),
