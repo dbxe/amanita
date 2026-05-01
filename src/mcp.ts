@@ -9,6 +9,12 @@ import {
   getPreloadedInterfaceCatalogStatus,
   inspectContractInterfaces,
 } from "./contract-interface-service.js";
+import {
+  formatContractLookupResult,
+  formatImportContractLookupCandidateResult,
+  importContractLookupCandidateForAddress,
+  lookupContractCandidatesForAddress,
+} from "./contract-lookup-service.js";
 import { resolveConfig } from "./config.js";
 import { formatTokenControlEvents, getTokenControlEvents } from "./event-view-service.js";
 import { evaluatePendingHolderQueries, getTopHoldersForTokenTarget } from "./holder-query-service.js";
@@ -35,6 +41,42 @@ server.tool("list_preloaded_interfaces", {}, async () => ({
     text: formatPreloadedInterfaceStatuses(await getPreloadedInterfaceCatalogStatus()),
   }],
 }));
+
+server.tool(
+  "lookup_contract_candidates",
+  {
+    contractAddress: z.string().min(1),
+  },
+  async ({ contractAddress }) => ({
+    content: [{
+      type: "text",
+      text: formatContractLookupResult(await lookupContractCandidatesForAddress(contractAddress)),
+    }],
+  }),
+);
+
+server.tool(
+  "import_contract_lookup_candidate",
+  {
+    candidateIndex: z.number().int().min(0),
+    contractAddress: z.string().min(1),
+    contractLabel: z.string().min(1).optional(),
+    startingBlock: z.string().min(1).optional(),
+  },
+  async ({ candidateIndex, contractAddress, contractLabel, startingBlock }) => ({
+    content: [{
+      type: "text",
+      text: formatImportContractLookupCandidateResult(
+        await importContractLookupCandidateForAddress({
+          address: contractAddress,
+          candidateIndex,
+          contractLabel,
+          startingBlock,
+        }),
+      ),
+    }],
+  }),
+);
 
 server.tool(
   "inspect_contract_interfaces",

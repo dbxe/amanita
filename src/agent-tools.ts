@@ -6,6 +6,12 @@ export {
   inspectContractInterfaces,
   preloadKnownInterfaces,
 } from "./contract-interface-service.js";
+export {
+  formatContractLookupResult,
+  formatImportContractLookupCandidateResult,
+  importContractLookupCandidateForAddress,
+  lookupContractCandidatesForAddress,
+} from "./contract-lookup-service.js";
 export { formatTokenControlEvents, getTokenControlEvents } from "./event-view-service.js";
 export { evaluatePendingHolderQueries, requestTopHolders } from "./holder-query-service.js";
 export { formatTokenInvestigation, investigateToken } from "./investigation-service.js";

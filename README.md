@@ -99,6 +99,8 @@ npm run dev -- query investigate --contract 0xd26fde38F244Dcbb13e8017347Ac37804d
 
 # inspect and preload the finite interface library
 npm run dev -- contract list-interfaces
+npm run dev -- contract lookup --contract 0xd26fde38F244Dcbb13e8017347Ac37804d926Bb5
+npm run dev -- contract import-lookup --contract 0xd26fde38F244Dcbb13e8017347Ac37804d926Bb5 --candidate 0
 npm run dev -- contract preload-interfaces --labels erc20interface,fiattokenv2interface
 npm run dev -- contract inspect --contract 0xd26fde38F244Dcbb13e8017347Ac37804d926Bb5
 
@@ -166,6 +168,8 @@ npm run mcp
 Tools exposed:
 
 - `list_preloaded_interfaces`
+- `lookup_contract_candidates`
+- `import_contract_lookup_candidate`
 - `inspect_contract_interfaces`
 - `ensure_contract_interface`
 - `resolve_contract_target`
@@ -185,6 +189,7 @@ Tools exposed:
 Preferred Phase 02 path:
 
 - `list_preloaded_interfaces`, `inspect_contract_interfaces`, and `ensure_contract_interface` for the preloaded interface-library path
+- `lookup_contract_candidates` and `import_contract_lookup_candidate` for live-address onboarding when MultiBaas should pull a verified ABI candidate before linking
 - `resolve_contract_target` for token resolution and readiness inspection
 - `get_token_metadata` for ERC-20 metadata such as name, symbol, decimals, and total supply
 - `get_token_control_events` for event-sourced control-surface history such as blacklist, pause, role, ownership, and upgrade events

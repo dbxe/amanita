@@ -19,6 +19,8 @@ test("containerInstructions steer NanoClaw away from saved queries for ERC-20 ho
   const instructions = containerInstructions();
 
   assert.match(instructions, /resolve_contract_target/i);
+  assert.match(instructions, /lookup_contract_candidates/i);
+  assert.match(instructions, /import_contract_lookup_candidate/i);
   assert.match(instructions, /inspect_contract_interfaces/i);
   assert.match(instructions, /get_token_metadata/i);
   assert.match(instructions, /get_token_control_events/i);
@@ -33,6 +35,7 @@ test("containerInstructions steer NanoClaw away from saved queries for ERC-20 ho
   assert.match(instructions, /get_holder_concentration.*contractAddress.*tokenName/i);
   assert.match(instructions, /create_balance_watch.*contractAddress.*tokenName/i);
   assert.match(instructions, /contract-interface coverage or linking questions.*inspect_contract_interfaces.*ensure_contract_interface/i);
+  assert.match(instructions, /live address.*not yet known.*proxy.*lookup_contract_candidates.*import_contract_lookup_candidate/i);
   assert.match(instructions, /blacklist, pause, ownership, role, or upgrade-history questions.*get_token_control_events/i);
   assert.match(instructions, /broader token investigation requests.*investigate_token/i);
   assert.match(instructions, /evaluate_tasks/i);

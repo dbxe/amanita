@@ -1,4 +1,10 @@
 import {
+  formatContractLookupResult,
+  formatImportContractLookupCandidateResult,
+  importContractLookupCandidateForAddress,
+  lookupContractCandidatesForAddress,
+} from "./contract-lookup-service.js";
+import {
   ensureContractInterfaceLink,
   formatContractInterfaceInspection,
   formatPreloadedInterfaceStatuses,
@@ -35,6 +41,8 @@ Usage:
   npm run dev -- query controls [--contract 0x... | --token <name>] [--limit 20]
   npm run dev -- query investigate [--contract 0x... | --token <name>] [--limit 5]
   npm run dev -- contract list-interfaces
+  npm run dev -- contract lookup --contract 0x...
+  npm run dev -- contract import-lookup --contract 0x... --candidate 0 [--label fiattokenv1] [--starting-block 0]
   npm run dev -- contract preload-interfaces [--labels erc20interface,fiattokenv2interface]
   npm run dev -- contract inspect --contract 0x...
   npm run dev -- contract ensure-interface --contract 0x... --label erc20interface [--starting-block 0]
@@ -161,6 +169,32 @@ async function handleContract(args: string[]): Promise<void> {
 
   if (subcommand === "list-interfaces") {
     console.log(formatPreloadedInterfaceStatuses(await getPreloadedInterfaceCatalogStatus()));
+    return;
+  }
+
+  if (subcommand === "lookup") {
+    const contractAddress = requireFlag(args, "--contract");
+    console.log(formatContractLookupResult(await lookupContractCandidatesForAddress(contractAddress)));
+    return;
+  }
+
+  if (subcommand === "import-lookup") {
+    const contractAddress = requireFlag(args, "--contract");
+    const candidateIndex = Number.parseInt(requireFlag(args, "--candidate"), 10);
+    if (!Number.isInteger(candidateIndex) || candidateIndex < 0) {
+      throw new Error(`Expected a non-negative integer for --candidate, received "${readFlag(args, "--candidate")}"`);
+    }
+
+    console.log(
+      formatImportContractLookupCandidateResult(
+        await importContractLookupCandidateForAddress({
+          address: contractAddress,
+          candidateIndex,
+          contractLabel: readFlag(args, "--label"),
+          startingBlock: readFlag(args, "--starting-block"),
+        }),
+      ),
+    );
     return;
   }
 

@@ -43,6 +43,20 @@ export interface AddressRegistration {
   }>;
 }
 
+export interface ContractLookupCandidate {
+  abi: string;
+  address: string;
+  bytecode?: string;
+  devdoc?: string;
+  name?: string;
+  proxy: boolean;
+  source?: string;
+  userdoc?: string;
+  verified: boolean;
+  verifiedLink?: string;
+  verifiedSource?: string;
+}
+
 export interface ContractCatalogEntry {
   contractName?: string;
   instances?: Array<{
@@ -695,6 +709,70 @@ export async function getAddressRegistration(config: RuntimeConfig, addressOrAli
       version: contract.version,
     })),
   };
+}
+
+export async function getContractLookupCandidates(
+  config: RuntimeConfig,
+  addressOrAlias: string,
+): Promise<ContractLookupCandidate[]> {
+  const normalizedAddressOrAlias = addressOrAlias.startsWith("0x") ? normalizeAddress(addressOrAlias) : addressOrAlias.trim();
+  const addressesApi = createAddressesApi(config);
+  const data = await withCurlFallback(
+    async () => {
+      const response = await addressesApi.getAddress(normalizedAddressOrAlias, ["contractLookup"]);
+      return response.data;
+    },
+    () =>
+      requestJsonViaCurl<{
+        result?: {
+          contractLookup?: Array<{
+            abi?: unknown;
+            address?: string;
+            bytecode?: string;
+            devdoc?: unknown;
+            name?: string;
+            proxy?: boolean;
+            source?: string;
+            userdoc?: unknown;
+            verified?: boolean;
+            verifiedLink?: string;
+            verifiedSource?: string;
+          }>;
+        };
+      }>(config, `/chains/ethereum/addresses/${encodeURIComponent(normalizedAddressOrAlias)}`, {
+        params: { include: "contractLookup" },
+      }),
+  );
+
+  return (data.result?.contractLookup ?? []).flatMap((candidate) => {
+    if (!candidate.address || candidate.abi === undefined || candidate.abi === null) {
+      return [];
+    }
+
+    return [{
+      abi: typeof candidate.abi === "string" ? candidate.abi : JSON.stringify(candidate.abi),
+      address: normalizeAddress(candidate.address),
+      bytecode: candidate.bytecode?.trim() || undefined,
+      devdoc:
+        candidate.devdoc === undefined || candidate.devdoc === null
+          ? undefined
+          : typeof candidate.devdoc === "string"
+            ? candidate.devdoc
+            : JSON.stringify(candidate.devdoc),
+      name: candidate.name?.trim() || undefined,
+      proxy: candidate.proxy ?? false,
+      source: candidate.source?.trim() || undefined,
+      userdoc:
+        candidate.userdoc === undefined || candidate.userdoc === null
+          ? undefined
+          : typeof candidate.userdoc === "string"
+            ? candidate.userdoc
+            : JSON.stringify(candidate.userdoc),
+      verified: candidate.verified ?? false,
+      verifiedLink: candidate.verifiedLink?.trim() || undefined,
+      verifiedSource: candidate.verifiedSource?.trim() || undefined,
+    }];
+  });
 }
 
 export async function listKnownAddresses(config: RuntimeConfig): Promise<KnownAddress[]> {

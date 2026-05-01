@@ -72,6 +72,8 @@ export function containerInstructions(): string {
   return [
     "Use this MCP server for MultiBaas event-query and watch tasks.",
     "- Prefer typed capability tools over any workflow-specific or prompt-matched fallback behavior.",
+    "- Use `lookup_contract_candidates` when you need verified ABI candidates for a live contract address before linking or importing it.",
+    "- Use `import_contract_lookup_candidate` to import a selected contract-lookup candidate's ABI and link it to the searched address.",
     "- Use `inspect_contract_interfaces` when you need to understand which preloaded interfaces are available or already linked for a contract.",
     "- Use `resolve_contract_target` when you need to turn a token name or contract address into a concrete target plus readiness state.",
     "- Use `get_token_metadata` for ERC-20 metadata questions such as name, symbol, decimals, or total supply.",
@@ -85,6 +87,7 @@ export function containerInstructions(): string {
     "- For explicit holder-concentration requests, call `get_holder_concentration` with either `contractAddress` or `tokenName`.",
     "- For explicit balance-watch requests, call `create_balance_watch` with either `contractAddress` or `tokenName`.",
     "- For contract-interface coverage or linking questions, use `inspect_contract_interfaces` and `ensure_contract_interface`.",
+    "- For a live address that is not yet known to MultiBaas and may be a proxy, first call `lookup_contract_candidates`, then import the best candidate with `import_contract_lookup_candidate` before answering with event-query-backed analytics.",
     "- For blacklist, pause, ownership, role, or upgrade-history questions, use `get_token_control_events`.",
     "- For broader token investigation requests, call `investigate_token` with either `contractAddress` or `tokenName`.",
     "- For a top-holder request that already includes a contract address or a known token name, your first action should be the `get_top_holders` tool call.",
