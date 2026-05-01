@@ -10,6 +10,7 @@ import { resolveConfig } from "./config.js";
 import { formatTokenControlEvents, getTokenControlEvents } from "./event-view-service.js";
 import { evaluatePendingHolderQueries, requestTopHolders } from "./holder-query-service.js";
 import { formatTokenInvestigation, investigateToken } from "./investigation-service.js";
+import { getAddressBalanceForTokenTarget, getHolderConcentrationForTokenTarget } from "./query-service.js";
 import { sendNanoClawNotification } from "./nanoclaw-host.js";
 import { configureNanoClawGroup } from "./nanoclaw.js";
 import { createContractBalanceSource } from "./multibaas.js";
@@ -19,9 +20,8 @@ import { DEFAULT_WEBHOOK_LABEL, ensureBalanceWebhook, startWebhookServer } from 
 import { evaluateBalanceWatches, listBalanceWatches, saveBalanceWatch } from "./watch-service.js";
 import {
   formatAnalyticalViewResult,
-  getContractHolderConcentration,
-  getHolderConcentration,
   getTopHolders,
+  getHolderConcentration,
   lookupBalance,
 } from "./views.js";
 
@@ -108,11 +108,9 @@ async function handleQuery(args: string[]): Promise<void> {
   if (subcommand === "concentration") {
     const limit = parsePositiveIntegerFlag(args, "--limit", 5);
     console.log(
-      formatAnalyticalViewResult(
-        contractAddress
-          ? await getContractHolderConcentration(contractAddress, limit, queryName)
-          : await getHolderConcentration(limit, queryName),
-      ),
+      contractAddress
+        ? await getHolderConcentrationForTokenTarget({ contractAddress, limit, tokenName })
+        : formatAnalyticalViewResult(await getHolderConcentration(limit, queryName)),
     );
     return;
   }
@@ -120,9 +118,9 @@ async function handleQuery(args: string[]): Promise<void> {
   if (subcommand === "balance") {
     const address = requireFlag(args, "--address");
     console.log(
-      formatAnalyticalViewResult(
-        await lookupBalance(address, contractAddress ? createContractBalanceSource(contractAddress) : queryName),
-      ),
+      contractAddress || tokenName
+        ? await getAddressBalanceForTokenTarget({ address, contractAddress, tokenName })
+        : formatAnalyticalViewResult(await lookupBalance(address, queryName)),
     );
     return;
   }

@@ -38,6 +38,10 @@ export interface TokenControlInvestigationResult {
   unresolvedTokenName?: string;
 }
 
+function readinessPreventsHistoricalView(readiness?: ContractReadiness): boolean {
+  return readiness?.state === "needs-link" || readiness?.state === "syncing";
+}
+
 function toContractTargetReference(address: string): ContractTargetReference {
   return { kind: "address", value: address };
 }
@@ -69,7 +73,7 @@ export async function getTokenControlEvents(
     getErc20Metadata(config, resolved.address).catch(() => undefined),
   ]);
 
-  if (readiness.state === "needs-link") {
+  if (readinessPreventsHistoricalView(readiness)) {
     return {
       events: [],
       limit,
@@ -128,6 +132,16 @@ export function formatTokenControlEvents(result: TokenControlInvestigationResult
   }
   if (result.readiness) {
     lines.push(`Readiness: ${result.readiness.state}`);
+  }
+
+  if (result.readiness?.state === "syncing") {
+    lines.push("", "MultiBaas is still syncing historical events for this token, so control history is not complete yet.");
+    return lines.join("\n");
+  }
+
+  if (result.readiness?.state === "needs-link") {
+    lines.push("", "This token is not linked in MultiBaas yet, so control-history analysis is not ready.");
+    return lines.join("\n");
   }
 
   if (result.events.length === 0) {

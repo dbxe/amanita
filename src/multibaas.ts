@@ -210,6 +210,75 @@ async function withCurlFallback<T>(
   }
 }
 
+function readHttpStatus(error: unknown): number | undefined {
+  if (typeof error !== "object" || error === null) {
+    return undefined;
+  }
+
+  const candidate = error as {
+    response?: { status?: unknown; data?: unknown };
+    status?: unknown;
+    statusCode?: unknown;
+  };
+  const status = candidate.response?.status ?? candidate.status ?? candidate.statusCode;
+  return typeof status === "number" && Number.isFinite(status) ? status : undefined;
+}
+
+function readHttpErrorBody(error: unknown): string | undefined {
+  if (typeof error !== "object" || error === null) {
+    return undefined;
+  }
+
+  const candidate = error as {
+    body?: unknown;
+    response?: { data?: unknown };
+  };
+  const body = candidate.response?.data ?? candidate.body;
+  if (body === undefined || body === null) {
+    return undefined;
+  }
+
+  if (typeof body === "string") {
+    return body.trim() || undefined;
+  }
+
+  try {
+    return JSON.stringify(body);
+  } catch {
+    return String(body);
+  }
+}
+
+function isTransportFallbackCandidate(error: unknown): boolean {
+  const status = readHttpStatus(error);
+  if (status !== undefined) {
+    return false;
+  }
+
+  const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+  return [
+    "fetch failed",
+    "network error",
+    "socket hang up",
+    "econnrefused",
+    "econnreset",
+    "enotfound",
+    "etimedout",
+    "timeout",
+  ].some((fragment) => message.includes(fragment));
+}
+
+function normalizeSdkRequestError(error: unknown): Error {
+  const status = readHttpStatus(error);
+  const body = readHttpErrorBody(error);
+  if (status !== undefined) {
+    const detail = body ? `: ${body}` : "";
+    return new Error(`MultiBaas request failed (${status})${detail}`);
+  }
+
+  return error instanceof Error ? error : new Error(String(error));
+}
+
 async function requestAdminJson<T>(
   config: RuntimeConfig,
   pathname: string,
@@ -750,34 +819,29 @@ export async function createContractDefinition(
   },
 ): Promise<void> {
   const contractsApi = createContractsApi(config);
-  await withCurlFallback(
-    async () => {
-      await contractsApi.createContract(contract.label, {
-        bin: contract.bin,
-        contractName: contract.contractName,
-        developerDoc: contract.developerDoc,
-        label: contract.label,
-        metadata: contract.metadata,
-        rawAbi: contract.rawAbi,
-        userDoc: contract.userDoc,
-        version: contract.version,
-      });
-    },
-    () =>
-      requestJsonViaCurl(config, `/contracts/${encodeURIComponent(contract.label)}`, {
-        body: {
-          bin: contract.bin,
-          contractName: contract.contractName,
-          developerDoc: contract.developerDoc,
-          label: contract.label,
-          metadata: contract.metadata,
-          rawAbi: contract.rawAbi,
-          userDoc: contract.userDoc,
-          version: contract.version,
-        },
-        method: "PUT",
-      }).then(() => undefined),
-  );
+  const payload = {
+    bin: contract.bin ?? "0x",
+    contractName: contract.contractName,
+    developerDoc: contract.developerDoc,
+    label: contract.label,
+    metadata: contract.metadata,
+    rawAbi: contract.rawAbi,
+    userDoc: contract.userDoc,
+    version: contract.version,
+  };
+
+  try {
+    await contractsApi.createContract(contract.label, payload);
+  } catch (error) {
+    if (!isTransportFallbackCandidate(error)) {
+      throw normalizeSdkRequestError(error);
+    }
+
+    await requestJsonViaCurl(config, `/contracts/${encodeURIComponent(contract.label)}`, {
+      body: payload,
+      method: "POST",
+    }).then(() => undefined);
+  }
 }
 
 export async function linkAddressToContract(
