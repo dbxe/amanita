@@ -7,7 +7,8 @@ Minimal MultiBaas event-query and webhook loop for the hackathon MVP.
 - `README.md` — quickstart, working commands, and current MVP status
 - `docs/architecture.md` — repo shape, module boundaries, and design direction
 - `docs/nanoclaw.md` — NanoClaw setup, auth wiring, restart, and test runbook
-- `docs/phase-01.md` — next-phase product and architecture direction
+- `docs/phase-01.md` — original Phase 01 plan and partially completed implementation record
+- `docs/phase-02.md` — current next-phase plan focused on agentic tool composition
 - `AGENTS.md` — coding-agent conventions for working in this repo
 
 ## What works now
