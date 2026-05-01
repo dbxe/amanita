@@ -1,0 +1,21 @@
+{
+  "defaultProfile": "development",
+  "profiles": {
+    "development": {
+      "hardhatNetwork": "development",
+      "stateDir": ".agent-state/development"
+    },
+    "mainnet-remote": {
+      "baseUrl": "https://your-mainnet.multibaas.com",
+      "apiKey": "replace-me",
+      "hardhatNetwork": "ethereum-mainnet",
+      "stateDir": ".agent-state/mainnet-remote"
+    },
+    "testnet-remote": {
+      "baseUrl": "https://your-testnet.multibaas.com",
+      "apiKey": "replace-me",
+      "hardhatNetwork": "ethereum-testnet",
+      "stateDir": ".agent-state/testnet-remote"
+    }
+  }
+}

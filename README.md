@@ -59,7 +59,23 @@ npm install
 `src/config.ts` will read MultiBaas settings from either:
 
 - `MULTIBAAS_BASE_URL` and `MULTIBAAS_API_KEY`, or
+- `.multibaas/backends.local.json` selected through `MULTIBAAS_PROFILE` (or that file's `defaultProfile`), or
 - `hardhat/deployment-config.<network>.ts`
+
+The local backend-profile file is gitignored. Use `.multibaas/backends.example.json` as the shape reference.
+
+Backend switching should now be low-friction:
+
+```bash
+# use the gitignored default profile from .multibaas/backends.local.json
+npm run dev -- contract list-interfaces
+
+# force the local hardhat/dev backend
+MULTIBAAS_PROFILE=development npm run dev -- contract list-interfaces
+
+# force a specific remote profile
+MULTIBAAS_PROFILE=mainnet-remote npm run dev -- contract list-interfaces
+```
 
 When the runtime runs **inside NanoClaw**, authenticated MultiBaas calls should use **OneCLI path-scoped secret injection** rather than a raw API key in `container.json`. The runtime will send a placeholder bearer token when no direct key is configured so OneCLI can rewrite it on `/api/v0/*` requests.
 

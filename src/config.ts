@@ -9,6 +9,18 @@ export interface RuntimeConfig {
   stateDir: string;
 }
 
+interface BackendProfile {
+  apiKey?: string;
+  baseUrl?: string;
+  hardhatNetwork?: string;
+  stateDir?: string;
+}
+
+interface BackendProfileConfig {
+  defaultProfile?: string;
+  profiles?: Record<string, BackendProfile>;
+}
+
 function parsePositiveInteger(value: string | undefined, fallback: number): number {
   if (!value) {
     return fallback;
@@ -39,15 +51,38 @@ function parseHardhatDeploymentConfig(networkName: string): Partial<Pick<Runtime
   };
 }
 
+function readBackendProfileConfig(): BackendProfileConfig {
+  const configPath = path.resolve(process.cwd(), ".multibaas", "backends.local.json");
+  if (!fs.existsSync(configPath)) {
+    return {};
+  }
+
+  return JSON.parse(fs.readFileSync(configPath, "utf8")) as BackendProfileConfig;
+}
+
 export function resolveConfig(): RuntimeConfig {
-  const hardhatNetwork = process.env.MULTIBAAS_NETWORK ?? process.env.HARDHAT_NETWORK ?? "development";
+  const backendProfiles = readBackendProfileConfig();
+  const selectedProfileName =
+    process.env.MULTIBAAS_PROFILE
+    ?? backendProfiles.defaultProfile
+    ?? process.env.MULTIBAAS_NETWORK
+    ?? process.env.HARDHAT_NETWORK
+    ?? "development";
+  const selectedProfile = backendProfiles.profiles?.[selectedProfileName];
+  const hardhatNetwork =
+    process.env.MULTIBAAS_NETWORK
+    ?? process.env.HARDHAT_NETWORK
+    ?? selectedProfile?.hardhatNetwork
+    ?? selectedProfileName;
   const fallback = parseHardhatDeploymentConfig(hardhatNetwork);
 
-  const baseUrl = process.env.MULTIBAAS_BASE_URL ?? fallback.baseUrl;
-  const apiKey = process.env.MULTIBAAS_API_KEY ?? fallback.apiKey;
+  const baseUrl = process.env.MULTIBAAS_BASE_URL ?? selectedProfile?.baseUrl ?? fallback.baseUrl;
+  const apiKey = process.env.MULTIBAAS_API_KEY ?? selectedProfile?.apiKey ?? fallback.apiKey;
 
   if (!baseUrl) {
-    throw new Error("Missing MultiBaas base URL. Set MULTIBAAS_BASE_URL or provide hardhat/deployment-config.<network>.ts.");
+    throw new Error(
+      "Missing MultiBaas base URL. Set MULTIBAAS_BASE_URL, choose a configured MULTIBAAS_PROFILE, or provide hardhat/deployment-config.<network>.ts.",
+    );
   }
 
   return {
@@ -55,6 +90,6 @@ export function resolveConfig(): RuntimeConfig {
     baseUrl,
     hardhatNetwork,
     scanLimit: parsePositiveInteger(process.env.MULTIBAAS_QUERY_SCAN_LIMIT, 1000),
-    stateDir: path.resolve(process.cwd(), process.env.MULTIBAAS_AGENT_STATE_DIR ?? ".agent-state"),
+    stateDir: path.resolve(process.cwd(), process.env.MULTIBAAS_AGENT_STATE_DIR ?? selectedProfile?.stateDir ?? ".agent-state"),
   };
 }
