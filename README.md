@@ -153,6 +153,8 @@ For the local dev stack, match the callback URL to where MultiBaas is actually r
 - if MultiBaas is running on the host, use `http://127.0.0.1:8787/webhooks/multibaas`
 - if MultiBaas is running in a container that can reach the host via Docker DNS, use `http://host.docker.internal:8787/webhooks/multibaas`
 
+If a webhook was previously failing, MultiBaas may continue to back off retries for a few minutes even after the URL is fixed. Check `/api/v0/webhooks` and wait until `nextAttempt` clears before judging the callback path broken.
+
 The webhook handler validates `X-MultiBaas-Signature` and `X-MultiBaas-Timestamp`, refreshes the tracked balance snapshot for each watch source, and appends alerts to `.agent-state/alerts.jsonl`.
 
 When you evaluate a watch that was created inside a NanoClaw group, point the host-side receiver at that group's state directory instead of the repo root:

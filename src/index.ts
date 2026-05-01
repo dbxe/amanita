@@ -24,7 +24,14 @@ import { configureNanoClawGroup } from "./nanoclaw.js";
 import { createContractBalanceSource } from "./multibaas.js";
 import { loadState } from "./state.js";
 import { formatAlerts, formatSavedWatch, formatTasks, formatWebhook, formatWatches } from "./task-formatting.js";
-import { DEFAULT_WEBHOOK_LABEL, ensureBalanceWebhook, startWebhookServer } from "./webhook-service.js";
+import {
+  DEFAULT_WEBHOOK_LABEL,
+  DEFAULT_WEBHOOK_PATH,
+  DEFAULT_WEBHOOK_PORT,
+  deriveDefaultWebhookUrl,
+  ensureBalanceWebhook,
+  startWebhookServer,
+} from "./webhook-service.js";
 import { evaluateBalanceWatches, listBalanceWatches, saveBalanceWatch } from "./watch-service.js";
 import {
   formatAnalyticalViewResult,
@@ -54,8 +61,8 @@ Usage:
   npm run dev -- watch evaluate
   npm run dev -- task list
   npm run dev -- task evaluate
-  npm run dev -- webhook ensure --url https://example.test/webhooks/multibaas [--label ${DEFAULT_WEBHOOK_LABEL}]
-  npm run dev -- webhook serve [--port 8787] [--path /webhooks/multibaas] [--secret <secret>] [--nanoclaw-dir <path>] [--group-folder <folder>]
+  npm run dev -- webhook ensure [--url https://example.test/webhooks/multibaas] [--port ${DEFAULT_WEBHOOK_PORT}] [--path ${DEFAULT_WEBHOOK_PATH}] [--label ${DEFAULT_WEBHOOK_LABEL}]
+  npm run dev -- webhook serve [--port ${DEFAULT_WEBHOOK_PORT}] [--path ${DEFAULT_WEBHOOK_PATH}] [--secret <secret>] [--nanoclaw-dir <path>] [--group-folder <folder>]
   npm run dev -- nanoclaw configure --nanoclaw-dir ~/git/dbxe/nanoclaw --group-folder cli-with-<name> [--write-allowlist]
   npm run dev -- nanoclaw notify --nanoclaw-dir ~/git/dbxe/nanoclaw [--group-folder dm-with-<name> | --agent-group-id ag-...] --text "test alert"
 `);
@@ -272,15 +279,29 @@ async function handleWebhook(args: string[]): Promise<void> {
   const subcommand = readCommand(args, 1);
 
   if (subcommand === "ensure") {
-    const url = requireFlag(args, "--url");
+    const port = parsePositiveIntegerFlag(args, "--port", DEFAULT_WEBHOOK_PORT);
+    const requestPath = readFlag(args, "--path") ?? DEFAULT_WEBHOOK_PATH;
+    const config = resolveConfig();
+    const url =
+      readFlag(args, "--url")
+      ?? deriveDefaultWebhookUrl(config.baseUrl, {
+        port,
+        requestPath,
+      });
+
+    if (!url) {
+      throw new Error(
+        "Missing webhook callback URL. Pass --url explicitly, or set MULTIBAAS_WEBHOOK_PUBLIC_URL for non-local MultiBaas backends.",
+      );
+    }
     const label = readFlag(args, "--label") ?? DEFAULT_WEBHOOK_LABEL;
     console.log(formatWebhook(await ensureBalanceWebhook(url, label)));
     return;
   }
 
   if (subcommand === "serve") {
-    const port = parsePositiveIntegerFlag(args, "--port", 8787);
-    const requestPath = readFlag(args, "--path") ?? "/webhooks/multibaas";
+    const port = parsePositiveIntegerFlag(args, "--port", DEFAULT_WEBHOOK_PORT);
+    const requestPath = readFlag(args, "--path") ?? DEFAULT_WEBHOOK_PATH;
     const secret = readFlag(args, "--secret");
     const nanoclawDir = readFlag(args, "--nanoclaw-dir");
     const groupFolder = readFlag(args, "--group-folder");

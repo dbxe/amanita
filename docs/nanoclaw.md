@@ -297,6 +297,8 @@ When you register the local MultiBaas callback URL, use the address that matches
 - host-run local MultiBaas: `http://127.0.0.1:8787/webhooks/multibaas`
 - container-run local MultiBaas with Docker host DNS: `http://host.docker.internal:8787/webhooks/multibaas`
 
+If the webhook had already accumulated failed deliveries, expect retry backoff. A corrected URL may not fire immediately on the next transfer; confirm the local MultiBaas webhook record has reached `nextAttempt: null` before treating the callback path as still broken.
+
 ## Deterministic whale-movement replay
 
 For the HelloWorld fixture, do not assume the deployer still holds tokens after `hardhat/scripts/mint.ts`; that script distributes the full supply. To trigger the alert loop on demand, call the linked token through the MultiBaas contract-method API and submit the transaction from the whale address instead:
