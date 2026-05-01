@@ -23,6 +23,9 @@ test("containerInstructions steer NanoClaw away from saved queries for ERC-20 ho
   assert.match(instructions, /handle_multibaas_request.*compatibility fallback/i);
   assert.match(instructions, /do not ask the user for a saved query name/i);
   assert.match(instructions, /get_top_holders.*contractAddress.*tokenName/i);
+  assert.match(instructions, /get_address_balance.*contractAddress.*tokenName/i);
+  assert.match(instructions, /get_holder_concentration.*contractAddress.*tokenName/i);
+  assert.match(instructions, /create_balance_watch.*contractAddress.*tokenName/i);
   assert.match(instructions, /evaluate_tasks/i);
   assert.match(instructions, /do not reply with narration like .*calling the tool now/i);
   assert.doesNotMatch(instructions, /default saved query/i);

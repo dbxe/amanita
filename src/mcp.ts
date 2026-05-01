@@ -5,19 +5,18 @@ import { z } from "zod";
 import { resolveConfig } from "./config.js";
 import { evaluatePendingHolderQueries, requestTopHolders } from "./holder-query-service.js";
 import { handleIntent } from "./intent.js";
+import { getAddressBalanceForTokenTarget, getHolderConcentrationForTokenTarget } from "./query-service.js";
 import {
-  createContractBalanceSource,
   getErc20Metadata,
   resolveContractReadiness,
-  resolveKnownAddress,
 } from "./multibaas.js";
 import { loadState } from "./state.js";
 import { formatAlerts, formatSavedWatch, formatTasks, formatWatches } from "./task-formatting.js";
+import { requireTokenTarget, resolveTokenTarget } from "./token-target-service.js";
 import { DEFAULT_WEBHOOK_LABEL, ensureBalanceWebhook } from "./webhook-service.js";
 import { evaluateBalanceWatches, listBalanceWatches, saveBalanceWatch } from "./watch-service.js";
 import {
   formatAnalyticalViewResult,
-  getContractHolderConcentration,
   getHolderConcentration,
   lookupBalance,
 } from "./views.js";
@@ -42,32 +41,6 @@ server.tool(
   },
 );
 
-async function resolveContractTargetInput(contractAddress?: string, tokenName?: string): Promise<{
-  address?: string;
-  alias?: string;
-  tokenNameInput?: string;
-  unresolved?: boolean;
-}> {
-  if (contractAddress) {
-    return { address: contractAddress };
-  }
-
-  if (!tokenName) {
-    return {};
-  }
-
-  const resolved = await resolveKnownAddress(resolveConfig(), tokenName);
-  if (!resolved) {
-    return { tokenNameInput: tokenName, unresolved: true };
-  }
-
-  return {
-    address: resolved.address,
-    alias: resolved.alias,
-    tokenNameInput: tokenName,
-  };
-}
-
 server.tool(
   "resolve_contract_target",
   {
@@ -75,7 +48,7 @@ server.tool(
     tokenName: z.string().min(1).optional(),
   },
   async ({ contractAddress, tokenName }) => {
-    const target = await resolveContractTargetInput(contractAddress, tokenName);
+    const target = await resolveTokenTarget({ contractAddress, tokenName });
     if (target.unresolved) {
       return {
         content: [{ type: "text", text: `I don't know the contract address for ${target.tokenNameInput} yet. Tell me the token contract address and I'll inspect it directly.` }],
@@ -116,7 +89,7 @@ server.tool(
     tokenName: z.string().min(1).optional(),
   },
   async ({ contractAddress, tokenName }) => {
-    const target = await resolveContractTargetInput(contractAddress, tokenName);
+    const target = await resolveTokenTarget({ contractAddress, tokenName });
     if (target.unresolved) {
       return {
         content: [{ type: "text", text: `I don't know the contract address for ${target.tokenNameInput} yet. Tell me the token contract address and I'll query its metadata directly.` }],
@@ -194,17 +167,27 @@ server.tool(
     address: z.string().min(1),
     contractAddress: z.string().min(1).optional(),
     queryName: z.string().min(1).optional(),
+    tokenName: z.string().min(1).optional(),
   },
-  async ({ address, contractAddress, queryName }) => {
-    if (!queryName && !contractAddress) {
+  async ({ address, contractAddress, queryName, tokenName }) => {
+    if (!queryName && !contractAddress && !tokenName) {
       return {
-        content: [{ type: "text", text: "Tell me the token contract address for that balance lookup and I'll query it directly." }],
+        content: [{ type: "text", text: "Tell me the token contract address or known token name for that balance lookup and I'll query it directly." }],
       };
     }
 
-    const result = await lookupBalance(address, queryName ?? createContractBalanceSource(contractAddress!));
     return {
-      content: [{ type: "text", text: formatAnalyticalViewResult(result) }],
+      content: [{
+        type: "text",
+        text:
+          queryName && !contractAddress && !tokenName
+            ? formatAnalyticalViewResult(await lookupBalance(address, queryName))
+            : await getAddressBalanceForTokenTarget({
+              address,
+              contractAddress,
+              tokenName,
+            }),
+      }],
     };
   },
 );
@@ -215,19 +198,27 @@ server.tool(
     contractAddress: z.string().min(1).optional(),
     limit: z.number().int().min(1).max(100).optional(),
     queryName: z.string().min(1).optional(),
+    tokenName: z.string().min(1).optional(),
   },
-  async ({ contractAddress, limit, queryName }) => {
-    if (!contractAddress && !queryName) {
+  async ({ contractAddress, limit, queryName, tokenName }) => {
+    if (!contractAddress && !queryName && !tokenName) {
       return {
-        content: [{ type: "text", text: "Tell me the token contract address for that concentration request and I'll query it directly." }],
+        content: [{ type: "text", text: "Tell me the token contract address or known token name for that concentration request and I'll query it directly." }],
       };
     }
 
-    const result = contractAddress
-      ? await getContractHolderConcentration(contractAddress, limit ?? 5, queryName)
-      : await getHolderConcentration(limit ?? 5, queryName);
     return {
-      content: [{ type: "text", text: formatAnalyticalViewResult(result) }],
+      content: [{
+        type: "text",
+        text:
+          queryName && !contractAddress && !tokenName
+            ? formatAnalyticalViewResult(await getHolderConcentration(limit ?? 5, queryName))
+            : await getHolderConcentrationForTokenTarget({
+                contractAddress,
+                limit: limit ?? 5,
+                tokenName,
+              }),
+      }],
     };
   },
 );
@@ -239,15 +230,26 @@ server.tool(
     contractAddress: z.string().min(1).optional(),
     label: z.string().min(1).optional(),
     queryName: z.string().min(1).optional(),
+    tokenName: z.string().min(1).optional(),
   },
-  async ({ address, contractAddress, label, queryName }) => {
-    if (!queryName && !contractAddress) {
+  async ({ address, contractAddress, label, queryName, tokenName }) => {
+    if (!queryName && !contractAddress && !tokenName) {
       return {
-        content: [{ type: "text", text: "Tell me the token contract address for that watch and I'll create it." }],
+        content: [{ type: "text", text: "Tell me the token contract address or known token name for that watch and I'll create it." }],
       };
     }
 
-    const result = await saveBalanceWatch(address, label, queryName ?? createContractBalanceSource(contractAddress!));
+    const result = await saveBalanceWatch(
+      address,
+      label,
+      queryName ??
+        (
+          await requireTokenTarget({
+            contractAddress,
+            tokenName,
+          })
+        ).balanceSource,
+    );
     return {
       content: [{ type: "text", text: formatSavedWatch(result) }],
     };

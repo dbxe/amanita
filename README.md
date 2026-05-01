@@ -188,6 +188,7 @@ Preferred Phase 02 path:
 - `resolve_contract_target` for token resolution and readiness inspection
 - `get_token_metadata` for ERC-20 metadata such as name, symbol, decimals, and total supply
 - `get_top_holders`, `get_holder_concentration`, `get_address_balance`, and `create_balance_watch` for typed analytical and monitoring actions
+- those typed tools can work from either `contractAddress` or `tokenName`, so the model does not need to route through the natural-language compatibility layer for common ERC-20 questions
 
 The legacy `handle_multibaas_request` router still exists as a compatibility path, but it is no longer the intended center of gravity for new capability growth.
 

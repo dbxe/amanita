@@ -1,11 +1,10 @@
 import { resolveConfig } from "./config.js";
 import { evaluatePendingHolderQueries, requestTopHolders } from "./holder-query-service.js";
-import { createContractBalanceSource, resolveKnownAddress, resolveBalanceSource } from "./multibaas.js";
-import { createPlanFromIntent } from "./planning.js";
+import { getAddressBalanceForTokenTarget, getHolderConcentrationForTokenTarget } from "./query-service.js";
 import { loadState } from "./state.js";
 import { formatAlerts, formatSavedWatch, formatTasks, formatWatches } from "./task-formatting.js";
+import { requireTokenTarget } from "./token-target-service.js";
 import { evaluateBalanceWatches, listBalanceWatches, saveBalanceWatch } from "./watch-service.js";
-import { executeAnalyticalView, formatAnalyticalViewResult } from "./views.js";
 
 type Intent =
   | { kind: "top-holders"; contractAddress?: string; limit: number; needsInterfaceClarification?: boolean; tokenName?: string }
@@ -28,22 +27,6 @@ function parseTokenTarget(text: string): { contractAddress?: string; tokenName?:
 
   const contractAddress = tokenTarget.match(ADDRESS_PATTERN)?.[0];
   return contractAddress ? { contractAddress } : { tokenName: tokenTarget };
-}
-
-async function resolveQueryNameForToken(contractAddress?: string, tokenName?: string): Promise<string> {
-  if (contractAddress) {
-    return createContractBalanceSource(contractAddress);
-  }
-
-  if (tokenName) {
-    const resolved = await resolveKnownAddress(resolveConfig(), tokenName);
-    if (!resolved) {
-      throw new Error(`Unknown token target: ${tokenName}`);
-    }
-    return createContractBalanceSource(resolved.address);
-  }
-
-  return resolveBalanceSource(resolveConfig());
 }
 
 export function parseIntent(text: string): Intent | null {
@@ -165,19 +148,25 @@ export async function handleIntent(text: string): Promise<string> {
         ).responseText;
       }
       case "holder-concentration": {
-        const source = await resolveQueryNameForToken(intent.contractAddress, intent.tokenName);
-        const plan = createPlanFromIntent({ ...intent, rawText: text }, source);
-        return formatAnalyticalViewResult(await executeAnalyticalView(plan));
+        return getHolderConcentrationForTokenTarget({
+          contractAddress: intent.contractAddress,
+          limit: intent.limit,
+          tokenName: intent.tokenName,
+        });
       }
       case "balance": {
-        const source = await resolveQueryNameForToken(intent.contractAddress, intent.tokenName);
-        const plan = createPlanFromIntent({ ...intent, rawText: text }, source);
-        return formatAnalyticalViewResult(await executeAnalyticalView(plan));
+        return getAddressBalanceForTokenTarget({
+          address: intent.address,
+          contractAddress: intent.contractAddress,
+          tokenName: intent.tokenName,
+        });
       }
       case "create-watch": {
-        const source = await resolveQueryNameForToken(intent.contractAddress, intent.tokenName);
-        const plan = createPlanFromIntent({ ...intent, rawText: text }, source);
-        return formatSavedWatch(await saveBalanceWatch(plan.viewSpec.address, plan.intent.label, plan.viewSpec.queryName));
+        const target = await requireTokenTarget({
+          contractAddress: intent.contractAddress,
+          tokenName: intent.tokenName,
+        });
+        return formatSavedWatch(await saveBalanceWatch(intent.address, intent.label, target.balanceSource));
       }
       case "list-watches":
         return formatWatches(listBalanceWatches());
@@ -197,8 +186,17 @@ export async function handleIntent(text: string): Promise<string> {
       const tokenName = error.message.replace(/^Unknown token target:\s*/i, "").trim();
       return `I don't know the contract address for ${tokenName} yet. Tell me the token contract address and I'll query it directly.`;
     }
-    if (error instanceof Error && /saved query name or token contract address is required/i.test(error.message)) {
-      return "Tell me the token contract address for that balance request and I'll query it directly.";
+    if (error instanceof Error && /token contract address or known token name is required/i.test(error.message)) {
+      switch (intent.kind) {
+        case "balance":
+          return "Tell me the token contract address for that balance request and I'll query it directly.";
+        case "create-watch":
+          return "Tell me the token contract address for that watch request and I'll create it.";
+        case "holder-concentration":
+          return "Tell me the token contract address for that concentration request and I'll query it directly.";
+        default:
+          return "Tell me the token contract address or known token name and I'll query it directly.";
+      }
     }
     throw error;
   }
