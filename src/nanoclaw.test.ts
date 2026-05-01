@@ -19,7 +19,9 @@ test("containerInstructions steer NanoClaw away from saved queries for ERC-20 ho
   const instructions = containerInstructions();
 
   assert.match(instructions, /resolve_contract_target/i);
+  assert.match(instructions, /inspect_contract_interfaces/i);
   assert.match(instructions, /get_token_metadata/i);
+  assert.match(instructions, /get_token_control_events/i);
   assert.match(instructions, /investigate_token/i);
   assert.match(instructions, /do not ask the user for a saved query name/i);
   assert.match(instructions, /if the user asks for decimals.*get_token_metadata/i);
@@ -30,10 +32,13 @@ test("containerInstructions steer NanoClaw away from saved queries for ERC-20 ho
   assert.match(instructions, /get_address_balance.*contractAddress.*tokenName/i);
   assert.match(instructions, /get_holder_concentration.*contractAddress.*tokenName/i);
   assert.match(instructions, /create_balance_watch.*contractAddress.*tokenName/i);
+  assert.match(instructions, /contract-interface coverage or linking questions.*inspect_contract_interfaces.*ensure_contract_interface/i);
+  assert.match(instructions, /blacklist, pause, ownership, role, or upgrade-history questions.*get_token_control_events/i);
   assert.match(instructions, /broader token investigation requests.*investigate_token/i);
   assert.match(instructions, /evaluate_tasks/i);
   assert.match(instructions, /do not reply with narration like .*calling the tool now/i);
   assert.match(instructions, /do not cite Etherscan or other external sources/i);
+  assert.match(instructions, /Prefer event-query-backed tools when the user's question is about historical control changes/i);
   assert.doesNotMatch(instructions, /default saved query/i);
 });
 

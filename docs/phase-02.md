@@ -237,6 +237,8 @@ The north-star extension of this family is event-query synthesis over live contr
 
 The canonical example is ERC-20 holder reconstruction from `Transfer(from,to,value)`, but the intended product surface extends to protocol suites where the important state is distributed across event-ledger transitions rather than enumerable storage reads.
 
+For protocol-suite demos, prefer the newer canonical versions where practical. For Uniswap and Aave, that means biasing toward v4 targets if the interface and indexing path are ready in time, while treating v3 as an acceptable shipping fallback when it is materially easier to demonstrate.
+
 ### E. Live-network onboarding and indexing
 
 The current local fixture is still useful for deterministic development, but Phase 02 must also support a live-network demo path.
@@ -250,6 +252,14 @@ That means the runtime needs explicit capabilities for:
 - waiting for indexing / sync progress before analytical execution
 
 Hackathon demo readiness depends on this path, not only on the local fixture.
+
+The near-term implementation posture is:
+
+- preload a finite interface library into MultiBaas
+- inspect and link live contracts against those definitions
+- use bounded event-view compilation for event-sourced analytics
+
+before attempting fully autonomous ABI discovery across arbitrary live contracts.
 
 ## Relationship to MultiBaas
 

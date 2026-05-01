@@ -32,6 +32,10 @@ Do not reintroduce a workflow-specific natural-language routing layer as the mai
 - `src/multibaas.ts` — MultiBaas SDK integration and webhook signature helpers
 - `src/token-target-service.ts` — token-name / contract-address resolution into explicit analytical sources
 - `src/query-service.ts` — typed balance and concentration execution over explicit token targets
+- `src/preloaded-interfaces.ts` — finite interface inventory for the hackathon path and interface-signature matching helpers
+- `src/contract-interface-service.ts` — preloaded-interface status, linking, and contract-interface inspection
+- `src/event-view.ts` — bounded intermediate spec for event-sourced analytical views and compilation into MultiBaas event queries
+- `src/event-view-service.ts` — runtime execution/formatting for event-sourced control-history reads
 - `src/investigation-service.ts` — typed token investigation and grounded signal synthesis over metadata plus analytical views
 - `src/runtime-types.ts` — neutral runtime state and execution-plan types
 - `src/readiness.ts` — readiness classification and balance-monitor readiness evaluation
@@ -58,6 +62,7 @@ Prefer:
 - MCP integration over shelling out from the agent when NanoClaw is involved
 - OneCLI path-scoped secret injection over raw API keys in NanoClaw `container.json`
 - explicit contract-targeted views that derive their own analytical source over any fallback to `defaultQueryName`
+- preloaded interface matching and bounded event-view compilation over unconstrained model-authored event-query payloads
 
 ## Working with MultiBaas
 
@@ -68,6 +73,7 @@ Prefer:
 - For testing, validate the smallest loop first: query or view execution -> watch creation -> webhook registration/receiver -> trigger an on-chain change -> confirm alert behavior.
 - Use local fixtures and short-history contracts for development. Avoid relying on large historical contracts for routine testing because indexing lag can dominate the workflow.
 - Prefer reusable, typed view patterns over bespoke one-off query JSON when adding new protocol support. If a raw event query is needed for diagnostics, keep it close to the view or service it belongs to.
+- For live-network hackathon work, prefer loading a finite interface library first. Fully autonomous ABI discovery can come later if the bounded event-view path is already solid.
 - If the SDK path is unreliable for a specific endpoint, isolate any direct HTTP fallback in the MultiBaas integration layer and document why instead of leaking that workaround across the repo.
 - If a request already names a contract target, that path must stay self-contained. Do not reintroduce dependencies on saved-query defaults for explicit contract views, holder reads, or concentration reads.
 

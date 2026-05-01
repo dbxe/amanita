@@ -72,8 +72,10 @@ export function containerInstructions(): string {
   return [
     "Use this MCP server for MultiBaas event-query and watch tasks.",
     "- Prefer typed capability tools over any workflow-specific or prompt-matched fallback behavior.",
+    "- Use `inspect_contract_interfaces` when you need to understand which preloaded interfaces are available or already linked for a contract.",
     "- Use `resolve_contract_target` when you need to turn a token name or contract address into a concrete target plus readiness state.",
     "- Use `get_token_metadata` for ERC-20 metadata questions such as name, symbol, decimals, or total supply.",
+    "- Use `get_token_control_events` for blacklist, pause, upgrade, ownership, or role-history questions when the answer depends on emitted events rather than only current contract state.",
     "- Use `investigate_token` when the user asks for a broader token analysis, investigation, or summary.",
     "- If the user asks for decimals, symbol, name, or total supply and provides a contract address, your first action must be `get_token_metadata` for that exact address.",
     "- Do not classify an address as an EOA or as a non-token without first checking `resolve_contract_target` or `get_token_metadata`.",
@@ -82,6 +84,8 @@ export function containerInstructions(): string {
     "- For explicit balance lookups, call `get_address_balance` with either `contractAddress` or `tokenName`.",
     "- For explicit holder-concentration requests, call `get_holder_concentration` with either `contractAddress` or `tokenName`.",
     "- For explicit balance-watch requests, call `create_balance_watch` with either `contractAddress` or `tokenName`.",
+    "- For contract-interface coverage or linking questions, use `inspect_contract_interfaces` and `ensure_contract_interface`.",
+    "- For blacklist, pause, ownership, role, or upgrade-history questions, use `get_token_control_events`.",
     "- For broader token investigation requests, call `investigate_token` with either `contractAddress` or `tokenName`.",
     "- For a top-holder request that already includes a contract address or a known token name, your first action should be the `get_top_holders` tool call.",
     "- If `get_top_holders` returns only a holder list, do not infer total supply, concentration, or percentages unless you separately call `get_holder_concentration` or `get_token_metadata`.",
@@ -96,6 +100,7 @@ export function containerInstructions(): string {
     "- For 'alert me if this balance moves' requests, use `create_balance_watch` when the token contract address is explicit. If the token target is missing, ask for it instead of guessing.",
     "- When asked what is currently being tracked, call `list_balance_watches`.",
     "- Never guess balances, holder rankings, contract type, or token metadata without calling a tool.",
+    "- Prefer event-query-backed tools when the user's question is about historical control changes, holder reconstruction, or other state that is not enumerable from current storage reads alone.",
     "- Do not cite Etherscan or other external sources for these questions when the MCP tools can answer them.",
   ].join("\n");
 }

@@ -2,7 +2,15 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 
+import {
+  ensureContractInterfaceLink,
+  formatContractInterfaceInspection,
+  formatPreloadedInterfaceStatuses,
+  getPreloadedInterfaceCatalogStatus,
+  inspectContractInterfaces,
+} from "./contract-interface-service.js";
 import { resolveConfig } from "./config.js";
+import { formatTokenControlEvents, getTokenControlEvents } from "./event-view-service.js";
 import { evaluatePendingHolderQueries, getTopHoldersForTokenTarget } from "./holder-query-service.js";
 import { formatTokenInvestigation, investigateToken } from "./investigation-service.js";
 import { getAddressBalanceForTokenTarget, getHolderConcentrationForTokenTarget } from "./query-service.js";
@@ -20,6 +28,79 @@ const server = new McpServer({
   name: "multibaas-protocol-intelligence-runtime",
   version: "0.1.0",
 });
+
+server.tool("list_preloaded_interfaces", {}, async () => ({
+  content: [{
+    type: "text",
+    text: formatPreloadedInterfaceStatuses(await getPreloadedInterfaceCatalogStatus()),
+  }],
+}));
+
+server.tool(
+  "inspect_contract_interfaces",
+  {
+    contractAddress: z.string().min(1).optional(),
+    tokenName: z.string().min(1).optional(),
+  },
+  async ({ contractAddress, tokenName }) => {
+    const target = await resolveTokenTarget({ contractAddress, tokenName });
+    if (target.unresolved) {
+      return {
+        content: [{ type: "text", text: `I don't know the contract address for ${target.tokenNameInput} yet. Tell me the token contract address and I'll inspect its interface coverage directly.` }],
+      };
+    }
+
+    if (!target.address) {
+      return {
+        content: [{ type: "text", text: "Tell me the token contract address or a known token name and I'll inspect its interface coverage." }],
+      };
+    }
+
+    return {
+      content: [{
+        type: "text",
+        text: formatContractInterfaceInspection(await inspectContractInterfaces(target.address)),
+      }],
+    };
+  },
+);
+
+server.tool(
+  "ensure_contract_interface",
+  {
+    contractAddress: z.string().min(1).optional(),
+    interfaceLabel: z.string().min(1),
+    startingBlock: z.string().min(1).optional(),
+    tokenName: z.string().min(1).optional(),
+  },
+  async ({ contractAddress, interfaceLabel, startingBlock, tokenName }) => {
+    const target = await resolveTokenTarget({ contractAddress, tokenName });
+    if (target.unresolved) {
+      return {
+        content: [{ type: "text", text: `I don't know the contract address for ${target.tokenNameInput} yet. Tell me the token contract address and I'll link the requested interface.` }],
+      };
+    }
+
+    if (!target.address) {
+      return {
+        content: [{ type: "text", text: "Tell me the token contract address or a known token name and I'll link the requested interface." }],
+      };
+    }
+
+    return {
+      content: [{
+        type: "text",
+        text: formatContractInterfaceInspection(
+          await ensureContractInterfaceLink({
+            addressOrAlias: target.address,
+            label: interfaceLabel,
+            startingBlock,
+          }),
+        ),
+      }],
+    };
+  },
+);
 
 server.tool(
   "resolve_contract_target",
@@ -90,6 +171,27 @@ server.tool(
       }],
     };
   },
+);
+
+server.tool(
+  "get_token_control_events",
+  {
+    contractAddress: z.string().min(1).optional(),
+    limit: z.number().int().min(1).max(100).optional(),
+    tokenName: z.string().min(1).optional(),
+  },
+  async ({ contractAddress, limit, tokenName }) => ({
+    content: [{
+      type: "text",
+      text: formatTokenControlEvents(
+        await getTokenControlEvents({
+          contractAddress,
+          limit,
+          tokenName,
+        }),
+      ),
+    }],
+  }),
 );
 
 server.tool(

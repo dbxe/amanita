@@ -75,8 +75,16 @@ npm run dev -- query concentration --contract 0xd26fde38F244Dcbb13e8017347Ac3780
 # one address balance for a token contract
 npm run dev -- query balance --contract 0xd26fde38F244Dcbb13e8017347Ac37804d926Bb5 --address 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172
 
+# control-history events for a token / proxy / governed contract
+npm run dev -- query controls --contract 0xd26fde38F244Dcbb13e8017347Ac37804d926Bb5 --limit 10
+
 # grounded token investigation
 npm run dev -- query investigate --contract 0xd26fde38F244Dcbb13e8017347Ac37804d926Bb5 --limit 5
+
+# inspect and preload the finite interface library
+npm run dev -- contract list-interfaces
+npm run dev -- contract preload-interfaces --labels erc20interface,fiattokenv2interface
+npm run dev -- contract inspect --contract 0xd26fde38F244Dcbb13e8017347Ac37804d926Bb5
 
 # save a watch for a token contract
 npm run dev -- watch add --contract 0xd26fde38F244Dcbb13e8017347Ac37804d926Bb5 --address 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172 --label whale
@@ -141,8 +149,12 @@ npm run mcp
 
 Tools exposed:
 
+- `list_preloaded_interfaces`
+- `inspect_contract_interfaces`
+- `ensure_contract_interface`
 - `resolve_contract_target`
 - `get_token_metadata`
+- `get_token_control_events`
 - `investigate_token`
 - `get_top_holders`
 - `get_holder_concentration`
@@ -156,11 +168,23 @@ Tools exposed:
 
 Preferred Phase 02 path:
 
+- `list_preloaded_interfaces`, `inspect_contract_interfaces`, and `ensure_contract_interface` for the preloaded interface-library path
 - `resolve_contract_target` for token resolution and readiness inspection
 - `get_token_metadata` for ERC-20 metadata such as name, symbol, decimals, and total supply
+- `get_token_control_events` for event-sourced control-surface history such as blacklist, pause, role, ownership, and upgrade events
 - `investigate_token` for grounded token analysis that combines readiness, metadata, concentration, and top-holder context
 - `get_top_holders`, `get_holder_concentration`, `get_address_balance`, and `create_balance_watch` for typed analytical and monitoring actions
 - those typed tools can work from either `contractAddress` or `tokenName`, so the model does not need a natural-language compatibility router for common ERC-20 questions
+
+For broader protocol suites, the near-term repo posture is:
+
+- preload a finite but useful interface library
+- link live contracts against those known definitions
+- compile bounded event-view specs into MultiBaas event queries
+
+not:
+
+- ask the model to hand-author raw backend payloads by default
 
 ## NanoClaw bridge
 
@@ -201,6 +225,7 @@ The current capability-first CLI path is working through NanoClaw:
 ```bash
 cd ~/git/qwibitai/nanoclaw
 pnpm run chat -- "how many decimals does 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59 have?"
+pnpm run chat -- "Show me the recent control events for token 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59"
 pnpm run chat -- "Investigate token 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59"
 pnpm run chat -- "What is the balance of 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172 for token 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59?"
 pnpm run chat -- "Give me the top 5 holders for token 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59"

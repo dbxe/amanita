@@ -4,6 +4,7 @@ import { promisify } from "node:util";
 
 import {
   AddressesApi,
+  type BaseContract,
   Configuration,
   ContractsApi,
   EventQueriesApi,
@@ -473,6 +474,28 @@ export async function executeContractBalanceQuery(
   return normalizeBalanceRows(readRows(response));
 }
 
+export async function executeArbitraryEventQueryRows(
+  config: RuntimeConfig,
+  query: EventQuery,
+  limit: number,
+  offset = 0,
+): Promise<Array<Record<string, unknown>>> {
+  const api = createEventQueriesApi(config);
+  const response = await withCurlFallback(
+    async () => {
+      const result = await api.executeArbitraryEventQuery(query, offset, limit);
+      return result.data as unknown;
+    },
+    () =>
+      requestJsonViaCurl<unknown>(config, "/queries", {
+        body: query,
+        method: "POST",
+        params: { limit, offset },
+      }),
+  );
+  return readRows(response);
+}
+
 export async function executeBalanceSourceQuery(
   config: RuntimeConfig,
   source: string,
@@ -715,6 +738,46 @@ export async function getContractDefinition(config: RuntimeConfig, label: string
     label: data.result?.label ?? label,
     version: data.result?.version,
   };
+}
+
+export async function createContractDefinition(
+  config: RuntimeConfig,
+  contract: Pick<BaseContract, "contractName" | "label" | "rawAbi" | "version"> & {
+    bin?: string;
+    developerDoc?: string;
+    metadata?: string;
+    userDoc?: string;
+  },
+): Promise<void> {
+  const contractsApi = createContractsApi(config);
+  await withCurlFallback(
+    async () => {
+      await contractsApi.createContract(contract.label, {
+        bin: contract.bin,
+        contractName: contract.contractName,
+        developerDoc: contract.developerDoc,
+        label: contract.label,
+        metadata: contract.metadata,
+        rawAbi: contract.rawAbi,
+        userDoc: contract.userDoc,
+        version: contract.version,
+      });
+    },
+    () =>
+      requestJsonViaCurl(config, `/contracts/${encodeURIComponent(contract.label)}`, {
+        body: {
+          bin: contract.bin,
+          contractName: contract.contractName,
+          developerDoc: contract.developerDoc,
+          label: contract.label,
+          metadata: contract.metadata,
+          rawAbi: contract.rawAbi,
+          userDoc: contract.userDoc,
+          version: contract.version,
+        },
+        method: "PUT",
+      }).then(() => undefined),
+  );
 }
 
 export async function linkAddressToContract(

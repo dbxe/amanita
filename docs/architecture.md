@@ -53,6 +53,15 @@ The remaining pressure point is capability breadth, not a workflow router:
 - event-query construction is still mostly runtime-authored rather than model-composed
 - Discord/DM validation still trails CLI validation
 
+The runtime now has the first pieces of the next layer:
+
+- a finite preloaded interface inventory
+- contract-interface inspection and linking surfaces
+- a bounded event-view intermediate spec
+- compilation of that spec into MultiBaas event queries
+
+That is enough to start moving beyond hand-authored holder templates without falling back to raw model-generated backend payloads.
+
 Those are now the main architectural drag on the Phase 02 direction.
 
 ## Next structural move
@@ -69,6 +78,8 @@ Do not do a broad refactor with vague abstractions. The next useful moves are na
 That keeps the runtime oriented around capabilities rather than sliding back into prompt-matched workflow growth.
 
 Near-term, "ABI acquisition" should be read pragmatically. The hackathon-friendly version is a strong preloaded interface library plus runtime matching and linking on live contracts. Fully autonomous ABI discovery and upload can remain a later extension once the bounded event-query and live-network demo paths are solid.
+
+For protocol-family prioritization, prefer newer canonical deployments where practical. In particular, Uniswap and Aave should bias toward v4 targets for final demos if the interface and data path are ready in time. The current repo-local starter inventory can still include v3 surfaces where they are materially easier to ship first.
 
 ## Local reference repos
 

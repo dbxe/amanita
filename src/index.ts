@@ -1,4 +1,13 @@
+import {
+  ensureContractInterfaceLink,
+  formatContractInterfaceInspection,
+  formatPreloadedInterfaceStatuses,
+  getPreloadedInterfaceCatalogStatus,
+  inspectContractInterfaces,
+  preloadKnownInterfaces,
+} from "./contract-interface-service.js";
 import { resolveConfig } from "./config.js";
+import { formatTokenControlEvents, getTokenControlEvents } from "./event-view-service.js";
 import { evaluatePendingHolderQueries, requestTopHolders } from "./holder-query-service.js";
 import { formatTokenInvestigation, investigateToken } from "./investigation-service.js";
 import { sendNanoClawNotification } from "./nanoclaw-host.js";
@@ -23,7 +32,12 @@ Usage:
   npm run dev -- query top-holders [--limit 20] [--query <saved-query>] [--contract 0x...]
   npm run dev -- query concentration [--limit 5] [--query <saved-query>] [--contract 0x...]
   npm run dev -- query balance --address 0x... [--query <saved-query> | --contract 0x...]
+  npm run dev -- query controls [--contract 0x... | --token <name>] [--limit 20]
   npm run dev -- query investigate [--contract 0x... | --token <name>] [--limit 5]
+  npm run dev -- contract list-interfaces
+  npm run dev -- contract preload-interfaces [--labels erc20interface,fiattokenv2interface]
+  npm run dev -- contract inspect --contract 0x...
+  npm run dev -- contract ensure-interface --contract 0x... --label erc20interface [--starting-block 0]
   npm run dev -- watch add --address 0x... [--label whale] [--query <saved-query> | --contract 0x...]
   npm run dev -- watch list
   npm run dev -- watch evaluate
@@ -113,6 +127,20 @@ async function handleQuery(args: string[]): Promise<void> {
     return;
   }
 
+  if (subcommand === "controls") {
+    const limit = parsePositiveIntegerFlag(args, "--limit", 20);
+    console.log(
+      formatTokenControlEvents(
+        await getTokenControlEvents({
+          contractAddress,
+          limit,
+          tokenName,
+        }),
+      ),
+    );
+    return;
+  }
+
   if (subcommand === "investigate") {
     const limit = parsePositiveIntegerFlag(args, "--limit", 5);
     console.log(
@@ -128,6 +156,45 @@ async function handleQuery(args: string[]): Promise<void> {
   }
 
   throw new Error(`Unknown query command: ${subcommand ?? "(missing)"}`);
+}
+
+async function handleContract(args: string[]): Promise<void> {
+  const subcommand = readCommand(args, 1);
+
+  if (subcommand === "list-interfaces") {
+    console.log(formatPreloadedInterfaceStatuses(await getPreloadedInterfaceCatalogStatus()));
+    return;
+  }
+
+  if (subcommand === "preload-interfaces") {
+    const labels = readFlag(args, "--labels")?.split(",").map((value) => value.trim()).filter(Boolean);
+    console.log(formatPreloadedInterfaceStatuses(await preloadKnownInterfaces(labels)));
+    return;
+  }
+
+  if (subcommand === "inspect") {
+    const contractAddress = requireFlag(args, "--contract");
+    console.log(formatContractInterfaceInspection(await inspectContractInterfaces(contractAddress)));
+    return;
+  }
+
+  if (subcommand === "ensure-interface") {
+    const contractAddress = requireFlag(args, "--contract");
+    const label = requireFlag(args, "--label");
+    const startingBlock = readFlag(args, "--starting-block");
+    console.log(
+      formatContractInterfaceInspection(
+        await ensureContractInterfaceLink({
+          addressOrAlias: contractAddress,
+          label,
+          startingBlock,
+        }),
+      ),
+    );
+    return;
+  }
+
+  throw new Error(`Unknown contract command: ${subcommand ?? "(missing)"}`);
 }
 
 async function handleWatch(args: string[]): Promise<void> {
@@ -279,6 +346,11 @@ async function main(): Promise<void> {
 
   if (command === "watch") {
     await handleWatch(args);
+    return;
+  }
+
+  if (command === "contract") {
+    await handleContract(args);
     return;
   }
 
