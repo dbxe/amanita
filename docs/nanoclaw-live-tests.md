@@ -245,6 +245,43 @@ console.log(JSON.stringify(result, null, 2));
 EOF
 ```
 
+### 6. Investigation by explicit token address
+
+**Goal:** the model can perform a broader, grounded token investigation through the typed MCP capability surface instead of falling back to free-form summary text.
+
+**Preconditions**
+
+- `helloworld` is linked in MultiBaas at `0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59`
+- run the standard preflight above
+- clear the active CLI session first if you already used the same group for earlier prompts
+
+**Prompt**
+
+```bash
+cd ~/git/qwibitai/nanoclaw
+pnpm run chat -- "Investigate token 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59"
+```
+
+**Expected live behavior**
+
+- returns token metadata grounded in tool results
+- returns readiness state
+- returns top-holder concentration and top holders
+- does not cite external sources
+- does not invent values that are not derivable from metadata plus analytical reads
+
+**Host-side verification**
+
+```bash
+cd ~/git/dbxe/amanita
+npm run dev -- query investigate --contract 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59 --limit 5
+```
+
+**Notes / known failure modes**
+
+- if the prompt lands in a stale CLI session, the reply may blend earlier context instead of running a fresh tool sequence
+- for clean regression checks, clear the CLI session and rerun this probe from a fresh session
+
 You should see an alias and an `erc20interface` link after onboarding.
 
 You can also inspect persisted holder-query task state:
