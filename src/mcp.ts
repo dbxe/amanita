@@ -2,20 +2,8 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 
-import {
-  DEFAULT_WEBHOOK_LABEL,
-  ensureBalanceWebhook,
-  evaluatePendingHolderQueries,
-  evaluateBalanceWatches,
-  formatAlerts,
-  formatSavedWatch,
-  formatTasks,
-  formatWatches,
-  listTasks,
-  listBalanceWatches,
-  requestTopHolders,
-  saveBalanceWatch,
-} from "./agent-tools.js";
+import { resolveConfig } from "./config.js";
+import { evaluatePendingHolderQueries, requestTopHolders } from "./holder-query-service.js";
 import { handleIntent } from "./intent.js";
 import {
   createContractBalanceSource,
@@ -23,13 +11,16 @@ import {
   resolveContractReadiness,
   resolveKnownAddress,
 } from "./multibaas.js";
+import { loadState } from "./state.js";
+import { formatAlerts, formatSavedWatch, formatTasks, formatWatches } from "./task-formatting.js";
+import { DEFAULT_WEBHOOK_LABEL, ensureBalanceWebhook } from "./webhook-service.js";
+import { evaluateBalanceWatches, listBalanceWatches, saveBalanceWatch } from "./watch-service.js";
 import {
   formatAnalyticalViewResult,
   getContractHolderConcentration,
   getHolderConcentration,
   lookupBalance,
 } from "./views.js";
-import { resolveConfig } from "./config.js";
 
 const server = new McpServer({
   name: "multibaas-protocol-intelligence-runtime",
@@ -193,6 +184,10 @@ server.tool("evaluate_tasks", {}, async () => {
   };
 });
 
+server.tool("list_tasks", {}, async () => ({
+  content: [{ type: "text", text: formatTasks({ tasks: loadState(resolveConfig().stateDir).tasks }) }],
+}));
+
 server.tool(
   "get_address_balance",
   {
@@ -267,9 +262,8 @@ server.tool("list_balance_watches", {}, async () => {
 });
 
 server.tool("list_tasks", {}, async () => {
-  const result = listTasks();
   return {
-    content: [{ type: "text", text: formatTasks(result) }],
+    content: [{ type: "text", text: formatTasks({ tasks: loadState(resolveConfig().stateDir).tasks }) }],
   };
 });
 

@@ -31,13 +31,17 @@ Treat the current `src/intent.ts` and other workflow-specific entrypoints as com
 - `src/config.ts` — environment and local deployment config resolution
 - `src/multibaas.ts` — MultiBaas SDK integration and webhook signature helpers
 - `src/state.ts` — watch/webhook local persistence
-- `src/agent-tools.ts` — orchestration layer for query, watch, and webhook flows
+- `src/holder-query-service.ts` — holder query orchestration and readiness/onboarding wrapper
+- `src/watch-service.ts` — watch lifecycle orchestration and evaluation
+- `src/webhook-service.ts` — webhook registration and local ingress server
+- `src/task-formatting.ts` — human-readable renderers for tasks, watches, alerts, and webhook state
+- `src/agent-tools.ts` — compatibility barrel that re-exports the runtime services above
 - `src/intent.ts` — legacy natural-language compatibility adapter; do not expand casually
 - `src/mcp.ts` — stdio MCP surface for NanoClaw
 - `src/nanoclaw.ts` — NanoClaw `container.json` helper
 - `src/index.ts` — local CLI entrypoint
 
-If the runtime grows, do not keep piling unrelated behavior into `src/agent-tools.ts`. The next split should be by responsibility, for example watch logic, webhook logic, and pure formatting helpers.
+Do not add new business logic to `src/agent-tools.ts`; keep it as compatibility glue.
 Also avoid teaching new business behavior primarily through `src/intent.ts`; prefer adding typed capability surfaces first.
 
 ## Working preferences

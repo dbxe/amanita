@@ -1,18 +1,10 @@
-import {
-  evaluatePendingHolderQueries,
-  evaluateBalanceWatches,
-  formatAlerts,
-  formatSavedWatch,
-  formatTasks,
-  formatWatches,
-  listTasks,
-  listBalanceWatches,
-  requestTopHolders,
-  saveBalanceWatch,
-} from "./agent-tools.js";
 import { resolveConfig } from "./config.js";
+import { evaluatePendingHolderQueries, requestTopHolders } from "./holder-query-service.js";
 import { createContractBalanceSource, resolveKnownAddress, resolveBalanceSource } from "./multibaas.js";
 import { createPlanFromIntent } from "./planning.js";
+import { loadState } from "./state.js";
+import { formatAlerts, formatSavedWatch, formatTasks, formatWatches } from "./task-formatting.js";
+import { evaluateBalanceWatches, listBalanceWatches, saveBalanceWatch } from "./watch-service.js";
 import { executeAnalyticalView, formatAnalyticalViewResult } from "./views.js";
 
 type Intent =
@@ -154,7 +146,8 @@ export async function handleIntent(text: string): Promise<string> {
     ].join("\n");
   }
 
-  const queryName = resolveConfig().defaultQueryName;
+  const config = resolveConfig();
+  const queryName = config.defaultQueryName;
 
   try {
     switch (intent.kind) {
@@ -189,7 +182,7 @@ export async function handleIntent(text: string): Promise<string> {
       case "list-watches":
         return formatWatches(listBalanceWatches());
       case "list-tasks":
-        return formatTasks(listTasks());
+        return formatTasks({ tasks: loadState(config.stateDir).tasks });
       case "evaluate-watches": {
         const result = await evaluateBalanceWatches();
         return formatAlerts(result.state, result.alerts);

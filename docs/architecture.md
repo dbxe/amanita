@@ -24,7 +24,11 @@ Treat `hardhat/` as fixture infrastructure, not as the home of the runtime.
 - `config.ts` resolves runtime config from environment or local Hardhat deployment config.
 - `multibaas.ts` owns the MultiBaas SDK client and low-level helpers like balance normalization and webhook signatures.
 - `state.ts` owns local persistence for watches, webhook metadata, and alerts.
-- `agent-tools.ts` is the current application layer that combines config, MultiBaas calls, and state updates into holder, balance, watch, and webhook operations.
+- `holder-query-service.ts` owns holder-query orchestration and readiness/onboarding transitions.
+- `watch-service.ts` owns watch lifecycle orchestration and alert evaluation.
+- `webhook-service.ts` owns webhook registration and the local ingress server.
+- `task-formatting.ts` owns human-readable rendering for task, watch, alert, and webhook output.
+- `agent-tools.ts` is now a compatibility barrel over the runtime services above.
 - `intent.ts` is a legacy compatibility adapter for a narrow natural-language surface.
 - `mcp.ts` exposes the harness operations to NanoClaw through stdio MCP.
 - `nanoclaw.ts` writes NanoClaw group config needed to mount the repo and register the MCP server.
@@ -38,17 +42,7 @@ The current shape is serviceable as a transition state, but it still carries str
 - the CLI and MCP entrypoints are already thin
 - local persistence is isolated
 
-The main pressure point is `src/agent-tools.ts`, which currently mixes:
-
-- orchestration
-- formatting
-- watch persistence flows
-- webhook registration
-- the local HTTP webhook server
-
-That is the first structural pressure point.
-
-The second pressure point is the workflow-first model surface:
+The remaining pressure point is the workflow-first model surface:
 
 - `src/intent.ts` encodes English-pattern routing
 - `src/mcp.ts` still privileges a high-level workflow tool
@@ -65,6 +59,8 @@ Do not do a broad refactor with vague abstractions. The next useful moves are na
 3. move human-readable renderers into a formatter module
 4. expose typed capability-oriented MCP tools that do not depend on the high-level intent router
 5. reduce `src/intent.ts` to compatibility glue rather than growing it into the product architecture
+
+Steps 1 through 3 are now in place. The next material pressure reduction is step 4 and then shrinking the compatibility router further.
 
 That keeps the entrypoints thin while shifting the runtime toward the Phase 02 model.
 

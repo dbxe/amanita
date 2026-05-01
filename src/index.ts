@@ -1,23 +1,13 @@
-import {
-  DEFAULT_WEBHOOK_LABEL,
-  ensureBalanceWebhook,
-  evaluatePendingHolderQueries,
-  evaluateBalanceWatches,
-  formatAlerts,
-  formatSavedWatch,
-  formatTasks,
-  formatWebhook,
-  formatWatches,
-  listTasks,
-  listBalanceWatches,
-  requestTopHolders,
-  saveBalanceWatch,
-  startWebhookServer,
-} from "./agent-tools.js";
+import { resolveConfig } from "./config.js";
+import { evaluatePendingHolderQueries, requestTopHolders } from "./holder-query-service.js";
 import { handleIntent } from "./intent.js";
 import { sendNanoClawNotification } from "./nanoclaw-host.js";
 import { configureNanoClawGroup } from "./nanoclaw.js";
 import { createContractBalanceSource } from "./multibaas.js";
+import { loadState } from "./state.js";
+import { formatAlerts, formatSavedWatch, formatTasks, formatWebhook, formatWatches } from "./task-formatting.js";
+import { DEFAULT_WEBHOOK_LABEL, ensureBalanceWebhook, startWebhookServer } from "./webhook-service.js";
+import { evaluateBalanceWatches, listBalanceWatches, saveBalanceWatch } from "./watch-service.js";
 import {
   formatAnalyticalViewResult,
   getContractHolderConcentration,
@@ -198,7 +188,7 @@ async function handleTask(args: string[]): Promise<void> {
   const subcommand = readCommand(args, 1);
 
   if (subcommand === "list") {
-    console.log(formatTasks(listTasks()));
+    console.log(formatTasks({ tasks: loadState(resolveConfig().stateDir).tasks }));
     return;
   }
 
