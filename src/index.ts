@@ -17,6 +17,7 @@ import {
 import { handleIntent } from "./intent.js";
 import { sendNanoClawNotification } from "./nanoclaw-host.js";
 import { configureNanoClawGroup } from "./nanoclaw.js";
+import { createContractBalanceSource } from "./multibaas.js";
 import {
   formatAnalyticalViewResult,
   getContractHolderConcentration,
@@ -29,10 +30,10 @@ function printUsage(): void {
   console.log(`Local MultiBaas agent loop
 
 Usage:
-  npm run dev -- query top-holders [--limit 20] [--query helloworld_balance] [--contract 0x...]
-  npm run dev -- query concentration [--limit 5] [--query helloworld_balance] [--contract 0x...]
-  npm run dev -- query balance --address 0x... [--query helloworld_balance]
-  npm run dev -- watch add --address 0x... [--label whale] [--query helloworld_balance]
+  npm run dev -- query top-holders [--limit 20] [--query <saved-query>] [--contract 0x...]
+  npm run dev -- query concentration [--limit 5] [--query <saved-query>] [--contract 0x...]
+  npm run dev -- query balance --address 0x... [--query <saved-query> | --contract 0x...]
+  npm run dev -- watch add --address 0x... [--label whale] [--query <saved-query> | --contract 0x...]
   npm run dev -- watch list
   npm run dev -- watch evaluate
   npm run dev -- task list
@@ -113,7 +114,11 @@ async function handleQuery(args: string[]): Promise<void> {
 
   if (subcommand === "balance") {
     const address = requireFlag(args, "--address");
-    console.log(formatAnalyticalViewResult(await lookupBalance(address, queryName)));
+    console.log(
+      formatAnalyticalViewResult(
+        await lookupBalance(address, contractAddress ? createContractBalanceSource(contractAddress) : queryName),
+      ),
+    );
     return;
   }
 
@@ -130,9 +135,14 @@ async function handleWatch(args: string[]): Promise<void> {
 
   if (subcommand === "add") {
     const address = requireFlag(args, "--address");
+    const contractAddress = readFlag(args, "--contract");
     const queryName = readFlag(args, "--query");
     const label = readFlag(args, "--label");
-    console.log(formatSavedWatch(await saveBalanceWatch(address, label, queryName)));
+    console.log(
+      formatSavedWatch(
+        await saveBalanceWatch(address, label, contractAddress ? createContractBalanceSource(contractAddress) : queryName),
+      ),
+    );
     return;
   }
 

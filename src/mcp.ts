@@ -17,6 +17,7 @@ import {
   saveBalanceWatch,
 } from "./agent-tools.js";
 import { handleIntent } from "./intent.js";
+import { createContractBalanceSource } from "./multibaas.js";
 import {
   formatAnalyticalViewResult,
   getContractHolderConcentration,
@@ -93,10 +94,17 @@ server.tool(
   "get_address_balance",
   {
     address: z.string().min(1),
+    contractAddress: z.string().min(1).optional(),
     queryName: z.string().min(1).optional(),
   },
-  async ({ address, queryName }) => {
-    const result = await lookupBalance(address, queryName);
+  async ({ address, contractAddress, queryName }) => {
+    if (!queryName && !contractAddress) {
+      return {
+        content: [{ type: "text", text: "Tell me the token contract address for that balance lookup and I'll query it directly." }],
+      };
+    }
+
+    const result = await lookupBalance(address, queryName ?? createContractBalanceSource(contractAddress!));
     return {
       content: [{ type: "text", text: formatAnalyticalViewResult(result) }],
     };
@@ -111,6 +119,12 @@ server.tool(
     queryName: z.string().min(1).optional(),
   },
   async ({ contractAddress, limit, queryName }) => {
+    if (!contractAddress && !queryName) {
+      return {
+        content: [{ type: "text", text: "Tell me the token contract address for that concentration request and I'll query it directly." }],
+      };
+    }
+
     const result = contractAddress
       ? await getContractHolderConcentration(contractAddress, limit ?? 5, queryName)
       : await getHolderConcentration(limit ?? 5, queryName);
@@ -124,11 +138,18 @@ server.tool(
   "create_balance_watch",
   {
     address: z.string().min(1),
+    contractAddress: z.string().min(1).optional(),
     label: z.string().min(1).optional(),
     queryName: z.string().min(1).optional(),
   },
-  async ({ address, label, queryName }) => {
-    const result = await saveBalanceWatch(address, label, queryName);
+  async ({ address, contractAddress, label, queryName }) => {
+    if (!queryName && !contractAddress) {
+      return {
+        content: [{ type: "text", text: "Tell me the token contract address for that watch and I'll create it." }],
+      };
+    }
+
+    const result = await saveBalanceWatch(address, label, queryName ?? createContractBalanceSource(contractAddress!));
     return {
       content: [{ type: "text", text: formatSavedWatch(result) }],
     };

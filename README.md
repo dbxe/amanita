@@ -12,10 +12,8 @@ Minimal MultiBaas event-query and webhook loop for the hackathon MVP.
 
 ## What works now
 
-- query the saved MultiBaas event query `helloworld_balance`
-- show top holders
-- compute top-holder concentration
-- query top holders and concentration for linked, indexed ERC-20 contract addresses
+- query top holders, concentration, balances, and watches dynamically for linked/indexed ERC-20 contracts
+- execute an explicitly named saved MultiBaas event query when you provide `--query`
 - resolve known token aliases for top-holder requests and ask for clarification when the contract/interface is ambiguous
 - look up one address balance
 - save a whale watch in local state
@@ -29,7 +27,6 @@ Minimal MultiBaas event-query and webhook loop for the hackathon MVP.
 1. Node 22+
 2. A populated `hardhat/deployment-config.<network>.ts`
 3. The sample token deployed and linked from `hardhat/`
-4. The saved query `helloworld_balance` created on MultiBaas
 
 If you need to set up the fixture from scratch:
 
@@ -38,7 +35,6 @@ cd hardhat
 npm install
 npm run deploy
 npm run mint
-npm run setup-event-query
 ```
 
 ## Install
@@ -57,23 +53,17 @@ When the harness runs **inside NanoClaw**, authenticated MultiBaas calls should 
 ## Minimal product loop
 
 ```bash
-# top holders
-npm run dev -- query top-holders --limit 5
-
 # top holders for a linked ERC-20 contract
 npm run dev -- query top-holders --contract 0xd26fde38F244Dcbb13e8017347Ac37804d926Bb5 --limit 5
-
-# top-holder concentration
-npm run dev -- query concentration --limit 5
 
 # top-holder concentration for a linked ERC-20 contract
 npm run dev -- query concentration --contract 0xd26fde38F244Dcbb13e8017347Ac37804d926Bb5 --limit 5
 
-# one address balance
-npm run dev -- query balance --address 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172
+# one address balance for a token contract
+npm run dev -- query balance --contract 0xd26fde38F244Dcbb13e8017347Ac37804d926Bb5 --address 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172
 
-# save a watch
-npm run dev -- watch add --address 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172 --label whale
+# save a watch for a token contract
+npm run dev -- watch add --contract 0xd26fde38F244Dcbb13e8017347Ac37804d926Bb5 --address 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172 --label whale
 
 # inspect watches
 npm run dev -- watch list
@@ -84,9 +74,11 @@ npm run dev -- task list
 # reevaluate pending holder-query tasks
 npm run dev -- task evaluate
 
-# reevaluate all watches against the latest saved-query snapshot
+# reevaluate all watches against the latest tracked balance snapshot
 npm run dev -- watch evaluate
 ```
+
+For a legacy saved-query path, pass `--query <saved-query-name>` explicitly.
 
 Local watch state is stored under `.agent-state/`.
 
@@ -95,12 +87,11 @@ Local watch state is stored under `.agent-state/`.
 This is the fastest end-to-end demo path right now:
 
 ```bash
-npm run dev -- agent "Give me the top 5 holders"
 npm run dev -- agent "Give me the top 5 holders for token 0xd26fde38F244Dcbb13e8017347Ac37804d926Bb5"
 npm run dev -- agent "What are the top balances of sampletoken?"
-npm run dev -- agent "What is the top 5 holder concentration?"
-npm run dev -- agent "What is the balance of 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172?"
-npm run dev -- agent "Alert me if the balance of 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172 moves"
+npm run dev -- agent "What is the top 5 holder concentration for token 0xd26fde38F244Dcbb13e8017347Ac37804d926Bb5?"
+npm run dev -- agent "What is the balance of 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172 for token 0xd26fde38F244Dcbb13e8017347Ac37804d926Bb5?"
+npm run dev -- agent "Alert me if the balance of 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172 moves for token 0xd26fde38F244Dcbb13e8017347Ac37804d926Bb5"
 ```
 
 For ERC-20 holder requests, the agent now:
@@ -145,7 +136,7 @@ When you have a reachable callback URL, register or update the shared MultiBaas 
 npm run dev -- webhook ensure --url https://your-host.example/webhooks/multibaas
 ```
 
-The webhook handler validates `X-MultiBaas-Signature` and `X-MultiBaas-Timestamp`, refreshes the saved-query snapshot, and appends alerts to `.agent-state/alerts.jsonl`.
+The webhook handler validates `X-MultiBaas-Signature` and `X-MultiBaas-Timestamp`, refreshes the tracked balance snapshot for each watch source, and appends alerts to `.agent-state/alerts.jsonl`.
 
 When you evaluate a watch that was created inside a NanoClaw group, point the host-side receiver at that group's state directory instead of the repo root:
 
@@ -174,7 +165,7 @@ Tools exposed:
 - `evaluate_balance_watches`
 - `ensure_event_webhook`
 
-`get_top_holders` accepts optional `contractAddress` and `tokenName` inputs for the ERC-20 onboarding flow, and `get_holder_concentration` also accepts an optional `contractAddress` for linked ERC-20 contracts.
+`get_top_holders` accepts optional `contractAddress` and `tokenName` inputs for the ERC-20 onboarding flow. `get_holder_concentration`, `get_address_balance`, and `create_balance_watch` should be called with an explicit `contractAddress` unless you are intentionally using an explicitly named saved query.
 
 ## NanoClaw bridge
 
@@ -214,9 +205,9 @@ The current local demo path is working through NanoClaw CLI:
 
 ```bash
 cd ~/git/qwibitai/nanoclaw
-pnpm run chat -- "What is the balance of 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172?"
-pnpm run chat -- "Give me the top 5 holders for the token"
-pnpm run chat -- "Alert me if the balance of 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172 moves"
+pnpm run chat -- "What is the balance of 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172 for token 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59?"
+pnpm run chat -- "Give me the top 5 holders for token 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59"
+pnpm run chat -- "Alert me if the balance of 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172 moves for token 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59"
 pnpm run chat -- "List watches"
 ```
 

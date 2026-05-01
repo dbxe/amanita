@@ -1,10 +1,14 @@
 import { resolveConfig } from "./config.js";
 import {
+  executeBalanceSourceQuery,
   executeContractBalanceQuery,
   executeSavedBalanceQuery,
+  fetchBalanceSourceSnapshot,
   fetchContractBalanceSnapshot,
   fetchBalanceSnapshot,
   getAddressBalance,
+  getContractTargetFromBalanceSource,
+  resolveBalanceSource,
   selectTopPositiveHolders,
   type BalanceRow,
 } from "./multibaas.js";
@@ -75,10 +79,11 @@ export function computeHolderConcentration(
 
 export async function getTopHolders(limit = 20, queryName?: string): Promise<TopHoldersResult> {
   const config = resolveConfig();
-  const effectiveQueryName = queryName ?? config.defaultQueryName;
-  const rows = await executeSavedBalanceQuery(config, effectiveQueryName, Math.min(limit, 100));
+  const effectiveQueryName = resolveBalanceSource(config, queryName);
+  const rows = await executeBalanceSourceQuery(config, effectiveQueryName, Math.min(limit, 100));
 
   return {
+    contractAddress: getContractTargetFromBalanceSource(effectiveQueryName),
     holders: selectTopPositiveHolders(rows, limit).map((row) => ({
       address: row.address,
       rawBalance: row.rawBalance,
@@ -95,7 +100,7 @@ export async function getContractTopHolders(
   queryName?: string,
 ): Promise<TopHoldersResult> {
   const config = resolveConfig();
-  const effectiveQueryName = queryName ?? config.defaultQueryName;
+  const effectiveQueryName = resolveBalanceSource(config, queryName);
   const rows = await executeContractBalanceQuery(config, contractAddress, Math.min(limit, 100));
 
   return {
@@ -112,7 +117,7 @@ export async function getContractTopHolders(
 
 export async function lookupBalance(address: string, queryName?: string): Promise<BalanceResult> {
   const config = resolveConfig();
-  const effectiveQueryName = queryName ?? config.defaultQueryName;
+  const effectiveQueryName = resolveBalanceSource(config, queryName);
   const balance = await getAddressBalance(config, effectiveQueryName, address);
 
   return {
@@ -125,9 +130,12 @@ export async function lookupBalance(address: string, queryName?: string): Promis
 
 export async function getHolderConcentration(limit = 5, queryName?: string): Promise<HolderConcentrationResult> {
   const config = resolveConfig();
-  const effectiveQueryName = queryName ?? config.defaultQueryName;
-  const snapshot = await fetchBalanceSnapshot(config, effectiveQueryName, config.scanLimit);
-  return computeHolderConcentration([...snapshot.values()], limit, effectiveQueryName);
+  const effectiveQueryName = resolveBalanceSource(config, queryName);
+  const snapshot = await fetchBalanceSourceSnapshot(config, effectiveQueryName, config.scanLimit);
+  return {
+    ...computeHolderConcentration([...snapshot.values()], limit, effectiveQueryName),
+    contractAddress: getContractTargetFromBalanceSource(effectiveQueryName),
+  };
 }
 
 export async function getContractHolderConcentration(
@@ -136,7 +144,7 @@ export async function getContractHolderConcentration(
   queryName?: string,
 ): Promise<HolderConcentrationResult> {
   const config = resolveConfig();
-  const effectiveQueryName = queryName ?? config.defaultQueryName;
+  const effectiveQueryName = resolveBalanceSource(config, queryName);
   const snapshot = await fetchContractBalanceSnapshot(config, contractAddress, config.scanLimit);
   return {
     ...computeHolderConcentration([...snapshot.values()], limit, effectiveQueryName),
@@ -171,7 +179,12 @@ export function formatTopHolders(result: TopHoldersResult): string {
 }
 
 export function formatBalance(result: BalanceResult): string {
-  return [`Query: ${result.queryName}`, `Address: ${result.address}`, `Balance: ${result.balance}`].join("\n");
+  const contractTarget = getContractTargetFromBalanceSource(result.queryName);
+  return [
+    contractTarget ? `Contract: ${contractTarget}` : `Query: ${result.queryName}`,
+    `Address: ${result.address}`,
+    `Balance: ${result.balance}`,
+  ].join("\n");
 }
 
 export function formatHolderConcentration(result: HolderConcentrationResult): string {

@@ -206,9 +206,9 @@ Start with the deterministic local CLI channel:
 
 ```bash
 cd ~/git/qwibitai/nanoclaw
-pnpm run chat -- "What is the balance of 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172?"
-pnpm run chat -- "Give me the top 5 holders for the token"
-pnpm run chat -- "Alert me if the balance of 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172 moves"
+pnpm run chat -- "What is the balance of 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172 for token 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59?"
+pnpm run chat -- "Give me the top 5 holders for token 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59"
+pnpm run chat -- "Alert me if the balance of 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172 moves for token 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59"
 pnpm run chat -- "List watches"
 pnpm run chat -- "Check watches"
 ```
@@ -278,4 +278,4 @@ curl -sS -X POST "$MULTIBAAS_BASE_URL/api/v0/chains/ethereum/addresses/helloworl
   }'
 ```
 
-On success, MultiBaas returns `TransactionToSignResponse` with `submitted: true`, the saved query reflects the lower whale balance, and the webhook receiver can queue the resulting alert into the DM or Discord-backed NanoClaw session.
+On success, MultiBaas returns `TransactionToSignResponse` with `submitted: true`, the tracked token balance for the whale drops, and the webhook receiver can queue the resulting alert into the DM or Discord-backed NanoClaw session.

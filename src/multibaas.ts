@@ -65,6 +65,7 @@ export interface ContractDefinition {
 const QUERY_PAGE_LIMIT = 100;
 const EVENT_EMITTED_WEBHOOK_SUBSCRIPTION = "event.emitted";
 const CURL_MAX_BUFFER = 10 * 1024 * 1024;
+const CONTRACT_BALANCE_SOURCE_PREFIX = "contract:";
 
 function buildConfiguration(config: RuntimeConfig): Configuration {
   return new Configuration({
@@ -238,6 +239,39 @@ export function normalizeTokenIdentifier(value: string): string {
   return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "");
 }
 
+function isAddress(value: string): boolean {
+  return /^0x[a-fA-F0-9]{40}$/.test(value.trim());
+}
+
+function normalizeContractTarget(value: string): string {
+  return isAddress(value) ? normalizeAddress(value) : value.trim().toLowerCase();
+}
+
+export function createContractBalanceSource(contractTarget: string): string {
+  return `${CONTRACT_BALANCE_SOURCE_PREFIX}${normalizeContractTarget(contractTarget)}`;
+}
+
+export function getContractTargetFromBalanceSource(source: string): string | undefined {
+  if (!source.startsWith(CONTRACT_BALANCE_SOURCE_PREFIX)) {
+    return undefined;
+  }
+
+  return source.slice(CONTRACT_BALANCE_SOURCE_PREFIX.length).trim() || undefined;
+}
+
+export function resolveBalanceSource(config: RuntimeConfig, source?: string): string {
+  const trimmedSource = source?.trim();
+  if (trimmedSource) {
+    return trimmedSource;
+  }
+
+  if (config.defaultQueryName) {
+    return config.defaultQueryName;
+  }
+
+  throw new Error("A saved query name or token contract address is required for this balance view.");
+}
+
 export function findKnownAddressByTokenName(
   tokenName: string,
   knownAddresses: KnownAddress[],
@@ -274,7 +308,8 @@ export function findKnownAddressByTokenName(
 }
 
 export function buildContractBalanceEventQuery(contractAddress: string): EventQuery {
-  const normalizedAddress = normalizeAddress(contractAddress);
+  const normalizedTarget = normalizeContractTarget(contractAddress);
+  const filterFieldType = isAddress(contractAddress) ? "contract_address" : "contract_address_alias";
   return {
     events: [
       {
@@ -282,9 +317,9 @@ export function buildContractBalanceEventQuery(contractAddress: string): EventQu
         filter: {
           children: [
             {
-              fieldType: "contract_address",
+              fieldType: filterFieldType,
               operator: "equal",
-              value: normalizedAddress,
+              value: normalizedTarget,
             },
           ],
           rule: "and",
@@ -310,9 +345,9 @@ export function buildContractBalanceEventQuery(contractAddress: string): EventQu
         filter: {
           children: [
             {
-              fieldType: "contract_address",
+              fieldType: filterFieldType,
               operator: "equal",
-              value: normalizedAddress,
+              value: normalizedTarget,
             },
           ],
           rule: "and",
@@ -420,6 +455,18 @@ export async function executeContractBalanceQuery(
   return normalizeBalanceRows(readRows(response));
 }
 
+export async function executeBalanceSourceQuery(
+  config: RuntimeConfig,
+  source: string,
+  limit: number,
+  offset = 0,
+): Promise<BalanceRow[]> {
+  const contractTarget = getContractTargetFromBalanceSource(source);
+  return contractTarget
+    ? executeContractBalanceQuery(config, contractTarget, limit, offset)
+    : executeSavedBalanceQuery(config, source, limit, offset);
+}
+
 export async function fetchBalanceSnapshot(
   config: RuntimeConfig,
   queryName: string,
@@ -472,6 +519,17 @@ export async function fetchContractBalanceSnapshot(
     snapshot.set(row.address, row);
   }
   return snapshot;
+}
+
+export async function fetchBalanceSourceSnapshot(
+  config: RuntimeConfig,
+  source: string,
+  limit: number,
+): Promise<Map<string, BalanceRow>> {
+  const contractTarget = getContractTargetFromBalanceSource(source);
+  return contractTarget
+    ? fetchContractBalanceSnapshot(config, contractTarget, limit)
+    : fetchBalanceSnapshot(config, source, limit);
 }
 
 export async function inspectContractReadiness(
@@ -763,7 +821,7 @@ export async function getAddressBalance(
   address: string,
 ): Promise<BalanceRow> {
   const normalizedAddress = normalizeAddress(address);
-  const snapshot = await fetchBalanceSnapshot(config, queryName, config.scanLimit);
+  const snapshot = await fetchBalanceSourceSnapshot(config, queryName, config.scanLimit);
   return (
     snapshot.get(normalizedAddress) ?? {
       address: normalizedAddress,

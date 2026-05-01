@@ -7,7 +7,7 @@ import { resolveConfig } from "./config.js";
 import { evaluatePendingHolderQueries as evaluateStoredHolderQueries, requestTopHolders as requestStoredTopHolders } from "./holder-tasks.js";
 import {
   ensureEventWebhook,
-  fetchBalanceSnapshot,
+  fetchBalanceSourceSnapshot,
   getAddressRegistration,
   getContractDefinition,
   getErc20TokenName,
@@ -17,6 +17,7 @@ import {
   listContractCatalog,
   listKnownAddresses,
   resolveKnownAddress,
+  resolveBalanceSource,
   normalizeAddress,
   setAddressAlias,
   verifyWebhookSignature,
@@ -105,12 +106,12 @@ async function evaluateWatches(
   };
 
   const alerts: AlertRecord[] = [];
-  const snapshots = new Map<string, Awaited<ReturnType<typeof fetchBalanceSnapshot>>>();
+  const snapshots = new Map<string, Awaited<ReturnType<typeof fetchBalanceSourceSnapshot>>>();
 
   for (const watch of nextState.watches) {
     let snapshot = snapshots.get(watch.queryName);
     if (!snapshot) {
-      snapshot = await fetchBalanceSnapshot(config, watch.queryName, config.scanLimit);
+      snapshot = await fetchBalanceSourceSnapshot(config, watch.queryName, config.scanLimit);
       snapshots.set(watch.queryName, snapshot);
     }
 
@@ -254,7 +255,7 @@ export async function requestTopHolders(params: {
       },
       resolveTokenName: (tokenName) => resolveKnownAddress(config, tokenName),
     },
-    config.defaultQueryName,
+    resolveBalanceSource(config),
   );
 }
 
@@ -276,7 +277,7 @@ export async function evaluatePendingHolderQueries(queryName?: string): Promise<
           }),
       executeHolderQuery: async (task) => executeAnalyticalViewFromTask(task),
     },
-    queryName ?? config.defaultQueryName,
+    resolveBalanceSource(config, queryName),
   );
 }
 
@@ -318,7 +319,7 @@ export async function saveBalanceWatch(address: string, label?: string, queryNam
   const config = resolveConfig();
   const state = loadState(config.stateDir);
   const normalizedAddress = normalizeAddress(address);
-  const effectiveQueryName = queryName ?? config.defaultQueryName;
+  const effectiveQueryName = resolveBalanceSource(config, queryName);
   const now = new Date().toISOString();
   const plan = await evaluateBalanceWatchReadiness(
     createBalanceWatchPlan({

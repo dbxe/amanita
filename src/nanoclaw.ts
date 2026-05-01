@@ -74,13 +74,14 @@ export function containerInstructions(_defaultQueryName: string): string {
     "- For ERC-20 top-holder requests, call `get_top_holders` with either `contractAddress` or `tokenName`.",
     "- For a top-holder request that already includes a contract address or a known token name, your first action should be the `get_top_holders` tool call.",
     "- Do not ask the user for a saved query name for ERC-20 holder requests.",
+    "- Do not assume a default token, contract alias, or saved query when the user asks for a balance, concentration, or watch.",
     "- If a user gives only an address and says 'top balances' or 'top holders', clarify whether that address is an ERC-20 token contract before calling a tool.",
     "- If a token name does not resolve, ask the user for the token contract address.",
     "- If `get_top_holders` reports that onboarding or syncing is still in progress, tell the user you will follow up once it is ready.",
     "- When the user asks to check progress on waiting holder tasks, call `evaluate_tasks`.",
     "- Do not reply with narration like 'I am calling the tool now' or 'Getting holders now'. Call the tool and answer from the result instead.",
-    "- For one-address balance requests, call `get_address_balance`.",
-    "- For 'alert me if this balance moves' requests, call `create_balance_watch`.",
+    "- For one-address balance requests, call `handle_multibaas_request` unless the token contract address is already explicit; if it is explicit, `get_address_balance` is acceptable.",
+    "- For 'alert me if this balance moves' requests, call `handle_multibaas_request` unless the token contract address is already explicit; if it is explicit, `create_balance_watch` is acceptable.",
     "- When asked what is currently being tracked, call `list_balance_watches`.",
     "- Never guess balances or holder rankings without calling a tool.",
   ].join("\n");
@@ -163,11 +164,17 @@ export function configureNanoClawGroup(options: ConfigureNanoClawOptions): Confi
     args: [`${mountPathFor(CONTAINER_MOUNT_NAME)}/dist/mcp.js`],
     env: {
       MULTIBAAS_BASE_URL: containerBaseUrl,
-      MULTIBAAS_QUERY_NAME: config.defaultQueryName,
       MULTIBAAS_AGENT_STATE_DIR: "/workspace/agent/.agent-state",
     },
     instructions: containerInstructions(config.defaultQueryName),
   };
+
+  if (config.defaultQueryName) {
+    containerConfig.mcpServers[SERVER_NAME].env = {
+      ...containerConfig.mcpServers[SERVER_NAME].env,
+      MULTIBAAS_QUERY_NAME: config.defaultQueryName,
+    };
+  }
 
   containerConfig.additionalMounts = upsertMount(containerConfig.additionalMounts, {
     hostPath: repoDir,
