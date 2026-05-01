@@ -12,11 +12,12 @@ import {
 } from "./state.js";
 import {
   attachWatchToTask,
-  createTaskFromBalanceWatchPlan,
-  findBalanceWatchTask,
+  createBalanceMonitorTaskFromPlan,
+  findBalanceMonitorTask,
   recordTaskAlert,
   transitionTask,
   upsertTask,
+  type BalanceMonitorTaskRecord,
   type TaskRecord,
 } from "./tasks.js";
 import {
@@ -120,8 +121,8 @@ export async function saveBalanceWatch(address: string, label?: string, queryNam
         getAddressBalance(config, candidateQueryName, candidateAddress),
     },
   );
-  const existingTask = findBalanceWatchTask(state.tasks, normalizedAddress, effectiveQueryName);
-  const baseTask = existingTask ?? createTaskFromBalanceWatchPlan(plan, now);
+  const existingTask = findBalanceMonitorTask(state.tasks, normalizedAddress, effectiveQueryName);
+  const baseTask = existingTask ?? createBalanceMonitorTaskFromPlan(plan, now);
 
   if (plan.readiness.state !== "ready" || !plan.readiness.currentBalance) {
     const waitingTask = transitionTask(baseTask, plan.readiness.state, now, {
@@ -136,7 +137,9 @@ export async function saveBalanceWatch(address: string, label?: string, queryNam
   }
 
   const readyTask =
-    baseTask.state === "monitoring" ? baseTask : transitionTask(baseTask, "ready", now, { waitCondition: undefined });
+    baseTask.state === "monitoring"
+      ? baseTask
+      : (transitionTask(baseTask, "ready", now, { waitCondition: undefined }) as BalanceMonitorTaskRecord);
   const existingWatch = state.watches.find(
     (watch) => normalizeAddress(watch.address) === normalizedAddress && watch.queryName === effectiveQueryName,
   );
@@ -181,7 +184,10 @@ export async function evaluateBalanceWatches(eventCount?: number): Promise<Watch
   const state = loadState(config.stateDir);
   const { alerts, nextState } = await evaluateWatches(state, eventCount);
   const updatedTasks = alerts.reduce((tasks, alert) => {
-    const task = tasks.find((candidate) => candidate.kind === "balance-watch" && candidate.watchId === alert.watchId);
+    const task = tasks.find(
+      (candidate): candidate is BalanceMonitorTaskRecord =>
+        candidate.capability === "balance-monitor" && candidate.watchId === alert.watchId,
+    );
     if (!task) {
       return tasks;
     }

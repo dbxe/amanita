@@ -30,19 +30,19 @@ function formatTaskLine(task: TaskRecord): string {
   if (task.waitCondition) {
     details.push(`reason=${task.waitCondition.reason}`);
   }
-  if (task.kind === "balance-watch" && task.watchId) {
+  if (task.capability === "balance-monitor" && task.watchId) {
     details.push(`watch=${task.watchId}`);
   }
-  if (task.kind === "balance-watch" && task.lastKnownBalance) {
+  if (task.capability === "balance-monitor" && task.lastKnownBalance) {
     details.push(`balance=${task.lastKnownBalance}`);
   }
-  if (task.kind === "holder-query" && task.viewSpec.contractAddress) {
+  if (task.capability === "holder-analysis" && task.viewSpec.contractAddress) {
     details.push(`contract=${task.viewSpec.contractAddress}`);
   }
-  if (task.kind === "holder-query" && task.addressAlias) {
+  if (task.capability === "holder-analysis" && task.addressAlias) {
     details.push(`alias=${task.addressAlias}`);
   }
-  if (task.kind === "holder-query" && task.contractLabel) {
+  if (task.capability === "holder-analysis" && task.contractLabel) {
     details.push(`interface=${task.contractLabel}`);
   }
   return details.join("  ");

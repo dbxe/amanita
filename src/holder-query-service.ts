@@ -1,6 +1,7 @@
 import { resolveConfig } from "./config.js";
 import { evaluatePendingHolderQueries as evaluateStoredHolderQueries, requestTopHolders as requestStoredTopHolders } from "./holder-tasks.js";
 import {
+  createContractBalanceSource,
   getAddressRegistration,
   getContractDefinition,
   getErc20TokenName,
@@ -8,13 +9,12 @@ import {
   linkAddressToContract,
   listContractCatalog,
   listKnownAddresses,
-  resolveBalanceSource,
   resolveKnownAddress,
   setAddressAlias,
 } from "./multibaas.js";
 import { ensureErc20HolderQueryReady } from "./onboarding.js";
 import type { LocalState } from "./state.js";
-import type { HolderQueryTaskRecord } from "./tasks.js";
+import type { HolderAnalysisTaskRecord } from "./tasks.js";
 import { executeAnalyticalView, formatAnalyticalViewResult } from "./views.js";
 
 export interface HolderRequestInput {
@@ -27,7 +27,7 @@ export interface HolderRequestInput {
 
 export interface HolderRequestResult {
   responseText: string;
-  task?: HolderQueryTaskRecord;
+  task?: HolderAnalysisTaskRecord;
 }
 
 export interface HolderTaskEvaluationResult {
@@ -35,7 +35,13 @@ export interface HolderTaskEvaluationResult {
   state: LocalState;
 }
 
-async function executeAnalyticalViewFromTask(task: HolderQueryTaskRecord): Promise<string> {
+export interface TopHoldersTargetRequest {
+  contractAddress?: string;
+  limit: number;
+  tokenName?: string;
+}
+
+async function executeAnalyticalViewFromTask(task: HolderAnalysisTaskRecord): Promise<string> {
   return formatAnalyticalViewResult(
     await executeAnalyticalView({
       executionPlan: task.executionPlan,
@@ -59,6 +65,10 @@ async function executeAnalyticalViewFromTask(task: HolderQueryTaskRecord): Promi
 
 export async function requestTopHolders(params: HolderRequestInput): Promise<HolderRequestResult> {
   const config = resolveConfig();
+  const effectiveQueryName =
+    params.contractAddress?.trim()
+      ? createContractBalanceSource(params.contractAddress)
+      : undefined;
   return requestStoredTopHolders(
     config.stateDir,
     params,
@@ -77,11 +87,28 @@ export async function requestTopHolders(params: HolderRequestInput): Promise<Hol
       executeHolderQuery: async (task) => executeAnalyticalViewFromTask(task),
       resolveTokenName: (tokenName) => resolveKnownAddress(config, tokenName),
     },
-    resolveBalanceSource(config),
+    effectiveQueryName,
   );
 }
 
-export async function evaluatePendingHolderQueries(queryName?: string): Promise<HolderTaskEvaluationResult> {
+export async function getTopHoldersForTokenTarget(params: TopHoldersTargetRequest): Promise<string> {
+  const rawText = params.contractAddress
+    ? `Give me the top ${params.limit} holders for token ${params.contractAddress}`
+    : params.tokenName
+      ? `Give me the top ${params.limit} holders for token ${params.tokenName}`
+      : "";
+
+  return (
+    await requestTopHolders({
+      contractAddress: params.contractAddress,
+      limit: params.limit,
+      rawText,
+      tokenName: params.tokenName,
+    })
+  ).responseText;
+}
+
+export async function evaluatePendingHolderQueries(): Promise<HolderTaskEvaluationResult> {
   const config = resolveConfig();
   return evaluateStoredHolderQueries(
     config.stateDir,
@@ -99,6 +126,5 @@ export async function evaluatePendingHolderQueries(queryName?: string): Promise<
         }),
       executeHolderQuery: async (task) => executeAnalyticalViewFromTask(task),
     },
-    resolveBalanceSource(config, queryName),
   );
 }

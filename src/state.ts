@@ -25,7 +25,7 @@ export interface StoredWebhook {
 
 export interface LocalState {
   tasks: TaskRecord[];
-  version: 2;
+  version: 3;
   watches: Watch[];
   webhook?: StoredWebhook;
 }
@@ -43,9 +43,36 @@ export interface AlertRecord {
 function createEmptyState(): LocalState {
   return {
     tasks: [],
-    version: 2,
+    version: 3,
     watches: [],
   };
+}
+
+type PersistedTaskRecord =
+  & Partial<TaskRecord>
+  & Record<string, unknown>
+  & { capability?: "balance-monitor" | "holder-analysis"; kind?: "balance-watch" | "holder-query" };
+
+function migrateTaskRecord(task: PersistedTaskRecord): TaskRecord {
+  if (task.capability === "balance-monitor" || task.capability === "holder-analysis") {
+    return task as TaskRecord;
+  }
+
+  if (task.kind === "balance-watch") {
+    return {
+      ...task,
+      capability: "balance-monitor",
+    } as TaskRecord;
+  }
+
+  if (task.kind === "holder-query") {
+    return {
+      ...task,
+      capability: "holder-analysis",
+    } as TaskRecord;
+  }
+
+  throw new Error(`Unsupported persisted task record: ${JSON.stringify(task)}`);
 }
 
 function ensureStateDir(stateDir: string): void {
@@ -67,10 +94,15 @@ export function loadState(stateDir: string): LocalState {
     return createEmptyState();
   }
 
-  const parsed = JSON.parse(fs.readFileSync(filePath, "utf8")) as Partial<LocalState>;
+  const parsed = JSON.parse(fs.readFileSync(filePath, "utf8")) as {
+    tasks?: unknown;
+    version?: number;
+    watches?: unknown;
+    webhook?: StoredWebhook;
+  };
   return {
-    tasks: Array.isArray(parsed.tasks) ? parsed.tasks : [],
-    version: 2,
+    tasks: Array.isArray(parsed.tasks) ? parsed.tasks.map((task) => migrateTaskRecord(task as PersistedTaskRecord)) : [],
+    version: 3,
     watches: Array.isArray(parsed.watches) ? parsed.watches : [],
     webhook: parsed.webhook,
   };

@@ -14,13 +14,13 @@ export type { ExecutionPlan, TaskState, ViewSpec, WaitCondition } from "./planni
 
 interface BaseTaskRecord {
   addressAlias?: string;
+  capability: "balance-monitor" | "holder-analysis";
   contractLabel?: string;
   contractVersion?: string;
   createdAt: string;
   executionPlan: ExecutionPlan;
   id: string;
   intent: string;
-  kind: "balance-watch" | "holder-query";
   lastAlertAt?: string;
   lastKnownBalance?: string;
   lastEvaluatedAt?: string;
@@ -33,17 +33,17 @@ interface BaseTaskRecord {
   watchId?: string;
 }
 
-export interface BalanceWatchTaskRecord extends BaseTaskRecord {
-  kind: "balance-watch";
+export interface BalanceMonitorTaskRecord extends BaseTaskRecord {
+  capability: "balance-monitor";
   viewSpec: Extract<ViewSpec, { kind: "balance-watch" }>;
 }
 
-export interface HolderQueryTaskRecord extends BaseTaskRecord {
-  kind: "holder-query";
+export interface HolderAnalysisTaskRecord extends BaseTaskRecord {
+  capability: "holder-analysis";
   viewSpec: Extract<ViewSpec, { kind: "holder-list" }>;
 }
 
-export type TaskRecord = BalanceWatchTaskRecord | HolderQueryTaskRecord;
+export type TaskRecord = BalanceMonitorTaskRecord | HolderAnalysisTaskRecord;
 
 const ALLOWED_TRANSITIONS: Record<TaskState, TaskState[]> = {
   blocked: ["needs-abi", "needs-link", "syncing", "ready", "monitoring"],
@@ -67,13 +67,16 @@ function createHolderQueryExecutionPlan(queryName: string): ExecutionPlan {
   };
 }
 
-export function createTaskFromBalanceWatchPlan(plan: BalanceWatchPlan, now = new Date().toISOString()): TaskRecord {
+export function createBalanceMonitorTaskFromPlan(
+  plan: BalanceWatchPlan,
+  now = new Date().toISOString(),
+): BalanceMonitorTaskRecord {
   return {
+    capability: "balance-monitor",
     createdAt: now,
     executionPlan: plan.executionPlan,
     id: randomUUID(),
     intent: plan.intent.rawText,
-    kind: "balance-watch",
     state: plan.readiness.state,
     title: plan.title,
     updatedAt: now,
@@ -82,13 +85,13 @@ export function createTaskFromBalanceWatchPlan(plan: BalanceWatchPlan, now = new
   };
 }
 
-export function createBalanceWatchTask(params: {
+export function createBalanceMonitorTask(params: {
   address: string;
   intent?: string;
   label?: string;
   now?: string;
   queryName: string;
-}): TaskRecord {
+}): BalanceMonitorTaskRecord {
   const now = params.now ?? new Date().toISOString();
   const plan = createBalanceWatchPlan({
     address: params.address,
@@ -96,24 +99,24 @@ export function createBalanceWatchTask(params: {
     queryName: params.queryName,
     rawText: params.intent ?? `Alert me if the balance of ${params.address} moves`,
   });
-  return createTaskFromBalanceWatchPlan(plan, now);
+  return createBalanceMonitorTaskFromPlan(plan, now);
 }
 
-export function createHolderQueryTask(params: {
+export function createHolderAnalysisTask(params: {
   contractAddress: string;
   intent?: string;
   limit: number;
   now?: string;
   queryName: string;
-}): HolderQueryTaskRecord {
+}): HolderAnalysisTaskRecord {
   const now = params.now ?? new Date().toISOString();
   const contractAddress = normalizeHolderContractAddress(params.contractAddress);
   return {
+    capability: "holder-analysis",
     createdAt: now,
     executionPlan: createHolderQueryExecutionPlan(params.queryName),
     id: randomUUID(),
     intent: params.intent ?? `Give me the top ${params.limit} holders for token ${params.contractAddress}`,
-    kind: "holder-query",
     state: "ready",
     title: `Get top ${params.limit} holders`,
     updatedAt: now,
@@ -126,28 +129,32 @@ export function createHolderQueryTask(params: {
   };
 }
 
-export function findBalanceWatchTask(tasks: TaskRecord[], address: string, queryName: string): TaskRecord | undefined {
+export function findBalanceMonitorTask(
+  tasks: TaskRecord[],
+  address: string,
+  queryName: string,
+): BalanceMonitorTaskRecord | undefined {
   return [...tasks]
     .reverse()
     .find(
       (task) =>
-        task.kind === "balance-watch" &&
+        task.capability === "balance-monitor" &&
         task.viewSpec.address === address &&
         task.viewSpec.queryName === queryName,
-    );
+    ) as BalanceMonitorTaskRecord | undefined;
 }
 
-export function findHolderQueryTask(
+export function findHolderAnalysisTask(
   tasks: TaskRecord[],
   contractAddress: string,
   limit: number,
   queryName: string,
-): HolderQueryTaskRecord | undefined {
+): HolderAnalysisTaskRecord | undefined {
   return [...tasks]
     .reverse()
     .find(
-      (task): task is HolderQueryTaskRecord =>
-        task.kind === "holder-query" &&
+      (task): task is HolderAnalysisTaskRecord =>
+        task.capability === "holder-analysis" &&
         task.viewSpec.contractAddress === contractAddress &&
         task.viewSpec.limit === limit &&
         task.viewSpec.queryName === queryName,
@@ -167,7 +174,7 @@ export function transitionTask(
   task: TaskRecord,
   nextState: TaskState,
   now: string,
-  patch: Partial<Omit<TaskRecord, "createdAt" | "executionPlan" | "id" | "intent" | "kind" | "title" | "viewSpec">> = {},
+  patch: Partial<Omit<TaskRecord, "capability" | "createdAt" | "executionPlan" | "id" | "intent" | "title" | "viewSpec">> = {},
 ): TaskRecord {
   if (task.state !== nextState && !ALLOWED_TRANSITIONS[task.state].includes(nextState)) {
     throw new Error(`Illegal task transition: ${task.state} -> ${nextState}`);
@@ -189,17 +196,20 @@ export function applyTaskFailure(task: TaskRecord, error: unknown, now: string):
   return transitionTask(task, readiness.state, now, { waitCondition: readiness.waitCondition });
 }
 
-export function attachWatchToTask(task: TaskRecord, params: { balance: string; now: string; watchId: string }): TaskRecord {
+export function attachWatchToTask(
+  task: BalanceMonitorTaskRecord,
+  params: { balance: string; now: string; watchId: string },
+): BalanceMonitorTaskRecord {
   return transitionTask(task, "monitoring", params.now, {
     lastKnownBalance: params.balance,
     watchId: params.watchId,
-  });
+  }) as BalanceMonitorTaskRecord;
 }
 
 export function recordTaskAlert(
-  task: TaskRecord,
+  task: BalanceMonitorTaskRecord,
   params: { currentBalance: string; now: string; watchId: string },
-): TaskRecord {
+): BalanceMonitorTaskRecord {
   if (task.watchId && task.watchId !== params.watchId) {
     throw new Error(`Task ${task.id} does not match watch ${params.watchId}`);
   }
@@ -208,5 +218,5 @@ export function recordTaskAlert(
     lastAlertAt: params.now,
     lastKnownBalance: params.currentBalance,
     watchId: params.watchId,
-  });
+  }) as BalanceMonitorTaskRecord;
 }

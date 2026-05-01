@@ -70,8 +70,12 @@ test("requestTopHolders persists a syncing holder-query task and evaluatePending
       "helloworld_balance",
     );
 
-    assert.equal(initial.task?.kind, "holder-query");
+    assert.equal(initial.task?.capability, "holder-analysis");
     assert.equal(initial.task?.state, "syncing");
+    assert.equal(
+      initial.task?.viewSpec.queryName,
+      "contract:0xd26fde38f244dcbb13e8017347ac37804d926bb5",
+    );
     assert.match(initial.responseText, /follow up once it has synced/i);
 
     const evaluation = await evaluatePendingHolderQueries(
@@ -96,7 +100,6 @@ test("requestTopHolders persists a syncing holder-query task and evaluatePending
             " 1. 0xabc  100",
           ].join("\n"),
       },
-      "helloworld_balance",
     );
 
     assert.equal(ensureReadyCalls, 2);
@@ -113,7 +116,6 @@ test("requestTopHolders persists a syncing holder-query task and evaluatePending
           throw new Error("executeHolderQuery should not run after the result has already been reported");
         },
       },
-      "helloworld_balance",
     );
 
     assert.deepEqual(secondEvaluation.messages, []);

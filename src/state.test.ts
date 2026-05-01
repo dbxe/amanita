@@ -5,13 +5,13 @@ import path from "node:path";
 import test from "node:test";
 
 import { loadState, saveState } from "./state.js";
-import { createBalanceWatchTask } from "./tasks.js";
+import { createBalanceMonitorTask } from "./tasks.js";
 
-test("loadState and saveState persist Phase 01 task records", () => {
+test("loadState and saveState persist capability-oriented task records", () => {
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "amanita-state-"));
 
   try {
-    const task = createBalanceWatchTask({
+    const task = createBalanceMonitorTask({
       address: "0xabc",
       now: "2026-04-30T00:00:00.000Z",
       queryName: "helloworld_balance",
@@ -19,15 +19,16 @@ test("loadState and saveState persist Phase 01 task records", () => {
 
     saveState(stateDir, {
       tasks: [task],
-      version: 2,
+      version: 3,
       watches: [],
     });
 
     const reloaded = loadState(stateDir);
 
-    assert.equal(reloaded.version, 2);
+    assert.equal(reloaded.version, 3);
     assert.equal(reloaded.tasks.length, 1);
     assert.equal(reloaded.tasks[0]?.id, task.id);
+    assert.equal(reloaded.tasks[0]?.capability, "balance-monitor");
     assert.equal(reloaded.tasks[0]?.state, "ready");
   } finally {
     fs.rmSync(stateDir, { recursive: true, force: true });

@@ -60,6 +60,8 @@ export interface ConfigureNanoClawResult {
 
 const SERVER_NAME = "multibaas-runtime";
 const CONTAINER_MOUNT_NAME = "multibaas-runtime";
+const LEGACY_SERVER_NAME = "multibaas-agent";
+const LEGACY_CONTAINER_MOUNT_NAME = "multibaas-agent-harness";
 const EXTRA_MOUNTS_BASE = "/workspace/extra";
 
 function mountPathFor(containerPath: string): string {
@@ -73,6 +75,9 @@ export function containerInstructions(_defaultQueryName: string): string {
     "- Use `handle_multibaas_request` as a compatibility fallback for legacy holder/balance/watch phrasing, not as the default tool for every request.",
     "- Use `resolve_contract_target` when you need to turn a token name or contract address into a concrete target plus readiness state.",
     "- Use `get_token_metadata` for ERC-20 metadata questions such as name, symbol, decimals, or total supply.",
+    "- If the user asks for decimals, symbol, name, or total supply and provides a contract address, your first action must be `get_token_metadata` for that exact address.",
+    "- Do not classify an address as an EOA or as a non-token without first checking `resolve_contract_target` or `get_token_metadata`.",
+    "- If a user asks about holders, concentration, or metadata for a raw address, resolve that address through `resolve_contract_target` or the relevant typed tool before answering.",
     "- For ERC-20 top-holder requests, call `get_top_holders` with either `contractAddress` or `tokenName`.",
     "- For explicit balance lookups, call `get_address_balance` with either `contractAddress` or `tokenName`.",
     "- For explicit holder-concentration requests, call `get_holder_concentration` with either `contractAddress` or `tokenName`.",
@@ -88,7 +93,8 @@ export function containerInstructions(_defaultQueryName: string): string {
     "- For one-address balance requests, use `get_address_balance` when the token contract address is explicit. If the token target is missing, ask for it instead of guessing.",
     "- For 'alert me if this balance moves' requests, use `create_balance_watch` when the token contract address is explicit. If the token target is missing, ask for it instead of guessing.",
     "- When asked what is currently being tracked, call `list_balance_watches`.",
-    "- Never guess balances, holder rankings, or token metadata without calling a tool.",
+    "- Never guess balances, holder rankings, contract type, or token metadata without calling a tool.",
+    "- Do not cite Etherscan or other external sources for these questions when the MCP tools can answer them.",
   ].join("\n");
 }
 
@@ -120,6 +126,10 @@ function upsertMount(mounts: AdditionalMountConfig[], mount: AdditionalMountConf
   }
 
   return mounts.map((candidate, index) => (index === existingIndex ? mount : candidate));
+}
+
+function removeMount(mounts: AdditionalMountConfig[], containerPath: string): AdditionalMountConfig[] {
+  return mounts.filter((candidate) => candidate.containerPath !== containerPath);
 }
 
 function ensureAllowlist(repoDir: string): string {
@@ -163,6 +173,7 @@ export function configureNanoClawGroup(options: ConfigureNanoClawOptions): Confi
   containerConfig.mcpServers = containerConfig.mcpServers ?? {};
   containerConfig.additionalMounts = containerConfig.additionalMounts ?? [];
   containerConfig.packages = containerConfig.packages ?? { apt: [], npm: [] };
+  delete containerConfig.mcpServers[LEGACY_SERVER_NAME];
 
   containerConfig.mcpServers[SERVER_NAME] = {
     command: "node",
@@ -186,6 +197,7 @@ export function configureNanoClawGroup(options: ConfigureNanoClawOptions): Confi
     containerPath: CONTAINER_MOUNT_NAME,
     readonly: true,
   });
+  containerConfig.additionalMounts = removeMount(containerConfig.additionalMounts, LEGACY_CONTAINER_MOUNT_NAME);
 
   writeJsonFile(containerConfigPath, containerConfig);
 

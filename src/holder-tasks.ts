@@ -1,10 +1,11 @@
 import { loadState, saveState, type LocalState } from "./state.js";
+import { createContractBalanceSource } from "./multibaas.js";
 import {
-  createHolderQueryTask,
-  findHolderQueryTask,
+  createHolderAnalysisTask,
+  findHolderAnalysisTask,
   transitionTask,
   upsertTask,
-  type HolderQueryTaskRecord,
+  type HolderAnalysisTaskRecord,
 } from "./tasks.js";
 
 export interface HolderRequestInput {
@@ -21,16 +22,16 @@ export interface HolderTaskDeps {
     contractAddress: string;
     contractLabel?: string;
     contractVersion?: string;
-    state: HolderQueryTaskRecord["state"];
-    waitCondition?: HolderQueryTaskRecord["waitCondition"];
+    state: HolderAnalysisTaskRecord["state"];
+    waitCondition?: HolderAnalysisTaskRecord["waitCondition"];
   }>;
-  executeHolderQuery: (task: HolderQueryTaskRecord) => Promise<string>;
+  executeHolderQuery: (task: HolderAnalysisTaskRecord) => Promise<string>;
   resolveTokenName?: (tokenName: string) => Promise<{ address: string; alias?: string } | undefined>;
 }
 
 export interface HolderRequestResult {
   responseText: string;
-  task?: HolderQueryTaskRecord;
+  task?: HolderAnalysisTaskRecord;
 }
 
 export interface HolderEvaluationResult {
@@ -46,17 +47,17 @@ function formatMissingAddressPrompt(tokenName: string): string {
   return `I don't know the contract address for ${tokenName} yet. Tell me the token contract address and I'll check whether MultiBaas has already linked and indexed it.`;
 }
 
-function formatWaitingResponse(task: HolderQueryTaskRecord): string {
+function formatWaitingResponse(task: HolderAnalysisTaskRecord): string {
   const reason = task.waitCondition?.reason ?? `Task ${task.id} is waiting in state ${task.state}.`;
   return `I’ll follow up once it has synced.\n${reason}`;
 }
 
 function createOrReuseTask(state: LocalState, input: Required<Pick<HolderRequestInput, "contractAddress" | "limit" | "rawText">>, queryName: string) {
-  const existingTask = findHolderQueryTask(state.tasks, input.contractAddress, input.limit, queryName);
+  const existingTask = findHolderAnalysisTask(state.tasks, input.contractAddress, input.limit, queryName);
   return {
     task:
       existingTask ??
-      createHolderQueryTask({
+      createHolderAnalysisTask({
         contractAddress: input.contractAddress,
         intent: input.rawText,
         limit: input.limit,
@@ -65,21 +66,21 @@ function createOrReuseTask(state: LocalState, input: Required<Pick<HolderRequest
   };
 }
 
-function taskWithOnboarding(task: HolderQueryTaskRecord, now: string, onboarding: Awaited<ReturnType<HolderTaskDeps["ensureReady"]>>) {
+function taskWithOnboarding(task: HolderAnalysisTaskRecord, now: string, onboarding: Awaited<ReturnType<HolderTaskDeps["ensureReady"]>>) {
   return transitionTask(task, onboarding.state, now, {
     addressAlias: onboarding.addressAlias,
     contractLabel: onboarding.contractLabel,
     contractVersion: onboarding.contractVersion,
     lastEvaluatedAt: now,
     waitCondition: onboarding.waitCondition,
-  }) as HolderQueryTaskRecord;
+  }) as HolderAnalysisTaskRecord;
 }
 
 export async function requestTopHolders(
   stateDir: string,
   input: HolderRequestInput,
   deps: HolderTaskDeps,
-  queryName: string,
+  queryName?: string,
 ): Promise<HolderRequestResult> {
   if (input.needsInterfaceClarification && input.contractAddress) {
     return { responseText: formatInterfaceClarification(input.contractAddress) };
@@ -98,6 +99,7 @@ export async function requestTopHolders(
     return { responseText: "Tell me the token contract address and I'll check whether MultiBaas has already linked and indexed it." };
   }
 
+  const effectiveQueryName = createContractBalanceSource(contractAddress);
   const state = loadState(stateDir);
   const now = new Date().toISOString();
   const { task } = createOrReuseTask(
@@ -107,7 +109,7 @@ export async function requestTopHolders(
       limit: input.limit,
       rawText: input.rawText,
     },
-    queryName,
+    effectiveQueryName,
   );
   const onboarding = await deps.ensureReady(contractAddress);
   const updatedTask = taskWithOnboarding(task, now, onboarding);
@@ -128,7 +130,7 @@ export async function requestTopHolders(
   const answeredTask = transitionTask(updatedTask, "ready", now, {
     lastReportedAt: now,
     resultText,
-  }) as HolderQueryTaskRecord;
+  }) as HolderAnalysisTaskRecord;
   const nextState: LocalState = {
     ...state,
     tasks: upsertTask(state.tasks, answeredTask),
@@ -140,14 +142,13 @@ export async function requestTopHolders(
 export async function evaluatePendingHolderQueries(
   stateDir: string,
   deps: Omit<HolderTaskDeps, "resolveTokenName">,
-  queryName: string,
 ): Promise<HolderEvaluationResult> {
   const state = loadState(stateDir);
   let nextState: LocalState = { ...state, tasks: [...state.tasks] };
   const messages: string[] = [];
 
   for (const task of state.tasks) {
-    if (task.kind !== "holder-query") {
+    if (task.capability !== "holder-analysis") {
       continue;
     }
     if (task.state === "ready" && task.resultText && task.lastReportedAt) {
@@ -163,7 +164,7 @@ export async function evaluatePendingHolderQueries(
           nextState.tasks,
           transitionTask(task, "ready", now, {
             lastReportedAt: now,
-          }) as HolderQueryTaskRecord,
+          }) as HolderAnalysisTaskRecord,
         ),
       };
       continue;
@@ -193,7 +194,7 @@ export async function evaluatePendingHolderQueries(
         transitionTask(updatedTask, "ready", now, {
           lastReportedAt: now,
           resultText,
-        }) as HolderQueryTaskRecord,
+          }) as HolderAnalysisTaskRecord,
       ),
     };
   }

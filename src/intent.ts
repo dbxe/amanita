@@ -177,7 +177,7 @@ export async function handleIntent(text: string): Promise<string> {
         return formatAlerts(result.state, result.alerts);
       }
       case "evaluate-tasks": {
-        const result = await evaluatePendingHolderQueries(queryName);
+        const result = await evaluatePendingHolderQueries();
         return result.messages.length > 0 ? result.messages.join("\n\n") : "No pending holder queries completed.";
       }
     }

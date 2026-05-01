@@ -3,7 +3,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 
 import { resolveConfig } from "./config.js";
-import { evaluatePendingHolderQueries, requestTopHolders } from "./holder-query-service.js";
+import { evaluatePendingHolderQueries, getTopHoldersForTokenTarget } from "./holder-query-service.js";
 import { handleIntent } from "./intent.js";
 import { getAddressBalanceForTokenTarget, getHolderConcentrationForTokenTarget } from "./query-service.js";
 import {
@@ -128,21 +128,13 @@ server.tool(
       .optional(),
   },
   async ({ contractAddress, limit, tokenName }) => {
-    const text = contractAddress
-      ? `Give me the top ${limit ?? 20} holders for token ${contractAddress}`
-      : tokenName
-        ? `Give me the top ${limit ?? 20} holders for token ${tokenName}`
-        : "";
     const responseText =
       contractAddress || tokenName
-        ? (
-            await requestTopHolders({
-              contractAddress,
-              limit: limit ?? 20,
-              rawText: text,
-              tokenName,
-            })
-          ).responseText
+        ? await getTopHoldersForTokenTarget({
+            contractAddress,
+            limit: limit ?? 20,
+            tokenName,
+          })
         : "Tell me the ERC-20 token contract address or a known token name so I can resolve and query the holders.";
     return {
       content: [{ type: "text", text: responseText }],
@@ -260,12 +252,6 @@ server.tool("list_balance_watches", {}, async () => {
   const result = listBalanceWatches();
   return {
     content: [{ type: "text", text: formatWatches(result) }],
-  };
-});
-
-server.tool("list_tasks", {}, async () => {
-  return {
-    content: [{ type: "text", text: formatTasks({ tasks: loadState(resolveConfig().stateDir).tasks }) }],
   };
 });
 
