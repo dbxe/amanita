@@ -1,5 +1,6 @@
 import { resolveConfig } from "./config.js";
 import { evaluatePendingHolderQueries, requestTopHolders } from "./holder-query-service.js";
+import { formatTokenInvestigation, investigateToken } from "./investigation-service.js";
 import { sendNanoClawNotification } from "./nanoclaw-host.js";
 import { configureNanoClawGroup } from "./nanoclaw.js";
 import { createContractBalanceSource } from "./multibaas.js";
@@ -22,6 +23,7 @@ Usage:
   npm run dev -- query top-holders [--limit 20] [--query <saved-query>] [--contract 0x...]
   npm run dev -- query concentration [--limit 5] [--query <saved-query>] [--contract 0x...]
   npm run dev -- query balance --address 0x... [--query <saved-query> | --contract 0x...]
+  npm run dev -- query investigate [--contract 0x... | --token <name>] [--limit 5]
   npm run dev -- watch add --address 0x... [--label whale] [--query <saved-query> | --contract 0x...]
   npm run dev -- watch list
   npm run dev -- watch evaluate
@@ -71,6 +73,7 @@ async function handleQuery(args: string[]): Promise<void> {
   const subcommand = readCommand(args, 1);
   const queryName = readFlag(args, "--query");
   const contractAddress = readFlag(args, "--contract");
+  const tokenName = readFlag(args, "--token");
 
   if (subcommand === "top-holders") {
     const limit = parsePositiveIntegerFlag(args, "--limit", 20);
@@ -105,6 +108,20 @@ async function handleQuery(args: string[]): Promise<void> {
     console.log(
       formatAnalyticalViewResult(
         await lookupBalance(address, contractAddress ? createContractBalanceSource(contractAddress) : queryName),
+      ),
+    );
+    return;
+  }
+
+  if (subcommand === "investigate") {
+    const limit = parsePositiveIntegerFlag(args, "--limit", 5);
+    console.log(
+      formatTokenInvestigation(
+        await investigateToken({
+          contractAddress,
+          limit,
+          tokenName,
+        }),
       ),
     );
     return;

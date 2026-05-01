@@ -75,6 +75,9 @@ npm run dev -- query concentration --contract 0xd26fde38F244Dcbb13e8017347Ac3780
 # one address balance for a token contract
 npm run dev -- query balance --contract 0xd26fde38F244Dcbb13e8017347Ac37804d926Bb5 --address 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172
 
+# grounded token investigation
+npm run dev -- query investigate --contract 0xd26fde38F244Dcbb13e8017347Ac37804d926Bb5 --limit 5
+
 # save a watch for a token contract
 npm run dev -- watch add --contract 0xd26fde38F244Dcbb13e8017347Ac37804d926Bb5 --address 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172 --label whale
 
@@ -140,6 +143,7 @@ Tools exposed:
 
 - `resolve_contract_target`
 - `get_token_metadata`
+- `investigate_token`
 - `get_top_holders`
 - `get_holder_concentration`
 - `get_address_balance`
@@ -154,6 +158,7 @@ Preferred Phase 02 path:
 
 - `resolve_contract_target` for token resolution and readiness inspection
 - `get_token_metadata` for ERC-20 metadata such as name, symbol, decimals, and total supply
+- `investigate_token` for grounded token analysis that combines readiness, metadata, concentration, and top-holder context
 - `get_top_holders`, `get_holder_concentration`, `get_address_balance`, and `create_balance_watch` for typed analytical and monitoring actions
 - those typed tools can work from either `contractAddress` or `tokenName`, so the model does not need a natural-language compatibility router for common ERC-20 questions
 
@@ -196,6 +201,7 @@ The current capability-first CLI path is working through NanoClaw:
 ```bash
 cd ~/git/qwibitai/nanoclaw
 pnpm run chat -- "how many decimals does 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59 have?"
+pnpm run chat -- "Investigate token 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59"
 pnpm run chat -- "What is the balance of 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172 for token 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59?"
 pnpm run chat -- "Give me the top 5 holders for token 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59"
 pnpm run chat -- "Alert me if the balance of 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172 moves for token 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59"

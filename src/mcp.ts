@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { resolveConfig } from "./config.js";
 import { evaluatePendingHolderQueries, getTopHoldersForTokenTarget } from "./holder-query-service.js";
+import { formatTokenInvestigation, investigateToken } from "./investigation-service.js";
 import { getAddressBalanceForTokenTarget, getHolderConcentrationForTokenTarget } from "./query-service.js";
 import {
   getErc20Metadata,
@@ -89,6 +90,27 @@ server.tool(
       }],
     };
   },
+);
+
+server.tool(
+  "investigate_token",
+  {
+    contractAddress: z.string().min(1).optional(),
+    limit: z.number().int().min(1).max(100).optional(),
+    tokenName: z.string().min(1).optional(),
+  },
+  async ({ contractAddress, limit, tokenName }) => ({
+    content: [{
+      type: "text",
+      text: formatTokenInvestigation(
+        await investigateToken({
+          contractAddress,
+          limit,
+          tokenName,
+        }),
+      ),
+    }],
+  }),
 );
 
 server.tool(

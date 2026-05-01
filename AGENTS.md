@@ -32,6 +32,7 @@ Do not reintroduce a workflow-specific natural-language routing layer as the mai
 - `src/multibaas.ts` — MultiBaas SDK integration and webhook signature helpers
 - `src/token-target-service.ts` — token-name / contract-address resolution into explicit analytical sources
 - `src/query-service.ts` — typed balance and concentration execution over explicit token targets
+- `src/investigation-service.ts` — typed token investigation and grounded signal synthesis over metadata plus analytical views
 - `src/runtime-types.ts` — neutral runtime state and execution-plan types
 - `src/readiness.ts` — readiness classification and balance-monitor readiness evaluation
 - `src/state.ts` — watch/webhook local persistence

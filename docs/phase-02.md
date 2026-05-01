@@ -187,6 +187,8 @@ Add typed read helpers and MCP tools for:
 
 The decimals example should be solvable entirely through this layer.
 
+The next concrete milestone after metadata is a grounded investigation slice: a tool that can combine target resolution, readiness, metadata, concentration, and top-holder context into a bounded token analysis without inventing unsupported claims.
+
 ### C. Typed state reads
 
 For supported interfaces and protocol families, add typed reads for:
