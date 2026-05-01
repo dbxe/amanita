@@ -139,6 +139,8 @@ The NanoClaw container runs the harness MCP through the built artifact:
 
 So for live NanoClaw tests, make sure the repo build is current before `nanoclaw configure` and restart. `npm test` already does this because it rebuilds `dist/`.
 
+For the maintained list of concrete live NanoClaw integration cases, see `docs/nanoclaw-live-tests.md`.
+
 ## Auth model
 
 For NanoClaw-backed runs, do not put a real `MULTIBAAS_API_KEY` in `container.json`.
@@ -170,9 +172,35 @@ onecli secrets delete --id <secret-id>
 Before any live NanoClaw retest, run this preflight:
 
 1. if the change touched `src/nanoclaw.ts` or any generated `container.json` behavior, rerun `nanoclaw configure` for the target group
-2. if the change touched mounted harness business logic (`src/mcp.ts`, `src/intent.ts`, `src/agent-tools.ts`, `src/holder-tasks.ts`, `src/onboarding.ts`, `src/multibaas.ts`), rebuild the repo and restart NanoClaw or stop the affected session container before trusting the next live result
+2. if the change touched mounted harness business logic (`src/mcp.ts`, `src/intent.ts`, `src/agent-tools.ts`, `src/holder-tasks.ts`, `src/onboarding.ts`, `src/multibaas.ts`), run the concrete rebuild + reconfigure + restart sequence below, or stop the exact affected session container before trusting the next live result
 3. verify the OneCLI secret path is still the intended auth path; do not switch to container-held secrets as a debugging shortcut
 4. only skip restart for docs-only, test-only, or repo-local validation that does not use a live NanoClaw session
+
+Use this concrete rebuild + reconfigure + restart sequence when step 1 or 2 applies:
+
+```bash
+cd ~/git/dbxe/amanita
+npm test
+npm run dev -- nanoclaw configure \
+  --nanoclaw-dir ~/git/qwibitai/nanoclaw \
+  --group-folder cli-with-<name> \
+  --write-allowlist
+npm run dev -- nanoclaw configure \
+  --nanoclaw-dir ~/git/qwibitai/nanoclaw \
+  --group-folder dm-with-<name> \
+  --write-allowlist
+SERVICE_LABEL=$(launchctl list | awk '/com\.nanoclaw-v2-/{print $3; exit}')
+launchctl kickstart -k "gui/$(id -u)/$SERVICE_LABEL"
+```
+
+If you only need to reset a single active live session, stop the exact container shown by:
+
+```bash
+docker ps --format 'table {{.Names}}\t{{.Status}}'
+docker stop <exact-container-name>
+```
+
+Do **not** parallelize live NanoClaw chat tests. Run one `pnpm run chat -- "..."` request at a time and wait for it to finish before starting the next one. Overlapping CLI clients can supersede each other and shared session state makes the results unreliable.
 
 Start with the deterministic local CLI channel:
 
