@@ -4,6 +4,8 @@ This runbook is the reusable registry for **live NanoClaw + amanita + MultiBaas*
 
 Run these tests **sequentially**. Do not overlap live NanoClaw chat requests.
 
+If you overlap CLI probes, NanoClaw can supersede the earlier client and the result is not trustworthy.
+
 ## What a coding agent needs to be able to do
 
 For these tests to be useful, the coding agent needs host-side access to:
@@ -42,7 +44,38 @@ docker ps --format 'table {{.Names}}\t{{.Status}}'
 docker stop <exact-container-name>
 ```
 
+If the next message still resumes stale state, clear the exact session as well:
+
+```bash
+sqlite3 ~/git/qwibitai/nanoclaw/data/v2.db \
+  "delete from pending_questions where session_id = '<session-id>';
+   delete from sessions where id = '<session-id>';"
+
+mv ~/git/qwibitai/nanoclaw/data/v2-sessions/<agent-group-id>/<session-id> \
+   ~/git/qwibitai/nanoclaw/data/v2-sessions/<agent-group-id>/<session-id>.bak-$(date +%Y%m%dT%H%M%S)
+```
+
+Use exact session cleanup when a restarted NanoClaw host still routes the next probe into preserved continuation or pending-question state.
+
 CLI success does **not** prove Discord or DM success. Those channels may resume an older session with preserved continuation or pending-question state, so rerun the exact affected channel before calling a live issue fixed.
+
+## How to judge a live pass
+
+Judge a live NanoClaw run by capability correctness, not exact wording.
+
+A pass means:
+
+- the model used the mounted tool surface successfully
+- the answer is grounded in the right target and the right numbers
+- missing-target cases ask for the missing token target instead of guessing
+- onboarding/waiting cases surface an explicit waiting state instead of inventing success
+
+Do not fail a run just because the phrasing changed. Do fail it if the answer:
+
+- invents values
+- cites external sources instead of the tool path
+- asks for a saved query name on an explicit contract-targeted request
+- resumes stale session state and answers from the wrong context
 
 ## After CLI passes, how to reconfirm on Discord or DM
 
@@ -70,6 +103,7 @@ Do not hand off a NanoClaw change as "working" without writing down:
 2. the exact prompt or prompts used
 3. whether the test used a full NanoClaw restart or an exact-container reset
 4. which live channels were **not** rerun yet
+5. whether exact-session cleanup was required to get a fresh result
 
 ## How to extend this file
 
@@ -220,9 +254,9 @@ cd ~/git/dbxe/amanita
 npm run dev -- task list
 ```
 
-## Pending Phase 02 live coverage
+## Phase 02 live coverage
 
-These cases should be added to the live regression set once they are rerun on the updated code. They reflect the current product direction, but they are **not** yet recorded here as validated passes.
+These cases have now been rerun successfully on the CLI path and should remain in the maintained regression set. They reflect the current product direction toward typed capability composition.
 
 ### A. Explicit-token metadata read
 
@@ -240,6 +274,10 @@ pnpm run chat -- "how many decimals does 0x65a4C093c7652AB882FbA1aed0F0E461cb50d
 - returns a concrete decimals value from a tool-backed metadata read
 - does not answer by inference from holder balances
 
+**Validation note**
+
+- confirmed on CLI with a fresh NanoClaw session
+
 ### B. Explicit-token balance lookup
 
 **Prompt**
@@ -255,6 +293,10 @@ pnpm run chat -- "What is the balance of 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7
 - does not ask for a saved query name
 - does not guess a different token target
 
+**Validation note**
+
+- confirmed on CLI with a fresh NanoClaw session
+
 ### C. Explicit-token concentration lookup
 
 **Prompt**
@@ -269,6 +311,11 @@ pnpm run chat -- "What is the top 5 holder concentration for token 0x65a4C093c76
 - returns concentration for the explicit token target
 - does not infer a default token
 
+**Validation note**
+
+- confirmed on CLI with a fresh NanoClaw session
+- evaluate the numeric result, not only the prose summary; the underlying runtime output for this fixture is `15.60% (1560 bps)`
+
 ### D. Explicit-token watch creation
 
 **Prompt**
@@ -282,6 +329,10 @@ pnpm run chat -- "Alert me if the balance of 0xF9450D254A66ab06b30Cfa9c6e7AE1B75
 
 - creates or resumes a watch for that explicit token target
 - `List watches` shows the watch afterward
+
+**Validation note**
+
+- confirmed on CLI with a fresh NanoClaw session
 
 ### E. No implicit token guessing for balance
 
@@ -298,6 +349,10 @@ pnpm run chat -- "What is the balance of 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7
 - does not infer `helloworld`
 - does not ask for a saved query name
 
+**Validation note**
+
+- confirmed on CLI with a fresh NanoClaw session
+
 ### F. No implicit token guessing for watch creation
 
 **Prompt**
@@ -311,6 +366,10 @@ pnpm run chat -- "Alert me if the balance of 0xF9450D254A66ab06b30Cfa9c6e7AE1B75
 
 - asks for the token contract address
 - does not create a watch on an implicit token source
+
+**Validation note**
+
+- confirmed on CLI with a fresh NanoClaw session
 
 ## Useful troubleshooting checks
 

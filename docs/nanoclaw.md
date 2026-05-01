@@ -83,6 +83,28 @@ In the setup here, the repeated "Query name needed" loop was not the harness tas
 
 If you have changed `src/mcp.ts` or `src/nanoclaw.ts`, rerun `nanoclaw configure` for the affected group and restart NanoClaw before retesting. Existing session containers can keep older instructions or tool schemas alive long enough to reproduce outdated prompts.
 
+## MCP server health
+
+If a live NanoClaw reply says tools named in `container.json` are unavailable, do not assume the problem is prompt wording or model behavior.
+
+Check MCP server startup first:
+
+```bash
+cd ~/git/dbxe/amanita
+node dist/mcp.js
+```
+
+If that process throws during startup, fix the MCP server before doing more live testing. In this repo, a duplicate `server.tool(...)` registration was enough to make the mounted MCP server unavailable even though:
+
+- `container.json` looked correct
+- the extra MCP server was listed in NanoClaw startup logs
+- the model instructions explicitly referenced the missing tools
+
+Practical rule:
+
+1. verify `dist/mcp.js` starts cleanly
+2. only then trust NanoClaw live failures as model/tool-selection failures
+
 ## When to rerun `nanoclaw configure` vs restart
 
 For live NanoClaw validation, treat the runtime as **sticky**:
@@ -109,6 +131,28 @@ Practical default for channel-facing tests:
 3. retest with a fresh message
 
 If you skip step 2 after business-logic changes, the live Discord/DM result is **suspect**, because you may still be exercising stale session state rather than the code you just changed.
+
+Restarting NanoClaw is sometimes still not enough. If the same CLI or channel group keeps resuming stale continuation state, remove the specific active session as well.
+
+Example CLI reset flow:
+
+```bash
+docker ps --format 'table {{.Names}}\t{{.Status}}'
+docker stop <exact-container-name>
+
+sqlite3 ~/git/qwibitai/nanoclaw/data/v2.db \
+  "delete from pending_questions where session_id = '<session-id>';
+   delete from sessions where id = '<session-id>';"
+
+mv ~/git/qwibitai/nanoclaw/data/v2-sessions/<agent-group-id>/<session-id> \
+   ~/git/qwibitai/nanoclaw/data/v2-sessions/<agent-group-id>/<session-id>.bak-$(date +%Y%m%dT%H%M%S)
+```
+
+Use that when:
+
+- the next CLI/DM/Discord message keeps landing in the same bad session
+- stale pending-question state or continuation state is masking the code you just changed
+- restarting NanoClaw alone did not produce a genuinely fresh live run
 
 ## Wiring this repo into a NanoClaw group
 
@@ -200,7 +244,11 @@ docker ps --format 'table {{.Names}}\t{{.Status}}'
 docker stop <exact-container-name>
 ```
 
+If the next message still resumes stale state, remove the matching session row from `~/git/qwibitai/nanoclaw/data/v2.db` and move the session directory aside as shown above.
+
 Do **not** parallelize live NanoClaw chat tests. Run one `pnpm run chat -- "..."` request at a time and wait for it to finish before starting the next one. Overlapping CLI clients can supersede each other and shared session state makes the results unreliable.
+
+Also note that `pnpm run chat` is a thin convenience client with a short silence timeout. If the live run is still working but the CLI probe exits before the full response arrives, use a longer-lived local socket probe rather than concluding the bot failed.
 
 Start with the deterministic local CLI channel:
 

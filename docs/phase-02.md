@@ -106,6 +106,8 @@ This layer adapts the capability layer into MCP and CLI tools with:
 - explicit waiting and failure states
 - no hidden token, query, or alias fallbacks
 
+Phase 02 also needs runtime-surface health checks, not just more tools. A capability is not real if the mounted MCP server can fail during startup and silently disappear from the agent's toolset. Keep process-level smoke coverage for MCP startup as part of this layer.
+
 The model should be able to call these tools directly and combine them.
 
 ### 3. Thin planner / interpreter layer
@@ -216,6 +218,8 @@ The harness should continue to own:
 - readiness and waiting-state interpretation
 - reusable event-query generation
 - typed contract method access
+
+Explicit contract-targeted analytical views must derive their own source from that target. Do not route explicit contract views back through `defaultQueryName` or any saved-query fallback.
 
 The model should consume this through tool descriptions and structured outputs, not by inventing backend requests.
 

@@ -56,6 +56,7 @@ Prefer:
 - one reusable webhook ingress plus a local watch registry over one webhook per watch
 - MCP integration over shelling out from the agent when NanoClaw is involved
 - OneCLI path-scoped secret injection over raw API keys in NanoClaw `container.json`
+- explicit contract-targeted views that derive their own analytical source over any fallback to `defaultQueryName`
 
 ## Working with MultiBaas
 
@@ -67,6 +68,7 @@ Prefer:
 - Use local fixtures and short-history contracts for development. Avoid relying on large historical contracts for routine testing because indexing lag can dominate the workflow.
 - Prefer reusable, typed view patterns over bespoke one-off query JSON when adding new protocol support. If a raw event query is needed for diagnostics, keep it close to the view or service it belongs to.
 - If the SDK path is unreliable for a specific endpoint, isolate any direct HTTP fallback in the MultiBaas integration layer and document why instead of leaking that workaround across the repo.
+- If a request already names a contract target, that path must stay self-contained. Do not reintroduce dependencies on saved-query defaults for explicit contract views, holder reads, or concentration reads.
 
 ## Testing expectations
 
