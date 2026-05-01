@@ -1,0 +1,13 @@
+| What it is | Ethereum mainnet | Arbitrum One | Why it matters / interesting event analysis |
+|---|---:|---:|---|
+| **Arbitrum Delayed Inbox** | `0x4Dbd4fc535Ac27206064B68FfCf827b0A60BAB3f` | N/A | Core L1 → L2 message entrypoint. Good for tracking retryable tickets, deposits, and L1-originated actions entering Arbitrum. |
+| **Arbitrum Bridge** | `0x8315177aB297bA92A06054cE80a67Ed4DBd7ed3a` | N/A | Core rollup bridge/accounting contract. Useful for low-level bridge/message activity rather than app-level user flows. |
+| **Arbitrum Outbox** | `0x0B985700EfA13f1aaDFcEAA5e3F138b3aFc17C840` | N/A | L2 → L1 withdrawal/message execution endpoint. Good for analyzing finalized exits from Arbitrum back to Ethereum. |
+| **L1 Gateway Router / L2 Gateway Router** | `0x72Ce9C846789Fdb6Fc1f34aC4ad25dD9EF7031ef` | `0x5288c571Fd7aEbfabF4bB9e9f0c98C9F8fB7F933` | Best high-level ERC-20 bridge surface. Routes token deposits/withdrawals and can reveal which assets/users are moving cross-chain. |
+| **L1 ERC20 Gateway / L2 ERC20 Gateway** | `0xa3A7B6F88361F48403514059F1F16C8E78d60EeC` | `0x09e9222E96E7B4AE2a407B98d48e330053351EEe` | Standard ERC-20 bridge gateway pair. Very relevant for reconstructing bridged token flows and mapping L1/L2 asset relationships. |
+| **L1 WETH / L2 WETH** | `0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2` | `0x82aF49447D8a07e3bd95BD0d56f35241523fBab1` | Canonical ETH liquidity proxy on both sides. Great for comparing holder sets, DeFi flows, and bridge-adjacent movement. |
+| **L1 WETH Gateway / L2 WETH Gateway** | `0xd92023E9d9911199a6711321D1277285e6d4e2db` | `0x6c41171B28Efa7d1C8c6d4f4e187Ea883eD623B` | Specific WETH bridge path. Useful because WETH is everywhere in DeFi and has clean event semantics. |
+| **Uniswap v3 Factory** | `0x1F98431c8aD98523631AE4a59f267346ea31F984` | `0x1F98431c8aD98523631AE4a59f267346ea31F984` | Same address on both chains. Pool creation events let the agent compare market creation across Ethereum and Arbitrum. |
+| **Uniswap v3 Nonfungible Position Manager** | `0xC36442b4a4522E871399CD717aBDD847Ab11FE88` | `0xC36442b4a4522E871399CD717aBDD847Ab11FE88` | Same address on both chains. Extremely event-rich: LP mint/increase/decrease/collect/transfer lifecycle. |
+| **Uniswap v3 SwapRouter** | `0xE592427A0AEce92De3Edee1F18E0157C05861564` | `0xE592427A0AEce92De3Edee1F18E0157C05861564` | Same address on both chains. Useful as a familiar high-volume interaction point, though pool-level events are usually richer than router events. |
+| **Permit2** | `0x000000000022D473030F116dDEE9F6B43aC78BA3` | `0x000000000022D473030F116dDEE9F6B43aC78BA3` | Same address, wallet-level intent/approval surface. Great for cross-chain allowance, spender, and token-permission analysis. |
