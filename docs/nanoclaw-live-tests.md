@@ -220,6 +220,98 @@ cd ~/git/dbxe/amanita
 npm run dev -- task list
 ```
 
+## Pending Phase 02 live coverage
+
+These cases should be added to the live regression set once they are rerun on the updated code. They reflect the current product direction, but they are **not** yet recorded here as validated passes.
+
+### A. Explicit-token metadata read
+
+**Goal:** the model answers ERC-20 metadata questions through typed tool use rather than inference.
+
+**Prompt**
+
+```bash
+cd ~/git/qwibitai/nanoclaw
+pnpm run chat -- "how many decimals does 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59 have?"
+```
+
+**Expected live behavior**
+
+- returns a concrete decimals value from a tool-backed metadata read
+- does not answer by inference from holder balances
+
+### B. Explicit-token balance lookup
+
+**Prompt**
+
+```bash
+cd ~/git/qwibitai/nanoclaw
+pnpm run chat -- "What is the balance of 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172 for token 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59?"
+```
+
+**Expected live behavior**
+
+- returns the balance for that address and token
+- does not ask for a saved query name
+- does not guess a different token target
+
+### C. Explicit-token concentration lookup
+
+**Prompt**
+
+```bash
+cd ~/git/qwibitai/nanoclaw
+pnpm run chat -- "What is the top 5 holder concentration for token 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59?"
+```
+
+**Expected live behavior**
+
+- returns concentration for the explicit token target
+- does not infer a default token
+
+### D. Explicit-token watch creation
+
+**Prompt**
+
+```bash
+cd ~/git/qwibitai/nanoclaw
+pnpm run chat -- "Alert me if the balance of 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172 moves for token 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59"
+```
+
+**Expected live behavior**
+
+- creates or resumes a watch for that explicit token target
+- `List watches` shows the watch afterward
+
+### E. No implicit token guessing for balance
+
+**Prompt**
+
+```bash
+cd ~/git/qwibitai/nanoclaw
+pnpm run chat -- "What is the balance of 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172?"
+```
+
+**Expected live behavior**
+
+- asks for the token contract address
+- does not infer `helloworld`
+- does not ask for a saved query name
+
+### F. No implicit token guessing for watch creation
+
+**Prompt**
+
+```bash
+cd ~/git/qwibitai/nanoclaw
+pnpm run chat -- "Alert me if the balance of 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172 moves"
+```
+
+**Expected live behavior**
+
+- asks for the token contract address
+- does not create a watch on an implicit token source
+
 ## Useful troubleshooting checks
 
 If a live NanoClaw result looks wrong:

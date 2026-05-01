@@ -17,16 +17,22 @@ import {
   saveBalanceWatch,
 } from "./agent-tools.js";
 import { handleIntent } from "./intent.js";
-import { createContractBalanceSource } from "./multibaas.js";
+import {
+  createContractBalanceSource,
+  getErc20Metadata,
+  resolveContractReadiness,
+  resolveKnownAddress,
+} from "./multibaas.js";
 import {
   formatAnalyticalViewResult,
   getContractHolderConcentration,
   getHolderConcentration,
   lookupBalance,
 } from "./views.js";
+import { resolveConfig } from "./config.js";
 
 const server = new McpServer({
-  name: "multibaas-agent-harness",
+  name: "multibaas-protocol-intelligence-runtime",
   version: "0.1.0",
 });
 
@@ -36,11 +42,108 @@ server.tool(
     text: z
       .string()
       .min(1)
-      .describe("The user's raw MultiBaas-related request. Prefer this high-level tool for balances, holders, concentration, watches, and task progress."),
+      .describe("Compatibility tool for legacy holder/balance/watch phrasing. Prefer typed capability tools when the request maps cleanly to them."),
   },
   async ({ text }) => {
     return {
       content: [{ type: "text", text: await handleIntent(text) }],
+    };
+  },
+);
+
+async function resolveContractTargetInput(contractAddress?: string, tokenName?: string): Promise<{
+  address?: string;
+  alias?: string;
+  tokenNameInput?: string;
+  unresolved?: boolean;
+}> {
+  if (contractAddress) {
+    return { address: contractAddress };
+  }
+
+  if (!tokenName) {
+    return {};
+  }
+
+  const resolved = await resolveKnownAddress(resolveConfig(), tokenName);
+  if (!resolved) {
+    return { tokenNameInput: tokenName, unresolved: true };
+  }
+
+  return {
+    address: resolved.address,
+    alias: resolved.alias,
+    tokenNameInput: tokenName,
+  };
+}
+
+server.tool(
+  "resolve_contract_target",
+  {
+    contractAddress: z.string().min(1).optional(),
+    tokenName: z.string().min(1).optional(),
+  },
+  async ({ contractAddress, tokenName }) => {
+    const target = await resolveContractTargetInput(contractAddress, tokenName);
+    if (target.unresolved) {
+      return {
+        content: [{ type: "text", text: `I don't know the contract address for ${target.tokenNameInput} yet. Tell me the token contract address and I'll inspect it directly.` }],
+      };
+    }
+
+    if (!target.address) {
+      return {
+        content: [{ type: "text", text: "Tell me the token contract address or a known token name and I'll resolve it." }],
+      };
+    }
+
+    const readiness = await resolveContractReadiness(resolveConfig(), target.address);
+    return {
+      content: [{
+        type: "text",
+        text: JSON.stringify(
+          {
+            address: readiness.address,
+            alias: readiness.alias ?? target.alias,
+            contractLabel: readiness.contractLabel,
+            contractName: readiness.contractName,
+            state: readiness.state,
+            isProcessingPastLogs: readiness.isProcessingPastLogs,
+          },
+          null,
+          2,
+        ),
+      }],
+    };
+  },
+);
+
+server.tool(
+  "get_token_metadata",
+  {
+    contractAddress: z.string().min(1).optional(),
+    tokenName: z.string().min(1).optional(),
+  },
+  async ({ contractAddress, tokenName }) => {
+    const target = await resolveContractTargetInput(contractAddress, tokenName);
+    if (target.unresolved) {
+      return {
+        content: [{ type: "text", text: `I don't know the contract address for ${target.tokenNameInput} yet. Tell me the token contract address and I'll query its metadata directly.` }],
+      };
+    }
+
+    if (!target.address) {
+      return {
+        content: [{ type: "text", text: "Tell me the token contract address or a known token name and I'll query its metadata." }],
+      };
+    }
+
+    const metadata = await getErc20Metadata(resolveConfig(), target.address);
+    return {
+      content: [{
+        type: "text",
+        text: JSON.stringify(metadata, null, 2),
+      }],
     };
   },
 );

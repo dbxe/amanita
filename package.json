@@ -1,8 +1,8 @@
 {
-  "name": "multibaas-agent-harness",
+  "name": "multibaas-protocol-intelligence-runtime",
   "private": true,
   "version": "0.1.0",
-  "description": "Minimal MultiBaas event-query and webhook loop",
+  "description": "Typed MultiBaas protocol intelligence runtime",
   "type": "module",
   "engines": {
     "node": ">=22"

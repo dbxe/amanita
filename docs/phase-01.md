@@ -1,5 +1,17 @@
 # Phase 01
 
+## Status note
+
+Phase 01 is **paused**.
+
+This document remains useful as:
+
+- the original Phase 01 design record
+- a partial implementation record for what was built
+- context for why the repo has its current holder/balance/watch compatibility surfaces
+
+It is **not** the active roadmap. The current direction is Phase 02 in [`docs/phase-02.md`](docs/phase-02.md), which explicitly shifts the repo toward agentic tool composition and away from expanding the workflow-specific MVP shell.
+
 ## Goal
 
 Turn the current MVP harness into the foundation for a **protocol-intelligence agent**: a system that can translate somewhat ambiguous user intent into concrete MultiBaas operations, explain what it is doing, manage long-running tasks, and produce trustworthy answers and alerts from event-sourced views.

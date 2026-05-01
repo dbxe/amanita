@@ -1,17 +1,30 @@
-# MultiBaas agent harness
+# MultiBaas protocol intelligence runtime
 
-Minimal MultiBaas event-query and webhook loop for the hackathon MVP.
+This repo is moving toward an **agentic MultiBaas tool runtime**: a system where the model answers protocol questions by composing typed tools and execution services, not by extending a growing library of prompt-specific workflows.
+
+Treat the current holder/balance/watch paths as **transitional compatibility surfaces**, not as the long-term architecture.
 
 ## Documentation map
 
-- `README.md` — quickstart, working commands, and current MVP status
+- `README.md` — quickstart, current repo posture, and compatibility entrypoints
 - `docs/architecture.md` — repo shape, module boundaries, and design direction
 - `docs/nanoclaw.md` — NanoClaw setup, auth wiring, restart, and test runbook
 - `docs/phase-01.md` — original Phase 01 plan and partially completed implementation record
 - `docs/phase-02.md` — current next-phase plan focused on agentic tool composition
 - `AGENTS.md` — coding-agent conventions for working in this repo
 
-## What works now
+## North star
+
+The product direction is:
+
+- expose a reusable, typed MultiBaas-backed capability layer
+- let the model decompose questions into tool calls
+- keep readiness, waiting states, and execution trustworthiness explicit
+- avoid hidden token/query defaults and avoid regex-driven workflow growth
+
+The repo still contains MVP-era compatibility paths. When making changes, prefer the Phase 02 direction in [`docs/phase-02.md`](docs/phase-02.md) over expanding the legacy workflow model.
+
+## Current implemented compatibility surface
 
 - query top holders, concentration, balances, and watches dynamically for linked/indexed ERC-20 contracts
 - execute an explicitly named saved MultiBaas event query when you provide `--query`
@@ -22,6 +35,8 @@ Minimal MultiBaas event-query and webhook loop for the hackathon MVP.
 - receive signed MultiBaas-style webhook payloads and reevaluate watches
 - accept a small set of natural-language intents through a local `agent` command
 - expose the same capabilities through a stdio MCP server for NanoClaw
+
+These surfaces are useful for validation and backward compatibility, but they should not be treated as the final architecture.
 
 ## Prerequisites
 
@@ -49,7 +64,7 @@ npm install
 - `MULTIBAAS_BASE_URL` and `MULTIBAAS_API_KEY`, or
 - `hardhat/deployment-config.<network>.ts`
 
-When the harness runs **inside NanoClaw**, authenticated MultiBaas calls should use **OneCLI path-scoped secret injection** rather than a raw API key in `container.json`. The harness will send a placeholder bearer token when no direct key is configured so OneCLI can rewrite it on `/api/v0/*` requests.
+When the runtime runs **inside NanoClaw**, authenticated MultiBaas calls should use **OneCLI path-scoped secret injection** rather than a raw API key in `container.json`. The runtime will send a placeholder bearer token when no direct key is configured so OneCLI can rewrite it on `/api/v0/*` requests.
 
 ## Minimal product loop
 
@@ -83,9 +98,9 @@ For a legacy saved-query path, pass `--query <saved-query-name>` explicitly.
 
 Local watch state is stored under `.agent-state/`.
 
-## Local intent demo
+## Legacy intent demo
 
-This is the fastest end-to-end demo path right now:
+The `agent` command is still available as a compatibility path. It is not the intended long-term center of gravity for the runtime:
 
 ```bash
 npm run dev -- agent "Give me the top 5 holders for token 0xd26fde38F244Dcbb13e8017347Ac37804d926Bb5"
@@ -156,6 +171,8 @@ npm run mcp
 
 Tools exposed:
 
+- `resolve_contract_target`
+- `get_token_metadata`
 - `get_top_holders`
 - `get_holder_concentration`
 - `get_address_balance`
@@ -166,11 +183,17 @@ Tools exposed:
 - `evaluate_balance_watches`
 - `ensure_event_webhook`
 
-`get_top_holders` accepts optional `contractAddress` and `tokenName` inputs for the ERC-20 onboarding flow. `get_holder_concentration`, `get_address_balance`, and `create_balance_watch` should be called with an explicit `contractAddress` unless you are intentionally using an explicitly named saved query.
+Preferred Phase 02 path:
+
+- `resolve_contract_target` for token resolution and readiness inspection
+- `get_token_metadata` for ERC-20 metadata such as name, symbol, decimals, and total supply
+- `get_top_holders`, `get_holder_concentration`, `get_address_balance`, and `create_balance_watch` for typed analytical and monitoring actions
+
+The legacy `handle_multibaas_request` router still exists as a compatibility path, but it is no longer the intended center of gravity for new capability growth.
 
 ## NanoClaw bridge
 
-This repo can write the NanoClaw group config needed to mount the harness repo and register the MCP server:
+This repo can write the NanoClaw group config needed to mount the runtime repo and register the MCP server:
 
 ```bash
 npm run dev -- nanoclaw configure \
@@ -182,7 +205,7 @@ npm run dev -- nanoclaw configure \
 What that does:
 
 - adds a read-only mount for this repo into the NanoClaw container
-- registers the `multibaas-agent` MCP server in the target group's `container.json`
+- registers the `multibaas-runtime` MCP server in the target group's `container.json`
 - rewrites a host-local MultiBaas base URL like `localhost` to `host.docker.internal` for container access
 - sets a stable in-container state directory for balance watches
 - optionally adds this repo to NanoClaw's mount allowlist
@@ -202,16 +225,17 @@ npm run dev -- nanoclaw notify \
 
 ## Next layer
 
-The current local demo path is working through NanoClaw CLI:
+The current compatibility CLI path is working through NanoClaw:
 
 ```bash
 cd ~/git/qwibitai/nanoclaw
+pnpm run chat -- "how many decimals does 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59 have?"
 pnpm run chat -- "What is the balance of 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172 for token 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59?"
 pnpm run chat -- "Give me the top 5 holders for token 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59"
 pnpm run chat -- "Alert me if the balance of 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172 moves for token 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59"
 pnpm run chat -- "List watches"
 ```
 
-The remaining MVP step is the **event-driven alert loop**: trigger a watched balance change, receive the MultiBaas webhook, and surface the resulting alert back through the runtime.
+The remaining implemented operational loop is the **event-driven alert loop**: trigger a watched balance change, receive the MultiBaas webhook, and surface the resulting alert back through the runtime.
 
 For the HelloWorld fixture, the deterministic replay path is to submit `transfer(address,uint256)` through the MultiBaas contract-method API using the whale address as `from`/`signer` with `signAndSubmit: true`. The initial deployer balance is exhausted by `hardhat/scripts/mint.ts`, so replaying from the deployer will revert with insufficient balance.

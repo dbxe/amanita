@@ -62,6 +62,28 @@ export interface ContractDefinition {
   version?: string;
 }
 
+export interface ContractReadiness {
+  address: string;
+  alias?: string;
+  contractLabel?: string;
+  contractName?: string;
+  isProcessingPastLogs: boolean;
+  state: "ready" | "needs-link" | "syncing";
+}
+
+export interface TokenMetadata {
+  address: string;
+  alias?: string;
+  contractLabel?: string;
+  contractName?: string;
+  decimals?: number;
+  isProcessingPastLogs: boolean;
+  name?: string;
+  state: ContractReadiness["state"];
+  symbol?: string;
+  totalSupply?: string;
+}
+
 const QUERY_PAGE_LIMIT = 100;
 const EVENT_EMITTED_WEBHOOK_SUBSCRIPTION = "event.emitted";
 const CURL_MAX_BUFFER = 10 * 1024 * 1024;
@@ -743,15 +765,26 @@ export async function getEventIndexingStatus(
   };
 }
 
-function readContractStringOutput(output: unknown): string | undefined {
+function readContractScalarOutput(output: unknown): string | undefined {
   if (typeof output === "string") {
     const trimmed = output.trim();
     return trimmed.length > 0 ? trimmed : undefined;
   }
 
+  if (typeof output === "number") {
+    if (!Number.isFinite(output)) {
+      return undefined;
+    }
+    return output.toString();
+  }
+
+  if (typeof output === "bigint") {
+    return output.toString();
+  }
+
   if (Array.isArray(output)) {
     for (const entry of output) {
-      const value = readContractStringOutput(entry);
+      const value = readContractScalarOutput(entry);
       if (value) {
         return value;
       }
@@ -761,7 +794,7 @@ function readContractStringOutput(output: unknown): string | undefined {
 
   if (typeof output === "object" && output !== null) {
     for (const entry of Object.values(output)) {
-      const value = readContractStringOutput(entry);
+      const value = readContractScalarOutput(entry);
       if (value) {
         return value;
       }
@@ -804,7 +837,7 @@ export async function getContractStringValue(
       ),
   );
 
-  return readContractStringOutput(response.result?.output);
+  return readContractScalarOutput(response.result?.output);
 }
 
 export async function getErc20TokenName(config: RuntimeConfig, addressOrAlias: string): Promise<string | undefined> {
@@ -813,6 +846,82 @@ export async function getErc20TokenName(config: RuntimeConfig, addressOrAlias: s
   } catch {
     return undefined;
   }
+}
+
+export async function getErc20TokenSymbol(config: RuntimeConfig, addressOrAlias: string): Promise<string | undefined> {
+  try {
+    return await getContractStringValue(config, addressOrAlias, "erc20interface", "symbol", "symbol()");
+  } catch {
+    return undefined;
+  }
+}
+
+export async function getErc20TokenDecimals(config: RuntimeConfig, addressOrAlias: string): Promise<number | undefined> {
+  try {
+    const value = await getContractStringValue(config, addressOrAlias, "erc20interface", "decimals", "decimals()");
+    if (!value || !/^\d+$/.test(value)) {
+      return undefined;
+    }
+    const parsed = Number.parseInt(value, 10);
+    return Number.isSafeInteger(parsed) ? parsed : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+export async function getErc20TotalSupply(config: RuntimeConfig, addressOrAlias: string): Promise<string | undefined> {
+  try {
+    return await getContractStringValue(config, addressOrAlias, "erc20interface", "totalSupply", "totalSupply()");
+  } catch {
+    return undefined;
+  }
+}
+
+export async function resolveContractReadiness(config: RuntimeConfig, addressOrAlias: string): Promise<ContractReadiness> {
+  const registration = await getAddressRegistration(config, addressOrAlias);
+  const contract = registration.contracts[0];
+
+  if (!contract) {
+    return {
+      address: registration.address,
+      alias: registration.alias,
+      isProcessingPastLogs: false,
+      state: "needs-link",
+    };
+  }
+
+  const status = await getEventIndexingStatus(config, registration.address, contract.label);
+  return {
+    address: registration.address,
+    alias: registration.alias,
+    contractLabel: contract.label,
+    contractName: contract.name,
+    isProcessingPastLogs: status.isProcessingPastLogs,
+    state: status.isProcessingPastLogs ? "syncing" : "ready",
+  };
+}
+
+export async function getErc20Metadata(config: RuntimeConfig, addressOrAlias: string): Promise<TokenMetadata> {
+  const readiness = await resolveContractReadiness(config, addressOrAlias);
+  const [name, symbol, decimals, totalSupply] = await Promise.all([
+    getErc20TokenName(config, readiness.address),
+    getErc20TokenSymbol(config, readiness.address),
+    getErc20TokenDecimals(config, readiness.address),
+    getErc20TotalSupply(config, readiness.address),
+  ]);
+
+  return {
+    address: readiness.address,
+    alias: readiness.alias,
+    contractLabel: readiness.contractLabel,
+    contractName: readiness.contractName,
+    decimals,
+    isProcessingPastLogs: readiness.isProcessingPastLogs,
+    name,
+    state: readiness.state,
+    symbol,
+    totalSupply,
+  };
 }
 
 export async function getAddressBalance(

@@ -1,6 +1,15 @@
 # Architecture
 
-This repo holds the thin harness around MultiBaas and NanoClaw. The goal is not a large bespoke agent framework; it is a small, composable runtime layer that can answer event-sourced questions now and grow into a broader tool surface later.
+This repo is evolving from a thin MultiBaas/NanoClaw harness into a **protocol intelligence runtime** with a typed, composable tool surface.
+
+The architectural north star is:
+
+- reusable MultiBaas-backed domain capabilities
+- explicit readiness, waiting, and execution state
+- LLM tool composition over those capabilities
+- less reliance over time on workflow-specific natural-language routing
+
+The repo still contains MVP-era compatibility layers. Those are useful for current validation, but they should not be treated as the long-term product architecture.
 
 ## What lives where
 
@@ -15,15 +24,15 @@ Treat `hardhat/` as fixture infrastructure, not as the home of the runtime.
 - `config.ts` resolves runtime config from environment or local Hardhat deployment config.
 - `multibaas.ts` owns the MultiBaas SDK client and low-level helpers like balance normalization and webhook signatures.
 - `state.ts` owns local persistence for watches, webhook metadata, and alerts.
-- `agent-tools.ts` is the application layer that combines config, MultiBaas calls, and state updates into top-holder, balance, watch, and webhook operations.
-- `intent.ts` is a deliberately thin natural-language adapter for the local MVP.
+- `agent-tools.ts` is the current application layer that combines config, MultiBaas calls, and state updates into holder, balance, watch, and webhook operations.
+- `intent.ts` is a legacy compatibility adapter for a narrow natural-language surface.
 - `mcp.ts` exposes the harness operations to NanoClaw through stdio MCP.
 - `nanoclaw.ts` writes NanoClaw group config needed to mount the repo and register the MCP server.
 - `index.ts` is the local CLI entrypoint.
 
 ## Structure assessment
 
-The current shape is acceptable for an MVP:
+The current shape is serviceable as a transition state, but it still carries strong MVP assumptions:
 
 - low-level integration code is separated from adapters
 - the CLI and MCP entrypoints are already thin
@@ -37,17 +46,27 @@ The main pressure point is `src/agent-tools.ts`, which currently mixes:
 - webhook registration
 - the local HTTP webhook server
 
-That is still manageable today, but it is the first file that should be split when the harness grows.
+That is the first structural pressure point.
+
+The second pressure point is the workflow-first model surface:
+
+- `src/intent.ts` encodes English-pattern routing
+- `src/mcp.ts` still privileges a high-level workflow tool
+- `src/planning.ts` is typed around today's narrow workflows rather than a broader capability vocabulary
+
+Those surfaces are the main architectural drag on the Phase 02 direction.
 
 ## Next structural move
 
-Do not do a broad refactor yet. The next useful split is narrow:
+Do not do a broad refactor with vague abstractions. The next useful moves are narrow and directional:
 
 1. move watch-oriented orchestration into a watch service
 2. move webhook registration and receiver logic into a webhook service
 3. move human-readable renderers into a formatter module
+4. expose typed capability-oriented MCP tools that do not depend on the high-level intent router
+5. reduce `src/intent.ts` to compatibility glue rather than growing it into the product architecture
 
-That keeps the entrypoints thin without introducing a heavy architecture too early.
+That keeps the entrypoints thin while shifting the runtime toward the Phase 02 model.
 
 ## Local reference repos
 

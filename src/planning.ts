@@ -141,7 +141,7 @@ function createTaskTitle(address: string): string {
 function createBalanceWatchExecutionPlan(queryName: string): ExecutionPlan {
   return {
     steps: [
-      { detail: `Resolve the current balance from saved query ${queryName}.`, kind: "resolve-balance" },
+      { detail: `Resolve the current balance from balance source ${queryName}.`, kind: "resolve-balance" },
       { detail: "Persist a local watch once prerequisites are satisfied.", kind: "persist-watch" },
       { detail: "Reevaluate the watch when webhook-triggered events arrive.", kind: "evaluate-watch" },
     ],
@@ -151,7 +151,7 @@ function createBalanceWatchExecutionPlan(queryName: string): ExecutionPlan {
 function createAddressBalanceExecutionPlan(queryName: string): ExecutionPlan {
   return {
     steps: [
-      { detail: `Resolve the current balance from saved query ${queryName}.`, kind: "resolve-balance" },
+      { detail: `Resolve the current balance from balance source ${queryName}.`, kind: "resolve-balance" },
       { detail: "Format the balance answer for the user.", kind: "format-response" },
     ],
   };
@@ -160,7 +160,7 @@ function createAddressBalanceExecutionPlan(queryName: string): ExecutionPlan {
 function createHolderListExecutionPlan(queryName: string): ExecutionPlan {
   return {
     steps: [
-      { detail: `Execute the holder view from saved query ${queryName}.`, kind: "execute-holder-query" },
+      { detail: `Execute the holder view from analytical source ${queryName}.`, kind: "execute-holder-query" },
       { detail: "Format the holder list for the user.", kind: "format-response" },
     ],
   };
@@ -169,7 +169,7 @@ function createHolderListExecutionPlan(queryName: string): ExecutionPlan {
 function createHolderConcentrationExecutionPlan(queryName: string): ExecutionPlan {
   return {
     steps: [
-      { detail: `Execute the holder view from saved query ${queryName}.`, kind: "execute-holder-query" },
+      { detail: `Execute the holder view from analytical source ${queryName}.`, kind: "execute-holder-query" },
       { detail: "Compute concentration from the top positive holders over tracked supply.", kind: "compute-concentration" },
       { detail: "Format the concentration result for the user.", kind: "format-response" },
     ],

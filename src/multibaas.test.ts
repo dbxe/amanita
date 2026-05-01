@@ -3,8 +3,10 @@ import assert from "node:assert/strict";
 
 import {
   buildContractBalanceEventQuery,
+  createContractBalanceSource,
   createSignature,
   findKnownAddressByTokenName,
+  getContractTargetFromBalanceSource,
   normalizeBalanceRows,
   normalizeTokenIdentifier,
   selectTopPositiveHolders,
@@ -62,6 +64,22 @@ test("buildContractBalanceEventQuery filters transfer math by contract address",
   assert.equal(query.groupBy, "address");
   assert.equal(children?.[0]?.fieldType, "contract_address");
   assert.equal(children?.[0]?.value, "0xd26fde38f244dcbb13e8017347ac37804d926bb5");
+});
+
+test("buildContractBalanceEventQuery can target a contract alias", () => {
+  const query = buildContractBalanceEventQuery("helloworld");
+  const children = query.events?.[0]?.filter?.children;
+
+  assert.equal(children?.[0]?.fieldType, "contract_address_alias");
+  assert.equal(children?.[0]?.value, "helloworld");
+});
+
+test("contract balance sources round-trip cleanly", () => {
+  const source = createContractBalanceSource("0xD26fde38F244Dcbb13e8017347Ac37804d926Bb5");
+
+  assert.equal(source, "contract:0xd26fde38f244dcbb13e8017347ac37804d926bb5");
+  assert.equal(getContractTargetFromBalanceSource(source), "0xd26fde38f244dcbb13e8017347ac37804d926bb5");
+  assert.equal(getContractTargetFromBalanceSource("saved-query-name"), undefined);
 });
 
 test("normalizeTokenIdentifier strips spacing and punctuation for matching", () => {

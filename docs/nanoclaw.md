@@ -126,7 +126,7 @@ Run the same command for any DM or Discord group you want the harness mounted in
 
 This writes:
 
-- `mcpServers.multibaas-agent`
+- `mcpServers.multibaas-runtime`
 - a read-only `additionalMounts` entry for this repo
 - an in-container state directory for watches
 - a container-safe MultiBaas base URL
@@ -134,7 +134,7 @@ This writes:
 The NanoClaw container runs the harness MCP through the built artifact:
 
 ```text
-/workspace/extra/multibaas-agent-harness/dist/mcp.js
+/workspace/extra/multibaas-runtime/dist/mcp.js
 ```
 
 So for live NanoClaw tests, make sure the repo build is current before `nanoclaw configure` and restart. `npm test` already does this because it rebuilds `dist/`.
@@ -206,6 +206,7 @@ Start with the deterministic local CLI channel:
 
 ```bash
 cd ~/git/qwibitai/nanoclaw
+pnpm run chat -- "how many decimals does 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59 have?"
 pnpm run chat -- "What is the balance of 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172 for token 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59?"
 pnpm run chat -- "Give me the top 5 holders for token 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59"
 pnpm run chat -- "Alert me if the balance of 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172 moves for token 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59"

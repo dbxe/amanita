@@ -18,7 +18,9 @@ test("deriveContainerBaseUrl preserves non-local hosts", () => {
 test("containerInstructions steer NanoClaw away from saved queries for ERC-20 holder requests", () => {
   const instructions = containerInstructions("helloworld_balance");
 
-  assert.match(instructions, /handle_multibaas_request/i);
+  assert.match(instructions, /resolve_contract_target/i);
+  assert.match(instructions, /get_token_metadata/i);
+  assert.match(instructions, /handle_multibaas_request.*compatibility fallback/i);
   assert.match(instructions, /do not ask the user for a saved query name/i);
   assert.match(instructions, /get_top_holders.*contractAddress.*tokenName/i);
   assert.match(instructions, /evaluate_tasks/i);
@@ -52,7 +54,7 @@ test("configureNanoClawGroup writes a relative mount and workspace/extra MCP pat
       writeAllowlist: false,
     });
 
-    assert.equal(result.mountPath, "/workspace/extra/multibaas-agent-harness");
+    assert.equal(result.mountPath, "/workspace/extra/multibaas-runtime");
 
     const containerConfig = JSON.parse(fs.readFileSync(containerConfigPath, "utf8")) as {
       additionalMounts: Array<{ hostPath: string; containerPath: string; readonly?: boolean }>;
@@ -62,29 +64,29 @@ test("configureNanoClawGroup writes a relative mount and workspace/extra MCP pat
     assert.deepEqual(containerConfig.additionalMounts, [
       {
         hostPath: fs.realpathSync(repoDir),
-        containerPath: "multibaas-agent-harness",
+        containerPath: "multibaas-runtime",
         readonly: true,
       },
     ]);
 
-    assert.equal(containerConfig.mcpServers["multibaas-agent"].command, "node");
+    assert.equal(containerConfig.mcpServers["multibaas-runtime"].command, "node");
     assert.equal(
-      containerConfig.mcpServers["multibaas-agent"].args?.[0],
-      "/workspace/extra/multibaas-agent-harness/dist/mcp.js",
+      containerConfig.mcpServers["multibaas-runtime"].args?.[0],
+      "/workspace/extra/multibaas-runtime/dist/mcp.js",
     );
     assert.equal(
-      containerConfig.mcpServers["multibaas-agent"].env?.MULTIBAAS_BASE_URL,
+      containerConfig.mcpServers["multibaas-runtime"].env?.MULTIBAAS_BASE_URL,
       "http://host.docker.internal:8080",
     );
     assert.equal(
-      containerConfig.mcpServers["multibaas-agent"].env?.MULTIBAAS_QUERY_NAME,
+      containerConfig.mcpServers["multibaas-runtime"].env?.MULTIBAAS_QUERY_NAME,
       "helloworld_balance",
     );
     assert.equal(
-      containerConfig.mcpServers["multibaas-agent"].env?.MULTIBAAS_AGENT_STATE_DIR,
+      containerConfig.mcpServers["multibaas-runtime"].env?.MULTIBAAS_AGENT_STATE_DIR,
       "/workspace/agent/.agent-state",
     );
-    assert.match(containerConfig.mcpServers["multibaas-agent"].instructions ?? "", /do not ask the user for a saved query name/i);
+    assert.match(containerConfig.mcpServers["multibaas-runtime"].instructions ?? "", /do not ask the user for a saved query name/i);
   } finally {
     if (previousBaseUrl === undefined) {
       delete process.env.MULTIBAAS_BASE_URL;

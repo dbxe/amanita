@@ -1,15 +1,29 @@
-# Web3 intelligence agent harness
+# Web3 intelligence runtime
 
 This file is for coding agents and maintainers working inside the repo. Treat it as a short set of repo conventions. Human-facing setup and runbooks live elsewhere:
 
-- `README.md` — quickstart and current MVP commands
+- `README.md` — quickstart and current compatibility entrypoints
 - `docs/architecture.md` — repo shape, boundaries, and design direction
 - `docs/nanoclaw.md` — NanoClaw setup, auth wiring, restart, and test runbook
+- `docs/phase-02.md` — current north star and next-phase architecture direction
+
+## North star
+
+The repo direction is **agentic tool composition**, not growth of a workflow-specific demo shell.
+
+Prefer changes that:
+
+- expose reusable typed capabilities
+- make MultiBaas readiness and execution state explicit
+- let the model compose lower-level domain tools
+- reduce reliance on regex-style natural-language routing over time
+
+Treat the current `src/intent.ts` and other workflow-specific entrypoints as compatibility surfaces, not the preferred architecture to extend.
 
 ## Repo boundaries
 
-- `hardhat/` is the local chain fixture and deployment helper for demos. Keep runtime harness logic outside it.
-- The harness runtime lives under `src/`.
+- `hardhat/` is the local chain fixture and deployment helper for demos. Keep runtime logic outside it.
+- The runtime lives under `src/`.
 - Local state should stay naming-neutral and default to `.agent-state/`.
 
 ## Current source map
@@ -18,19 +32,20 @@ This file is for coding agents and maintainers working inside the repo. Treat it
 - `src/multibaas.ts` — MultiBaas SDK integration and webhook signature helpers
 - `src/state.ts` — watch/webhook local persistence
 - `src/agent-tools.ts` — orchestration layer for query, watch, and webhook flows
-- `src/intent.ts` — lightweight natural-language adapter for the local demo
+- `src/intent.ts` — legacy natural-language compatibility adapter; do not expand casually
 - `src/mcp.ts` — stdio MCP surface for NanoClaw
 - `src/nanoclaw.ts` — NanoClaw `container.json` helper
 - `src/index.ts` — local CLI entrypoint
 
 If the runtime grows, do not keep piling unrelated behavior into `src/agent-tools.ts`. The next split should be by responsibility, for example watch logic, webhook logic, and pure formatting helpers.
+Also avoid teaching new business behavior primarily through `src/intent.ts`; prefer adding typed capability surfaces first.
 
 ## Working preferences
 
 Prefer:
 
 - typed SDK calls over ad hoc HTTP calls
-- harness-owned query/watch logic over free-form LLM-generated query JSON
+- runtime-owned query/watch logic over free-form LLM-generated query JSON
 - one reusable webhook ingress plus a local watch registry over one webhook per watch
 - MCP integration over shelling out from the agent when NanoClaw is involved
 - OneCLI path-scoped secret injection over raw API keys in NanoClaw `container.json`

@@ -58,8 +58,8 @@ export interface ConfigureNanoClawResult {
   serverName: string;
 }
 
-const SERVER_NAME = "multibaas-agent";
-const CONTAINER_MOUNT_NAME = "multibaas-agent-harness";
+const SERVER_NAME = "multibaas-runtime";
+const CONTAINER_MOUNT_NAME = "multibaas-runtime";
 const EXTRA_MOUNTS_BASE = "/workspace/extra";
 
 function mountPathFor(containerPath: string): string {
@@ -69,8 +69,10 @@ function mountPathFor(containerPath: string): string {
 export function containerInstructions(_defaultQueryName: string): string {
   return [
     "Use this MCP server for MultiBaas event-query and watch tasks.",
-    "- Prefer the high-level `handle_multibaas_request` tool for user requests about balances, holders, concentration, watches, or task progress.",
-    "- Pass the user's raw message to `handle_multibaas_request` unless you have a strong reason to call a lower-level tool directly.",
+    "- Prefer typed capability tools over the legacy high-level router whenever the request maps cleanly to them.",
+    "- Use `handle_multibaas_request` as a compatibility fallback for legacy holder/balance/watch phrasing, not as the default tool for every request.",
+    "- Use `resolve_contract_target` when you need to turn a token name or contract address into a concrete target plus readiness state.",
+    "- Use `get_token_metadata` for ERC-20 metadata questions such as name, symbol, decimals, or total supply.",
     "- For ERC-20 top-holder requests, call `get_top_holders` with either `contractAddress` or `tokenName`.",
     "- For a top-holder request that already includes a contract address or a known token name, your first action should be the `get_top_holders` tool call.",
     "- Do not ask the user for a saved query name for ERC-20 holder requests.",
@@ -80,10 +82,10 @@ export function containerInstructions(_defaultQueryName: string): string {
     "- If `get_top_holders` reports that onboarding or syncing is still in progress, tell the user you will follow up once it is ready.",
     "- When the user asks to check progress on waiting holder tasks, call `evaluate_tasks`.",
     "- Do not reply with narration like 'I am calling the tool now' or 'Getting holders now'. Call the tool and answer from the result instead.",
-    "- For one-address balance requests, call `handle_multibaas_request` unless the token contract address is already explicit; if it is explicit, `get_address_balance` is acceptable.",
-    "- For 'alert me if this balance moves' requests, call `handle_multibaas_request` unless the token contract address is already explicit; if it is explicit, `create_balance_watch` is acceptable.",
+    "- For one-address balance requests, use `get_address_balance` when the token contract address is explicit. If the token target is missing, ask for it instead of guessing.",
+    "- For 'alert me if this balance moves' requests, use `create_balance_watch` when the token contract address is explicit. If the token target is missing, ask for it instead of guessing.",
     "- When asked what is currently being tracked, call `list_balance_watches`.",
-    "- Never guess balances or holder rankings without calling a tool.",
+    "- Never guess balances, holder rankings, or token metadata without calling a tool.",
   ].join("\n");
 }
 
