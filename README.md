@@ -2,11 +2,9 @@
 
 This repo is moving toward an **agentic MultiBaas tool runtime**: a system where the model answers protocol questions by composing typed tools and execution services, not by extending a growing library of prompt-specific workflows.
 
-Treat the current holder/balance/watch paths as **transitional compatibility surfaces**, not as the long-term architecture.
-
 ## Documentation map
 
-- `README.md` — quickstart, current repo posture, and compatibility entrypoints
+- `README.md` — quickstart and current repo posture
 - `docs/architecture.md` — repo shape, module boundaries, and design direction
 - `docs/nanoclaw.md` — NanoClaw setup, auth wiring, restart, and test runbook
 - `docs/phase-01.md` — original Phase 01 plan and partially completed implementation record
@@ -22,7 +20,7 @@ The product direction is:
 - keep readiness, waiting states, and execution trustworthiness explicit
 - avoid hidden token/query defaults and avoid regex-driven workflow growth
 
-The repo still contains MVP-era compatibility paths. When making changes, prefer the Phase 02 direction in [`docs/phase-02.md`](docs/phase-02.md) over expanding the legacy workflow model.
+The repo still contains some MVP-era operational surfaces, but the main compatibility router and planning shell have been removed. When making changes, prefer the Phase 02 direction in [`docs/phase-02.md`](docs/phase-02.md) over reintroducing workflow-specific routing.
 
 ## Current implemented compatibility surface
 
@@ -33,7 +31,6 @@ The repo still contains MVP-era compatibility paths. When making changes, prefer
 - save a whale watch in local state
 - persist a task record for balance-monitor requests
 - receive signed MultiBaas-style webhook payloads and reevaluate watches
-- accept a small set of natural-language intents through a local `agent` command
 - expose the same capabilities through a stdio MCP server for NanoClaw
 
 These surfaces are useful for validation and backward compatibility, but they should not be treated as the final architecture.
@@ -98,36 +95,6 @@ For a legacy saved-query path, pass `--query <saved-query-name>` explicitly.
 
 Local watch state is stored under `.agent-state/`.
 
-## Legacy intent demo
-
-The `agent` command is still available as a compatibility path. It is not the intended long-term center of gravity for the runtime:
-
-```bash
-npm run dev -- agent "Give me the top 5 holders for token 0xd26fde38F244Dcbb13e8017347Ac37804d926Bb5"
-npm run dev -- agent "What are the top balances of sampletoken?"
-npm run dev -- agent "What is the top 5 holder concentration for token 0xd26fde38F244Dcbb13e8017347Ac37804d926Bb5?"
-npm run dev -- agent "What is the balance of 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172 for token 0xd26fde38F244Dcbb13e8017347Ac37804d926Bb5?"
-npm run dev -- agent "Alert me if the balance of 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172 moves for token 0xd26fde38F244Dcbb13e8017347Ac37804d926Bb5"
-```
-
-For ERC-20 holder requests, the agent now:
-
-- asks for clarification when the request names only an address but not the interface
-- resolves known token aliases like `sampletoken`
-- asks for the contract address when the token name is unknown
-- checks readiness before answering
-- persists waiting holder-query tasks and exposes `task evaluate` for follow-up checks
-
-The `agent` command currently recognizes:
-
-- top-holder requests
-- holder-concentration requests
-- single-address balance requests
-- balance-watch creation
-- list watches
-- list tasks
-- evaluate watches
-
 ## Webhooks
 
 Run the local webhook receiver:
@@ -188,9 +155,7 @@ Preferred Phase 02 path:
 - `resolve_contract_target` for token resolution and readiness inspection
 - `get_token_metadata` for ERC-20 metadata such as name, symbol, decimals, and total supply
 - `get_top_holders`, `get_holder_concentration`, `get_address_balance`, and `create_balance_watch` for typed analytical and monitoring actions
-- those typed tools can work from either `contractAddress` or `tokenName`, so the model does not need to route through the natural-language compatibility layer for common ERC-20 questions
-
-The legacy `handle_multibaas_request` router still exists as a compatibility path, but it is no longer the intended center of gravity for new capability growth.
+- those typed tools can work from either `contractAddress` or `tokenName`, so the model does not need a natural-language compatibility router for common ERC-20 questions
 
 ## NanoClaw bridge
 
@@ -226,7 +191,7 @@ npm run dev -- nanoclaw notify \
 
 ## Next layer
 
-The current compatibility CLI path is working through NanoClaw:
+The current capability-first CLI path is working through NanoClaw:
 
 ```bash
 cd ~/git/qwibitai/nanoclaw

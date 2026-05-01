@@ -4,7 +4,6 @@ import { z } from "zod";
 
 import { resolveConfig } from "./config.js";
 import { evaluatePendingHolderQueries, getTopHoldersForTokenTarget } from "./holder-query-service.js";
-import { handleIntent } from "./intent.js";
 import { getAddressBalanceForTokenTarget, getHolderConcentrationForTokenTarget } from "./query-service.js";
 import {
   getErc20Metadata,
@@ -15,31 +14,11 @@ import { formatAlerts, formatSavedWatch, formatTasks, formatWatches } from "./ta
 import { requireTokenTarget, resolveTokenTarget } from "./token-target-service.js";
 import { DEFAULT_WEBHOOK_LABEL, ensureBalanceWebhook } from "./webhook-service.js";
 import { evaluateBalanceWatches, listBalanceWatches, saveBalanceWatch } from "./watch-service.js";
-import {
-  formatAnalyticalViewResult,
-  getHolderConcentration,
-  lookupBalance,
-} from "./views.js";
 
 const server = new McpServer({
   name: "multibaas-protocol-intelligence-runtime",
   version: "0.1.0",
 });
-
-server.tool(
-  "handle_multibaas_request",
-  {
-    text: z
-      .string()
-      .min(1)
-      .describe("Compatibility tool for legacy holder/balance/watch phrasing. Prefer typed capability tools when the request maps cleanly to them."),
-  },
-  async ({ text }) => {
-    return {
-      content: [{ type: "text", text: await handleIntent(text) }],
-    };
-  },
-);
 
 server.tool(
   "resolve_contract_target",
@@ -158,11 +137,10 @@ server.tool(
   {
     address: z.string().min(1),
     contractAddress: z.string().min(1).optional(),
-    queryName: z.string().min(1).optional(),
     tokenName: z.string().min(1).optional(),
   },
-  async ({ address, contractAddress, queryName, tokenName }) => {
-    if (!queryName && !contractAddress && !tokenName) {
+  async ({ address, contractAddress, tokenName }) => {
+    if (!contractAddress && !tokenName) {
       return {
         content: [{ type: "text", text: "Tell me the token contract address or known token name for that balance lookup and I'll query it directly." }],
       };
@@ -171,14 +149,11 @@ server.tool(
     return {
       content: [{
         type: "text",
-        text:
-          queryName && !contractAddress && !tokenName
-            ? formatAnalyticalViewResult(await lookupBalance(address, queryName))
-            : await getAddressBalanceForTokenTarget({
-              address,
-              contractAddress,
-              tokenName,
-            }),
+        text: await getAddressBalanceForTokenTarget({
+          address,
+          contractAddress,
+          tokenName,
+        }),
       }],
     };
   },
@@ -189,11 +164,10 @@ server.tool(
   {
     contractAddress: z.string().min(1).optional(),
     limit: z.number().int().min(1).max(100).optional(),
-    queryName: z.string().min(1).optional(),
     tokenName: z.string().min(1).optional(),
   },
-  async ({ contractAddress, limit, queryName, tokenName }) => {
-    if (!contractAddress && !queryName && !tokenName) {
+  async ({ contractAddress, limit, tokenName }) => {
+    if (!contractAddress && !tokenName) {
       return {
         content: [{ type: "text", text: "Tell me the token contract address or known token name for that concentration request and I'll query it directly." }],
       };
@@ -202,14 +176,11 @@ server.tool(
     return {
       content: [{
         type: "text",
-        text:
-          queryName && !contractAddress && !tokenName
-            ? formatAnalyticalViewResult(await getHolderConcentration(limit ?? 5, queryName))
-            : await getHolderConcentrationForTokenTarget({
-                contractAddress,
-                limit: limit ?? 5,
-                tokenName,
-              }),
+        text: await getHolderConcentrationForTokenTarget({
+          contractAddress,
+          limit: limit ?? 5,
+          tokenName,
+        }),
       }],
     };
   },
@@ -221,11 +192,10 @@ server.tool(
     address: z.string().min(1),
     contractAddress: z.string().min(1).optional(),
     label: z.string().min(1).optional(),
-    queryName: z.string().min(1).optional(),
     tokenName: z.string().min(1).optional(),
   },
-  async ({ address, contractAddress, label, queryName, tokenName }) => {
-    if (!queryName && !contractAddress && !tokenName) {
+  async ({ address, contractAddress, label, tokenName }) => {
+    if (!contractAddress && !tokenName) {
       return {
         content: [{ type: "text", text: "Tell me the token contract address or known token name for that watch and I'll create it." }],
       };
@@ -234,13 +204,12 @@ server.tool(
     const result = await saveBalanceWatch(
       address,
       label,
-      queryName ??
-        (
-          await requireTokenTarget({
-            contractAddress,
-            tokenName,
-          })
-        ).balanceSource,
+      (
+        await requireTokenTarget({
+          contractAddress,
+          tokenName,
+        })
+      ).balanceSource,
     );
     return {
       content: [{ type: "text", text: formatSavedWatch(result) }],

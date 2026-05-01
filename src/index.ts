@@ -1,6 +1,5 @@
 import { resolveConfig } from "./config.js";
 import { evaluatePendingHolderQueries, requestTopHolders } from "./holder-query-service.js";
-import { handleIntent } from "./intent.js";
 import { sendNanoClawNotification } from "./nanoclaw-host.js";
 import { configureNanoClawGroup } from "./nanoclaw.js";
 import { createContractBalanceSource } from "./multibaas.js";
@@ -30,7 +29,6 @@ Usage:
   npm run dev -- task evaluate
   npm run dev -- webhook ensure --url https://example.test/webhooks/multibaas [--label ${DEFAULT_WEBHOOK_LABEL}]
   npm run dev -- webhook serve [--port 8787] [--path /webhooks/multibaas] [--secret <secret>] [--nanoclaw-dir <path>] [--group-folder <folder>]
-  npm run dev -- agent "<natural language intent>"
   npm run dev -- nanoclaw configure --nanoclaw-dir ~/git/qwibitai/nanoclaw --group-folder cli-with-<name> [--write-allowlist]
   npm run dev -- nanoclaw notify --nanoclaw-dir ~/git/qwibitai/nanoclaw [--group-folder dm-with-<name> | --agent-group-id ag-...] --text "test alert"
 `);
@@ -248,15 +246,6 @@ async function handleNanoClaw(args: string[]): Promise<void> {
   throw new Error(`Unknown NanoClaw command: ${subcommand ?? "(missing)"}`);
 }
 
-async function handleAgent(args: string[]): Promise<void> {
-  const text = args.slice(1).join(" ").trim();
-  if (!text) {
-    throw new Error('Missing intent text. Example: npm run dev -- agent "Give me the top 5 holders"');
-  }
-
-  console.log(await handleIntent(text));
-}
-
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const command = args[0];
@@ -283,11 +272,6 @@ async function main(): Promise<void> {
 
   if (command === "task") {
     await handleTask(args);
-    return;
-  }
-
-  if (command === "agent") {
-    await handleAgent(args);
     return;
   }
 

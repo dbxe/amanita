@@ -281,14 +281,10 @@ export function getContractTargetFromBalanceSource(source: string): string | und
   return source.slice(CONTRACT_BALANCE_SOURCE_PREFIX.length).trim() || undefined;
 }
 
-export function resolveBalanceSource(config: RuntimeConfig, source?: string): string {
+export function resolveBalanceSource(source?: string): string {
   const trimmedSource = source?.trim();
   if (trimmedSource) {
     return trimmedSource;
-  }
-
-  if (config.defaultQueryName) {
-    return config.defaultQueryName;
   }
 
   throw new Error("A saved query name or token contract address is required for this balance view.");

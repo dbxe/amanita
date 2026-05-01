@@ -1,5 +1,5 @@
 import { normalizeAddress, normalizeTokenIdentifier, type KnownAddress } from "./multibaas.js";
-import type { TaskState, WaitCondition } from "./planning.js";
+import type { TaskState, WaitCondition } from "./runtime-types.js";
 
 export interface AddressContractLink {
   label: string;

@@ -9,7 +9,7 @@ The architectural north star is:
 - LLM tool composition over those capabilities
 - less reliance over time on workflow-specific natural-language routing
 
-The repo still contains MVP-era compatibility layers. Those are useful for current validation, but they should not be treated as the long-term product architecture.
+The repo still contains MVP-era operational surfaces, but the old natural-language compatibility router and the planning shell are no longer part of the runtime architecture.
 
 ## What lives where
 
@@ -25,14 +25,14 @@ Treat `hardhat/` as fixture infrastructure, not as the home of the runtime.
 - `multibaas.ts` owns the MultiBaas SDK client and low-level helpers like balance normalization and webhook signatures.
 - `token-target-service.ts` resolves token names and contract addresses into explicit runtime targets.
 - `query-service.ts` owns typed balance and concentration execution over explicit token targets.
-- `planning.ts` is now mostly a narrow helper for watch/readiness planning and legacy plan tests rather than the center of the runtime.
+- `runtime-types.ts` owns neutral runtime state and execution-plan types.
+- `readiness.ts` owns reusable readiness classification and balance-monitor readiness evaluation.
 - `state.ts` owns local persistence for watches, webhook metadata, and alerts.
 - `holder-query-service.ts` owns holder-query orchestration and readiness/onboarding transitions.
 - `watch-service.ts` owns watch lifecycle orchestration and alert evaluation.
 - `webhook-service.ts` owns webhook registration and the local ingress server.
 - `task-formatting.ts` owns human-readable rendering for task, watch, alert, and webhook output.
 - `agent-tools.ts` is now a compatibility barrel over the runtime services above.
-- `intent.ts` is a legacy compatibility adapter for a narrow natural-language surface.
 - `mcp.ts` exposes the harness operations to NanoClaw through stdio MCP.
 - `nanoclaw.ts` writes NanoClaw group config needed to mount the repo and register the MCP server.
 - `index.ts` is the local CLI entrypoint.
@@ -45,27 +45,24 @@ The current shape is serviceable as a transition state, but it still carries str
 - the CLI and MCP entrypoints are already thin
 - local persistence is isolated
 
-The remaining pressure point is the workflow-first model surface:
+The remaining pressure point is capability breadth, not a workflow router:
 
-- `src/intent.ts` encodes English-pattern routing
-- `src/mcp.ts` still privileges a high-level workflow tool
-- the task model and `src/planning.ts` still carry workflow-shaped types even though the runtime no longer depends on them as broadly as before
+- the current capability surface is still ERC-20-centric
+- multi-step investigation flows are still thin
+- Discord/DM validation still trails CLI validation
 
-Those surfaces are the main architectural drag on the Phase 02 direction.
+Those are now the main architectural drag on the Phase 02 direction.
 
 ## Next structural move
 
 Do not do a broad refactor with vague abstractions. The next useful moves are narrow and directional:
 
-1. move watch-oriented orchestration into a watch service
-2. move webhook registration and receiver logic into a webhook service
-3. move human-readable renderers into a formatter module
-4. expose typed capability-oriented MCP tools that do not depend on the high-level intent router
-5. reduce `src/intent.ts` to compatibility glue rather than growing it into the product architecture
+1. expand typed capability families beyond current ERC-20 reads
+2. add investigation-oriented multi-tool flows
+3. keep MCP and CLI entrypoints thin and schema-driven
+4. extend live validation from CLI into Discord/DM on the new capability paths
 
-Steps 1 through 3 are now in place. The next material pressure reduction is step 4 and then shrinking the compatibility router further.
-
-That keeps the entrypoints thin while shifting the runtime toward the Phase 02 model.
+That keeps the runtime oriented around capabilities rather than sliding back into prompt-matched workflow growth.
 
 ## Local reference repos
 

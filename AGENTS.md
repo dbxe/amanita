@@ -2,7 +2,7 @@
 
 This file is for coding agents and maintainers working inside the repo. Treat it as a short set of repo conventions. Human-facing setup and runbooks live elsewhere:
 
-- `README.md` — quickstart and current compatibility entrypoints
+- `README.md` — quickstart and current repo posture
 - `docs/architecture.md` — repo shape, boundaries, and design direction
 - `docs/nanoclaw.md` — NanoClaw setup, auth wiring, restart, and test runbook
 - `docs/phase-02.md` — current north star and next-phase architecture direction
@@ -18,7 +18,7 @@ Prefer changes that:
 - let the model compose lower-level domain tools
 - reduce reliance on regex-style natural-language routing over time
 
-Treat the current `src/intent.ts` and other workflow-specific entrypoints as compatibility surfaces, not the preferred architecture to extend.
+Do not reintroduce a workflow-specific natural-language routing layer as the main runtime surface.
 
 ## Repo boundaries
 
@@ -32,20 +32,20 @@ Treat the current `src/intent.ts` and other workflow-specific entrypoints as com
 - `src/multibaas.ts` — MultiBaas SDK integration and webhook signature helpers
 - `src/token-target-service.ts` — token-name / contract-address resolution into explicit analytical sources
 - `src/query-service.ts` — typed balance and concentration execution over explicit token targets
-- `src/planning.ts` — remaining plan/readiness helpers; keep it narrow and do not reintroduce it as the main runtime router
+- `src/runtime-types.ts` — neutral runtime state and execution-plan types
+- `src/readiness.ts` — readiness classification and balance-monitor readiness evaluation
 - `src/state.ts` — watch/webhook local persistence
 - `src/holder-query-service.ts` — holder query orchestration and readiness/onboarding wrapper
 - `src/watch-service.ts` — watch lifecycle orchestration and evaluation
 - `src/webhook-service.ts` — webhook registration and local ingress server
 - `src/task-formatting.ts` — human-readable renderers for tasks, watches, alerts, and webhook state
 - `src/agent-tools.ts` — compatibility barrel that re-exports the runtime services above
-- `src/intent.ts` — legacy natural-language compatibility adapter; do not expand casually
 - `src/mcp.ts` — stdio MCP surface for NanoClaw
 - `src/nanoclaw.ts` — NanoClaw `container.json` helper
 - `src/index.ts` — local CLI entrypoint
 
 Do not add new business logic to `src/agent-tools.ts`; keep it as compatibility glue.
-Also avoid teaching new business behavior primarily through `src/intent.ts`; prefer adding typed capability surfaces first.
+Prefer adding typed capability surfaces first, then exposing them through MCP and CLI.
 
 ## Working preferences
 

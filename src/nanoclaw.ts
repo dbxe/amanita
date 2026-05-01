@@ -68,11 +68,10 @@ function mountPathFor(containerPath: string): string {
   return `${EXTRA_MOUNTS_BASE}/${containerPath}`;
 }
 
-export function containerInstructions(_defaultQueryName: string): string {
+export function containerInstructions(): string {
   return [
     "Use this MCP server for MultiBaas event-query and watch tasks.",
-    "- Prefer typed capability tools over the legacy high-level router whenever the request maps cleanly to them.",
-    "- Use `handle_multibaas_request` as a compatibility fallback for legacy holder/balance/watch phrasing, not as the default tool for every request.",
+    "- Prefer typed capability tools over any workflow-specific or prompt-matched fallback behavior.",
     "- Use `resolve_contract_target` when you need to turn a token name or contract address into a concrete target plus readiness state.",
     "- Use `get_token_metadata` for ERC-20 metadata questions such as name, symbol, decimals, or total supply.",
     "- If the user asks for decimals, symbol, name, or total supply and provides a contract address, your first action must be `get_token_metadata` for that exact address.",
@@ -83,6 +82,7 @@ export function containerInstructions(_defaultQueryName: string): string {
     "- For explicit holder-concentration requests, call `get_holder_concentration` with either `contractAddress` or `tokenName`.",
     "- For explicit balance-watch requests, call `create_balance_watch` with either `contractAddress` or `tokenName`.",
     "- For a top-holder request that already includes a contract address or a known token name, your first action should be the `get_top_holders` tool call.",
+    "- If `get_top_holders` returns only a holder list, do not infer total supply, concentration, or percentages unless you separately call `get_holder_concentration` or `get_token_metadata`.",
     "- Do not ask the user for a saved query name for ERC-20 holder requests.",
     "- Do not assume a default token, contract alias, or saved query when the user asks for a balance, concentration, or watch.",
     "- If a user gives only an address and says 'top balances' or 'top holders', clarify whether that address is an ERC-20 token contract before calling a tool.",
@@ -182,15 +182,8 @@ export function configureNanoClawGroup(options: ConfigureNanoClawOptions): Confi
       MULTIBAAS_BASE_URL: containerBaseUrl,
       MULTIBAAS_AGENT_STATE_DIR: "/workspace/agent/.agent-state",
     },
-    instructions: containerInstructions(config.defaultQueryName),
+    instructions: containerInstructions(),
   };
-
-  if (config.defaultQueryName) {
-    containerConfig.mcpServers[SERVER_NAME].env = {
-      ...containerConfig.mcpServers[SERVER_NAME].env,
-      MULTIBAAS_QUERY_NAME: config.defaultQueryName,
-    };
-  }
 
   containerConfig.additionalMounts = upsertMount(containerConfig.additionalMounts, {
     hostPath: repoDir,

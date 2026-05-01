@@ -13,7 +13,6 @@ import {
   selectTopPositiveHolders,
   type BalanceRow,
 } from "./multibaas.js";
-import type { AddressBalancePlan, HolderConcentrationPlan, HolderListPlan } from "./planning.js";
 
 export interface TopHoldersResult {
   contractAddress?: string;
@@ -43,7 +42,6 @@ export interface HolderConcentrationResult {
   totalTrackedBalance: string;
 }
 
-export type AnalyticalViewPlan = AddressBalancePlan | HolderConcentrationPlan | HolderListPlan;
 export type AnalyticalViewResult = BalanceResult | HolderConcentrationResult | TopHoldersResult;
 
 function formatPercentFromBps(basisPoints: number): string {
@@ -80,7 +78,7 @@ export function computeHolderConcentration(
 
 export async function getTopHolders(limit = 20, queryName?: string): Promise<TopHoldersResult> {
   const config = resolveConfig();
-  const effectiveQueryName = resolveBalanceSource(config, queryName);
+  const effectiveQueryName = resolveBalanceSource(queryName);
   const rows = await executeBalanceSourceQuery(config, effectiveQueryName, Math.min(limit, 100));
 
   return {
@@ -118,7 +116,7 @@ export async function getContractTopHolders(
 
 export async function lookupBalance(address: string, queryName?: string): Promise<BalanceResult> {
   const config = resolveConfig();
-  const effectiveQueryName = resolveBalanceSource(config, queryName);
+  const effectiveQueryName = resolveBalanceSource(queryName);
   const balance = await getAddressBalance(config, effectiveQueryName, address);
 
   return {
@@ -131,7 +129,7 @@ export async function lookupBalance(address: string, queryName?: string): Promis
 
 export async function getHolderConcentration(limit = 5, queryName?: string): Promise<HolderConcentrationResult> {
   const config = resolveConfig();
-  const effectiveQueryName = resolveBalanceSource(config, queryName);
+  const effectiveQueryName = resolveBalanceSource(queryName);
   const snapshot = await fetchBalanceSourceSnapshot(config, effectiveQueryName, config.scanLimit);
   return {
     ...computeHolderConcentration([...snapshot.values()], limit, effectiveQueryName),
@@ -151,21 +149,6 @@ export async function getContractHolderConcentration(
     ...computeHolderConcentration([...snapshot.values()], limit, effectiveQueryName),
     contractAddress,
   };
-}
-
-export async function executeAnalyticalView(plan: AnalyticalViewPlan): Promise<AnalyticalViewResult> {
-  switch (plan.kind) {
-    case "holder-list":
-      return plan.viewSpec.contractAddress
-        ? getContractTopHolders(plan.viewSpec.contractAddress, plan.viewSpec.limit, plan.viewSpec.queryName)
-        : getTopHolders(plan.viewSpec.limit, plan.viewSpec.queryName);
-    case "address-balance":
-      return lookupBalance(plan.viewSpec.address, plan.viewSpec.queryName);
-    case "holder-concentration":
-      return plan.viewSpec.contractAddress
-        ? getContractHolderConcentration(plan.viewSpec.contractAddress, plan.viewSpec.limit, plan.viewSpec.queryName)
-        : getHolderConcentration(plan.viewSpec.limit, plan.viewSpec.queryName);
-  }
 }
 
 export function formatTopHolders(result: TopHoldersResult): string {

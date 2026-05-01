@@ -1,16 +1,9 @@
 import { randomUUID } from "node:crypto";
 
-import {
-  classifyReadinessFailure,
-  createBalanceWatchPlan,
-  type BalanceWatchPlan,
-  type ExecutionPlan,
-  type TaskState,
-  type ViewSpec,
-  type WaitCondition,
-} from "./planning.js";
+import { classifyReadinessFailure } from "./readiness.js";
+import type { ExecutionPlan, TaskState, ViewSpec, WaitCondition } from "./runtime-types.js";
 
-export type { ExecutionPlan, TaskState, ViewSpec, WaitCondition } from "./planning.js";
+export type { ExecutionPlan, TaskState, ViewSpec, WaitCondition } from "./runtime-types.js";
 
 interface BaseTaskRecord {
   addressAlias?: string;
@@ -67,21 +60,13 @@ function createHolderQueryExecutionPlan(queryName: string): ExecutionPlan {
   };
 }
 
-export function createBalanceMonitorTaskFromPlan(
-  plan: BalanceWatchPlan,
-  now = new Date().toISOString(),
-): BalanceMonitorTaskRecord {
+function createBalanceMonitorExecutionPlan(queryName: string): ExecutionPlan {
   return {
-    capability: "balance-monitor",
-    createdAt: now,
-    executionPlan: plan.executionPlan,
-    id: randomUUID(),
-    intent: plan.intent.rawText,
-    state: plan.readiness.state,
-    title: plan.title,
-    updatedAt: now,
-    viewSpec: plan.viewSpec,
-    waitCondition: plan.readiness.waitCondition,
+    steps: [
+      { detail: `Resolve the current balance from balance source ${queryName}.`, kind: "resolve-balance" },
+      { detail: "Persist a local watch once prerequisites are satisfied.", kind: "persist-watch" },
+      { detail: "Reevaluate the watch when webhook-triggered events arrive.", kind: "evaluate-watch" },
+    ],
   };
 }
 
@@ -91,15 +76,26 @@ export function createBalanceMonitorTask(params: {
   label?: string;
   now?: string;
   queryName: string;
+  state?: Exclude<TaskState, "monitoring">;
+  waitCondition?: WaitCondition;
 }): BalanceMonitorTaskRecord {
   const now = params.now ?? new Date().toISOString();
-  const plan = createBalanceWatchPlan({
-    address: params.address,
-    label: params.label,
-    queryName: params.queryName,
-    rawText: params.intent ?? `Alert me if the balance of ${params.address} moves`,
-  });
-  return createBalanceMonitorTaskFromPlan(plan, now);
+  return {
+    capability: "balance-monitor",
+    createdAt: now,
+    executionPlan: createBalanceMonitorExecutionPlan(params.queryName),
+    id: randomUUID(),
+    intent: params.intent ?? `Alert me if the balance of ${params.address} moves`,
+    state: params.state ?? "ready",
+    title: params.label ? `Monitor balance for ${params.address} (${params.label})` : `Monitor balance for ${params.address}`,
+    updatedAt: now,
+    viewSpec: {
+      address: params.address,
+      kind: "balance-watch",
+      queryName: params.queryName,
+    },
+    waitCondition: params.waitCondition,
+  };
 }
 
 export function createHolderAnalysisTask(params: {

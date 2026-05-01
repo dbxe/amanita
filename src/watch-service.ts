@@ -2,6 +2,8 @@ import { randomUUID } from "node:crypto";
 
 import { resolveConfig } from "./config.js";
 import { fetchBalanceSourceSnapshot, getAddressBalance, normalizeAddress, resolveBalanceSource } from "./multibaas.js";
+import { evaluateBalanceMonitorReadiness } from "./readiness.js";
+import type { TaskState } from "./runtime-types.js";
 import {
   appendAlerts,
   loadState,
@@ -12,7 +14,7 @@ import {
 } from "./state.js";
 import {
   attachWatchToTask,
-  createBalanceMonitorTaskFromPlan,
+  createBalanceMonitorTask,
   findBalanceMonitorTask,
   recordTaskAlert,
   transitionTask,
@@ -20,19 +22,13 @@ import {
   type BalanceMonitorTaskRecord,
   type TaskRecord,
 } from "./tasks.js";
-import {
-  createBalanceWatchPlan,
-  evaluateBalanceWatchReadiness,
-  type BalanceWatchPlan,
-  type TaskState,
-} from "./planning.js";
 
 export interface WatchListResult {
   watches: Array<Watch & { taskState?: TaskState }>;
 }
 
 export interface WatchSaveResult {
-  plan: BalanceWatchPlan;
+  address: string;
   task: TaskRecord;
   watch?: Watch;
 }
@@ -107,33 +103,34 @@ export async function saveBalanceWatch(address: string, label?: string, queryNam
   const config = resolveConfig();
   const state = loadState(config.stateDir);
   const normalizedAddress = normalizeAddress(address);
-  const effectiveQueryName = resolveBalanceSource(config, queryName);
+  const effectiveQueryName = resolveBalanceSource(queryName);
   const now = new Date().toISOString();
-  const plan = await evaluateBalanceWatchReadiness(
-    createBalanceWatchPlan({
+  const readiness = await evaluateBalanceMonitorReadiness(normalizedAddress, effectiveQueryName, {
+    lookupBalance: (candidateAddress, candidateQueryName) =>
+      getAddressBalance(config, candidateQueryName, candidateAddress),
+  });
+  const existingTask = findBalanceMonitorTask(state.tasks, normalizedAddress, effectiveQueryName);
+  const baseTask =
+    existingTask ??
+    createBalanceMonitorTask({
       address: normalizedAddress,
       label,
+      now,
       queryName: effectiveQueryName,
-      rawText: `Alert me if the balance of ${normalizedAddress} moves`,
-    }),
-    {
-      lookupBalance: (candidateAddress, candidateQueryName) =>
-        getAddressBalance(config, candidateQueryName, candidateAddress),
-    },
-  );
-  const existingTask = findBalanceMonitorTask(state.tasks, normalizedAddress, effectiveQueryName);
-  const baseTask = existingTask ?? createBalanceMonitorTaskFromPlan(plan, now);
+      state: readiness.state,
+      waitCondition: readiness.waitCondition,
+    });
 
-  if (plan.readiness.state !== "ready" || !plan.readiness.currentBalance) {
-    const waitingTask = transitionTask(baseTask, plan.readiness.state, now, {
-      waitCondition: plan.readiness.waitCondition,
+  if (readiness.state !== "ready" || !readiness.currentBalance) {
+    const waitingTask = transitionTask(baseTask, readiness.state, now, {
+      waitCondition: readiness.waitCondition,
     });
     const nextState: LocalState = {
       ...state,
       tasks: upsertTask(state.tasks, waitingTask),
     };
     saveState(config.stateDir, nextState);
-    return { plan, task: waitingTask };
+    return { address: normalizedAddress, task: waitingTask };
   }
 
   const readyTask =
@@ -147,7 +144,7 @@ export async function saveBalanceWatch(address: string, label?: string, queryNam
     ? {
         ...existingWatch,
         label: label ?? existingWatch.label,
-        lastKnownBalance: plan.readiness.currentBalance,
+        lastKnownBalance: readiness.currentBalance,
         taskId: readyTask.id,
         updatedAt: now,
       }
@@ -156,14 +153,14 @@ export async function saveBalanceWatch(address: string, label?: string, queryNam
         createdAt: now,
         id: randomUUID(),
         label: label ?? createWatchLabel(normalizedAddress),
-        lastKnownBalance: plan.readiness.currentBalance,
+        lastKnownBalance: readiness.currentBalance,
         queryName: effectiveQueryName,
         taskId: readyTask.id,
         updatedAt: now,
       };
 
   const monitoringTask = attachWatchToTask(readyTask, {
-    balance: plan.readiness.currentBalance,
+    balance: readiness.currentBalance,
     now,
     watchId: watch.id,
   });
@@ -176,7 +173,7 @@ export async function saveBalanceWatch(address: string, label?: string, queryNam
   };
   saveState(config.stateDir, nextState);
 
-  return { plan, task: monitoringTask, watch };
+  return { address: normalizedAddress, task: monitoringTask, watch };
 }
 
 export async function evaluateBalanceWatches(eventCount?: number): Promise<WatchEvaluationResult> {

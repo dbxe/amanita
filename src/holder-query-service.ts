@@ -15,7 +15,7 @@ import {
 import { ensureErc20HolderQueryReady } from "./onboarding.js";
 import type { LocalState } from "./state.js";
 import type { HolderAnalysisTaskRecord } from "./tasks.js";
-import { executeAnalyticalView, formatAnalyticalViewResult } from "./views.js";
+import { formatAnalyticalViewResult, getContractTopHolders, getTopHolders } from "./views.js";
 
 export interface HolderRequestInput {
   contractAddress?: string;
@@ -43,23 +43,9 @@ export interface TopHoldersTargetRequest {
 
 async function executeAnalyticalViewFromTask(task: HolderAnalysisTaskRecord): Promise<string> {
   return formatAnalyticalViewResult(
-    await executeAnalyticalView({
-      executionPlan: task.executionPlan,
-      intent: {
-        contractAddress: task.viewSpec.contractAddress,
-        kind: "top-holders",
-        limit: task.viewSpec.limit,
-        rawText: task.intent,
-      },
-      kind: "holder-list",
-      readiness: {
-        contractAddress: task.viewSpec.contractAddress,
-        contractLabel: task.contractLabel,
-        state: "ready",
-      },
-      title: task.title,
-      viewSpec: task.viewSpec,
-    }),
+    task.viewSpec.contractAddress
+      ? await getContractTopHolders(task.viewSpec.contractAddress, task.viewSpec.limit, task.viewSpec.queryName)
+      : await getTopHolders(task.viewSpec.limit, task.viewSpec.queryName),
   );
 }
 

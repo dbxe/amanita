@@ -1,4 +1,4 @@
-import type { BalanceWatchPlan, TaskState } from "./planning.js";
+import type { TaskState } from "./runtime-types.js";
 import type { AlertRecord, LocalState, Watch } from "./state.js";
 import type { TaskRecord } from "./tasks.js";
 
@@ -11,7 +11,7 @@ export interface WatchListResult {
 }
 
 export interface WatchSaveResult {
-  plan: BalanceWatchPlan;
+  address: string;
   task: TaskRecord;
   watch?: Watch;
 }
@@ -77,7 +77,7 @@ export function formatSavedWatch(result: WatchSaveResult): string {
       `Saved watch ${result.watch.label} for ${result.watch.address} at balance ${result.watch.lastKnownBalance}`,
     );
   } else if (result.task.waitCondition) {
-    lines.push(`Accepted request for ${result.plan.viewSpec.address}; waiting because ${result.task.waitCondition.reason}`);
+    lines.push(`Accepted request for ${result.address}; waiting because ${result.task.waitCondition.reason}`);
   }
   return lines.join("\n");
 }

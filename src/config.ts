@@ -4,7 +4,6 @@ import path from "node:path";
 export interface RuntimeConfig {
   apiKey?: string;
   baseUrl: string;
-  defaultQueryName: string;
   hardhatNetwork: string;
   scanLimit: number;
   stateDir: string;
@@ -54,7 +53,6 @@ export function resolveConfig(): RuntimeConfig {
   return {
     apiKey,
     baseUrl,
-    defaultQueryName: process.env.MULTIBAAS_QUERY_NAME?.trim() || "",
     hardhatNetwork,
     scanLimit: parsePositiveInteger(process.env.MULTIBAAS_QUERY_SCAN_LIMIT, 1000),
     stateDir: path.resolve(process.cwd(), process.env.MULTIBAAS_AGENT_STATE_DIR ?? ".agent-state"),

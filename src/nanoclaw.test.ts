@@ -16,16 +16,16 @@ test("deriveContainerBaseUrl preserves non-local hosts", () => {
 });
 
 test("containerInstructions steer NanoClaw away from saved queries for ERC-20 holder requests", () => {
-  const instructions = containerInstructions("helloworld_balance");
+  const instructions = containerInstructions();
 
   assert.match(instructions, /resolve_contract_target/i);
   assert.match(instructions, /get_token_metadata/i);
-  assert.match(instructions, /handle_multibaas_request.*compatibility fallback/i);
   assert.match(instructions, /do not ask the user for a saved query name/i);
   assert.match(instructions, /if the user asks for decimals.*get_token_metadata/i);
   assert.match(instructions, /do not classify an address as an EOA/i);
   assert.match(instructions, /if a user asks about holders, concentration, or metadata for a raw address/i);
   assert.match(instructions, /get_top_holders.*contractAddress.*tokenName/i);
+  assert.match(instructions, /do not infer total supply, concentration, or percentages unless you separately call `get_holder_concentration` or `get_token_metadata`/i);
   assert.match(instructions, /get_address_balance.*contractAddress.*tokenName/i);
   assert.match(instructions, /get_holder_concentration.*contractAddress.*tokenName/i);
   assert.match(instructions, /create_balance_watch.*contractAddress.*tokenName/i);
@@ -47,11 +47,8 @@ test("configureNanoClawGroup writes a relative mount and workspace/extra MCP pat
 
   const previousBaseUrl = process.env.MULTIBAAS_BASE_URL;
   const previousApiKey = process.env.MULTIBAAS_API_KEY;
-  const previousQueryName = process.env.MULTIBAAS_QUERY_NAME;
-
   process.env.MULTIBAAS_BASE_URL = "http://localhost:8080";
   process.env.MULTIBAAS_API_KEY = "test-api-key";
-  process.env.MULTIBAAS_QUERY_NAME = "helloworld_balance";
 
   try {
     const result = configureNanoClawGroup({
@@ -86,10 +83,6 @@ test("configureNanoClawGroup writes a relative mount and workspace/extra MCP pat
       "http://host.docker.internal:8080",
     );
     assert.equal(
-      containerConfig.mcpServers["multibaas-runtime"].env?.MULTIBAAS_QUERY_NAME,
-      "helloworld_balance",
-    );
-    assert.equal(
       containerConfig.mcpServers["multibaas-runtime"].env?.MULTIBAAS_AGENT_STATE_DIR,
       "/workspace/agent/.agent-state",
     );
@@ -105,12 +98,6 @@ test("configureNanoClawGroup writes a relative mount and workspace/extra MCP pat
       delete process.env.MULTIBAAS_API_KEY;
     } else {
       process.env.MULTIBAAS_API_KEY = previousApiKey;
-    }
-
-    if (previousQueryName === undefined) {
-      delete process.env.MULTIBAAS_QUERY_NAME;
-    } else {
-      process.env.MULTIBAAS_QUERY_NAME = previousQueryName;
     }
 
     fs.rmSync(tempDir, { recursive: true, force: true });
