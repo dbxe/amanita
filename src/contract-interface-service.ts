@@ -1,3 +1,4 @@
+import type { RuntimeConfig } from "./config.js";
 import { resolveConfig } from "./config.js";
 import {
   createContractDefinition,
@@ -81,8 +82,10 @@ function matchLinkedDefinition(
   };
 }
 
-export async function inspectContractInterfaces(addressOrAlias: string): Promise<ContractInterfaceInspection> {
-  const config = resolveConfig();
+export async function inspectContractInterfaces(
+  addressOrAlias: string,
+  config: RuntimeConfig = resolveConfig(),
+): Promise<ContractInterfaceInspection> {
   const [registration, catalog, readiness] = await Promise.all([
     getAddressRegistration(config, addressOrAlias),
     listContractCatalog(config),
@@ -116,8 +119,7 @@ export async function ensureContractInterfaceLink(input: {
   addressOrAlias: string;
   label: string;
   startingBlock?: string;
-}): Promise<ContractInterfaceInspection> {
-  const config = resolveConfig();
+}, config: RuntimeConfig = resolveConfig()): Promise<ContractInterfaceInspection> {
   const preloaded = getPreloadedInterface(input.label);
   if (!preloaded) {
     throw new Error(`Unknown preloaded interface label: ${input.label}`);
@@ -135,7 +137,7 @@ export async function ensureContractInterfaceLink(input: {
     version: preloaded.version,
   });
 
-  return inspectContractInterfaces(input.addressOrAlias);
+  return inspectContractInterfaces(input.addressOrAlias, config);
 }
 
 export async function preloadKnownInterfaces(labels?: string[]): Promise<PreloadedInterfaceStatus[]> {

@@ -58,6 +58,8 @@ The product value is in this combination:
 - durable task state for long-running work
 - trustworthy answers tied to concrete execution
 
+For multichain work, "chain selection" should be understood as a backend-registry concern, not a URL-path concern. MultiBaas chooses the indexed chain at deployment initialization time. For EVM deployments, the runtime should expect the API path to remain `/api/v0/chains/ethereum/...` even when the backend is indexing Arbitrum or another EVM chain.
+
 This matters because many of the highest-value protocol questions cannot be answered from current contract state alone. They require reconstructing state from emitted events: holder sets hidden behind mappings, blacklist history, LP concentration by range, liquidation flows, bridge backlogs, governance/control-surface changes, and similar event-ledger problems.
 
 ## Core principle
@@ -126,6 +128,8 @@ For event-query work, the model should not emit unconstrained backend payloads a
 - the model reasons over a typed event-query intent or view-spec vocabulary
 - the runtime validates and compiles that spec into MultiBaas query syntax
 - the runtime owns network, ABI, onboarding, sync, and execution-state handling
+
+This layer also needs explicit multibackend addressing. A multichain investigation should be able to name more than one configured backend in one request and receive profile-scoped readiness and execution results back, instead of relying on global profile switching.
 
 ### 3. Thin planner / interpreter layer
 

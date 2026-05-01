@@ -19,6 +19,8 @@ test("containerInstructions steer NanoClaw away from saved queries for ERC-20 ho
   const instructions = containerInstructions();
 
   assert.match(instructions, /investigate_contract_address/i);
+  assert.match(instructions, /list_configured_backends/i);
+  assert.match(instructions, /inspect_targets_across_backends/i);
   assert.match(instructions, /resolve_contract_target/i);
   assert.match(instructions, /lookup_contract_candidates/i);
   assert.match(instructions, /import_contract_lookup_candidate/i);
@@ -58,6 +60,7 @@ test("containerInstructions steer NanoClaw away from saved queries for ERC-20 ho
   assert.match(instructions, /do not cite Etherscan or other external sources/i);
   assert.match(instructions, /Prefer event-query-backed tools when the user's question is about historical control changes/i);
   assert.match(instructions, /Uniswap pools, Aave pools, and stablecoin issuer proxies.*event-surface inspection/i);
+  assert.match(instructions, /API path remains `\/chains\/ethereum\/\.\.\.` even for non-mainnet EVM deployments/i);
   assert.doesNotMatch(instructions, /default saved query/i);
 });
 

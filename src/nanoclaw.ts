@@ -72,6 +72,8 @@ export function containerInstructions(): string {
   return [
     "Use this MCP server for MultiBaas event-query and watch tasks.",
     "- Prefer typed capability tools over any workflow-specific or prompt-matched fallback behavior.",
+    "- Use `list_configured_backends` when you need to understand which MultiBaas deployments are available to you.",
+    "- Use `inspect_targets_across_backends` when the user asks for multichain context, bridge-side comparison, or the status of explicit contracts across more than one configured backend.",
     "- Use `investigate_contract_address` for a raw contract address when the user wants to know what it is, whether it is proxied, or whether MultiBaas is linked/syncing yet.",
     "- Use `lookup_contract_candidates` when you need verified ABI candidates for a live contract address before linking or importing it.",
     "- Use `import_contract_lookup_candidate` to import a selected contract-lookup candidate's ABI and link it to the searched address.",
@@ -120,6 +122,7 @@ export function containerInstructions(): string {
     "- Never guess balances, holder rankings, contract type, or token metadata without calling a tool.",
     "- Prefer event-query-backed tools when the user's question is about historical control changes, holder reconstruction, or other state that is not enumerable from current storage reads alone.",
     "- For contracts like Uniswap pools, Aave pools, and stablecoin issuer proxies, use event-surface inspection to decide whether recent activity, LP/liquidator concentration, control history, or issuer activity is the right investigation.",
+    "- MultiBaas selects the chain at the deployment level. The API path remains `/chains/ethereum/...` even for non-mainnet EVM deployments, so do not treat that path string as proof that the backend is Ethereum mainnet.",
     "- Do not cite Etherscan or other external sources for these questions when the MCP tools can answer them.",
   ].join("\n");
 }

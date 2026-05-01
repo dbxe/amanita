@@ -38,6 +38,7 @@ Do not reintroduce a workflow-specific natural-language routing layer as the mai
 - `src/event-view-service.ts` — runtime execution/formatting for event-sourced control-history reads
 - `src/event-intelligence-service.ts` — ABI/event-surface inspection plus bounded event-backed investigation-lead discovery and execution
 - `src/investigation-service.ts` — typed token investigation and grounded signal synthesis over metadata plus analytical views
+- `src/multichain-service.ts` — backend-registry inspection and explicit multibackend target comparison
 - `src/runtime-types.ts` — neutral runtime state and execution-plan types
 - `src/readiness.ts` — readiness classification and balance-monitor readiness evaluation
 - `src/state.ts` — watch/webhook local persistence
@@ -68,6 +69,7 @@ Prefer:
 ## Working with MultiBaas
 
 - Use the repo's config resolution path rather than hardcoding a base URL or credentials. Prefer existing config/env surfaces and the local `hardhat/` deployment config fallback.
+- MultiBaas chooses the chain at deployment initialization time. For EVM deployments, the API path remains `/api/v0/chains/ethereum/...` even when the backend is indexing Arbitrum or another EVM chain. Treat chain identity as backend-profile metadata, not as a cue from that URL fragment.
 - Prefer the wrapper layer in `src/multibaas.ts` and higher-level services over scattering raw REST calls throughout the codebase.
 - Before assuming a query should work, confirm the prerequisites conceptually: contract definition known, contract linked, indexing/sync sufficiently complete, and query/view ready to execute.
 - Treat contract onboarding and indexing as long-running states, not immediate failures. If a task depends on linking or sync progress, model it explicitly as waiting or blocked.

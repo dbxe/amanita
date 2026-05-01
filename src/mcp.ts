@@ -17,7 +17,7 @@ import {
   importContractLookupCandidateForAddress,
   lookupContractCandidatesForAddress,
 } from "./contract-lookup-service.js";
-import { resolveConfig } from "./config.js";
+import { listConfiguredBackends, resolveConfig } from "./config.js";
 import {
   formatEventCapabilityInspection,
   formatEventInvestigation,
@@ -27,6 +27,7 @@ import {
 import { formatTokenControlEvents, getTokenControlEvents } from "./event-view-service.js";
 import { evaluatePendingHolderQueries, getTopHoldersForTokenTarget } from "./holder-query-service.js";
 import { formatTokenInvestigation, investigateToken } from "./investigation-service.js";
+import { formatConfiguredBackends, formatMultichainInspection, inspectTargetsAcrossBackends } from "./multichain-service.js";
 import { getAddressBalanceForTokenTarget, getHolderConcentrationForTokenTarget } from "./query-service.js";
 import {
   getErc20Metadata,
@@ -49,6 +50,31 @@ server.tool("list_preloaded_interfaces", {}, async () => ({
     text: formatPreloadedInterfaceStatuses(await getPreloadedInterfaceCatalogStatus()),
   }],
 }));
+
+server.tool("list_configured_backends", {}, async () => ({
+  content: [{
+    type: "text",
+    text: formatConfiguredBackends(listConfiguredBackends()),
+  }],
+}));
+
+server.tool(
+  "inspect_targets_across_backends",
+  {
+    targets: z.array(z.object({
+      contractAddress: z.string().min(1).optional(),
+      profileName: z.string().min(1),
+      role: z.string().min(1).optional(),
+      tokenName: z.string().min(1).optional(),
+    })).min(1),
+  },
+  async ({ targets }) => ({
+    content: [{
+      type: "text",
+      text: formatMultichainInspection(await inspectTargetsAcrossBackends(targets)),
+    }],
+  }),
+);
 
 server.tool(
   "investigate_contract_address",

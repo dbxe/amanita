@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { resolveConfig } from "./config.js";
+import { listConfiguredBackends, resolveConfig, resolveConfigForProfile } from "./config.js";
 
 function withEnv<T>(overrides: Record<string, string | undefined>, run: () => T): T {
   const previous = new Map<string, string | undefined>();
@@ -44,6 +44,8 @@ test("resolveConfig reads a gitignored backend profile", () => {
           "mainnet-remote": {
             apiKey: "secret-token",
             baseUrl: "https://mainnet.example.multibaas.com",
+            chainId: 1,
+            chainName: "Ethereum Mainnet",
             hardhatNetwork: "ethereum-mainnet",
             stateDir: ".agent-state/mainnet-remote",
           },
@@ -71,6 +73,7 @@ test("resolveConfig reads a gitignored backend profile", () => {
     assert.equal(config.baseUrl, "https://mainnet.example.multibaas.com");
     assert.equal(config.apiKey, "secret-token");
     assert.equal(config.hardhatNetwork, "ethereum-mainnet");
+    assert.equal(config.profileName, "mainnet-remote");
     assert.equal(path.basename(config.stateDir), "mainnet-remote");
     assert.equal(path.basename(path.dirname(config.stateDir)), ".agent-state");
   } finally {
@@ -93,6 +96,8 @@ test("resolveConfig lets env vars override the selected backend profile", () => 
           "mainnet-remote": {
             apiKey: "secret-token",
             baseUrl: "https://mainnet.example.multibaas.com",
+            chainId: 1,
+            chainName: "Ethereum Mainnet",
             hardhatNetwork: "ethereum-mainnet",
           },
         },
@@ -119,6 +124,93 @@ test("resolveConfig lets env vars override the selected backend profile", () => 
     assert.equal(config.baseUrl, "https://override.example.multibaas.com");
     assert.equal(config.apiKey, "override-token");
     assert.equal(config.hardhatNetwork, "ethereum-mainnet");
+    assert.equal(config.profileName, "mainnet-remote");
+  } finally {
+    process.chdir(previousCwd);
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
+test("resolveConfigForProfile and listConfiguredBackends expose multiple configured backends without env overrides", () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "amanita-config-"));
+  const previousCwd = process.cwd();
+
+  fs.mkdirSync(path.join(tempDir, ".multibaas"), { recursive: true });
+  fs.writeFileSync(
+    path.join(tempDir, ".multibaas", "backends.local.json"),
+    JSON.stringify(
+      {
+        defaultProfile: "mainnet-remote",
+        profiles: {
+          "arbitrum-one-remote": {
+            apiKey: "arb-secret",
+            baseUrl: "https://arb.example.multibaas.com",
+            chainId: 42161,
+            chainName: "Arbitrum One",
+            hardhatNetwork: "arbitrum-one",
+            stateDir: ".agent-state/arbitrum-one-remote",
+          },
+          "mainnet-remote": {
+            apiKey: "mainnet-secret",
+            baseUrl: "https://mainnet.example.multibaas.com",
+            chainId: 1,
+            chainName: "Ethereum Mainnet",
+            hardhatNetwork: "ethereum-mainnet",
+            stateDir: ".agent-state/mainnet-remote",
+          },
+        },
+      },
+      null,
+      2,
+    ),
+  );
+
+  process.chdir(tempDir);
+
+  try {
+    const config = withEnv(
+      {
+        MULTIBAAS_API_KEY: "override-token",
+        MULTIBAAS_BASE_URL: "https://override.example.multibaas.com",
+        MULTIBAAS_PROFILE: "mainnet-remote",
+      },
+      () => resolveConfigForProfile("arbitrum-one-remote"),
+    );
+
+    assert.equal(config.baseUrl, "https://arb.example.multibaas.com");
+    assert.equal(config.apiKey, "arb-secret");
+    assert.equal(config.hardhatNetwork, "arbitrum-one");
+    assert.equal(config.profileName, "arbitrum-one-remote");
+
+    const backends = listConfiguredBackends();
+    assert.deepEqual(
+      backends.map((backend) => ({
+        baseUrl: backend.baseUrl,
+        chainId: backend.chainId,
+        chainName: backend.chainName,
+        hardhatNetwork: backend.hardhatNetwork,
+        hasApiKey: backend.hasApiKey,
+        profileName: backend.profileName,
+      })),
+      [
+        {
+          baseUrl: "https://arb.example.multibaas.com",
+          chainId: 42161,
+          chainName: "Arbitrum One",
+          hardhatNetwork: "arbitrum-one",
+          hasApiKey: true,
+          profileName: "arbitrum-one-remote",
+        },
+        {
+          baseUrl: "https://mainnet.example.multibaas.com",
+          chainId: 1,
+          chainName: "Ethereum Mainnet",
+          hardhatNetwork: "ethereum-mainnet",
+          hasApiKey: true,
+          profileName: "mainnet-remote",
+        },
+      ],
+    );
   } finally {
     process.chdir(previousCwd);
     fs.rmSync(tempDir, { recursive: true, force: true });

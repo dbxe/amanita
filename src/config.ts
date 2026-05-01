@@ -5,6 +5,7 @@ export interface RuntimeConfig {
   apiKey?: string;
   baseUrl: string;
   hardhatNetwork: string;
+  profileName: string;
   scanLimit: number;
   stateDir: string;
 }
@@ -12,13 +13,25 @@ export interface RuntimeConfig {
 interface BackendProfile {
   apiKey?: string;
   baseUrl?: string;
+  chainId?: number;
+  chainName?: string;
   hardhatNetwork?: string;
   stateDir?: string;
 }
 
-interface BackendProfileConfig {
+export interface BackendProfileConfig {
   defaultProfile?: string;
   profiles?: Record<string, BackendProfile>;
+}
+
+export interface ConfiguredBackendSummary {
+  baseUrl?: string;
+  chainId?: number;
+  chainName?: string;
+  hardhatNetwork: string;
+  hasApiKey: boolean;
+  profileName: string;
+  stateDir: string;
 }
 
 function parsePositiveInteger(value: string | undefined, fallback: number): number {
@@ -60,28 +73,39 @@ function readBackendProfileConfig(): BackendProfileConfig {
   return JSON.parse(fs.readFileSync(configPath, "utf8")) as BackendProfileConfig;
 }
 
-export function resolveConfig(): RuntimeConfig {
-  const backendProfiles = readBackendProfileConfig();
-  const selectedProfileName =
-    process.env.MULTIBAAS_PROFILE
+function selectedProfileName(backendProfiles: BackendProfileConfig): string {
+  return process.env.MULTIBAAS_PROFILE
     ?? backendProfiles.defaultProfile
     ?? process.env.MULTIBAAS_NETWORK
     ?? process.env.HARDHAT_NETWORK
     ?? "development";
-  const selectedProfile = backendProfiles.profiles?.[selectedProfileName];
+}
+
+function resolveProfileConfig(
+  backendProfiles: BackendProfileConfig,
+  profileName: string,
+  options?: { allowEnvOverrides?: boolean },
+): RuntimeConfig {
+  const selectedProfile = backendProfiles.profiles?.[profileName];
   const hardhatNetwork =
     process.env.MULTIBAAS_NETWORK
-    ?? process.env.HARDHAT_NETWORK
+    ?? (options?.allowEnvOverrides !== false ? process.env.HARDHAT_NETWORK : undefined)
     ?? selectedProfile?.hardhatNetwork
-    ?? selectedProfileName;
+    ?? profileName;
   const fallback = parseHardhatDeploymentConfig(hardhatNetwork);
 
-  const baseUrl = process.env.MULTIBAAS_BASE_URL ?? selectedProfile?.baseUrl ?? fallback.baseUrl;
-  const apiKey = process.env.MULTIBAAS_API_KEY ?? selectedProfile?.apiKey ?? fallback.apiKey;
+  const baseUrl =
+    (options?.allowEnvOverrides !== false ? process.env.MULTIBAAS_BASE_URL : undefined)
+    ?? selectedProfile?.baseUrl
+    ?? fallback.baseUrl;
+  const apiKey =
+    (options?.allowEnvOverrides !== false ? process.env.MULTIBAAS_API_KEY : undefined)
+    ?? selectedProfile?.apiKey
+    ?? fallback.apiKey;
 
   if (!baseUrl) {
     throw new Error(
-      "Missing MultiBaas base URL. Set MULTIBAAS_BASE_URL, choose a configured MULTIBAAS_PROFILE, or provide hardhat/deployment-config.<network>.ts.",
+      `Missing MultiBaas base URL for profile ${profileName}. Set MULTIBAAS_BASE_URL, choose a configured MULTIBAAS_PROFILE, or provide hardhat/deployment-config.<network>.ts.`,
     );
   }
 
@@ -89,7 +113,39 @@ export function resolveConfig(): RuntimeConfig {
     apiKey,
     baseUrl,
     hardhatNetwork,
+    profileName,
     scanLimit: parsePositiveInteger(process.env.MULTIBAAS_QUERY_SCAN_LIMIT, 1000),
     stateDir: path.resolve(process.cwd(), process.env.MULTIBAAS_AGENT_STATE_DIR ?? selectedProfile?.stateDir ?? ".agent-state"),
   };
+}
+
+export function resolveConfig(): RuntimeConfig {
+  const backendProfiles = readBackendProfileConfig();
+  return resolveProfileConfig(backendProfiles, selectedProfileName(backendProfiles), { allowEnvOverrides: true });
+}
+
+export function resolveConfigForProfile(profileName: string): RuntimeConfig {
+  return resolveProfileConfig(readBackendProfileConfig(), profileName, { allowEnvOverrides: false });
+}
+
+export function listConfiguredBackends(): ConfiguredBackendSummary[] {
+  const backendProfiles = readBackendProfileConfig();
+  const profileEntries = Object.keys(backendProfiles.profiles ?? {}).sort((left, right) => left.localeCompare(right));
+
+  return profileEntries.map((profileName) => {
+    const profile = backendProfiles.profiles?.[profileName];
+    const hardhatNetwork = profile?.hardhatNetwork ?? profileName;
+    const fallback = parseHardhatDeploymentConfig(hardhatNetwork);
+    const stateDir = path.resolve(process.cwd(), profile?.stateDir ?? ".agent-state");
+
+    return {
+      baseUrl: profile?.baseUrl ?? fallback.baseUrl,
+      chainId: profile?.chainId,
+      chainName: profile?.chainName,
+      hardhatNetwork,
+      hasApiKey: Boolean(profile?.apiKey ?? fallback.apiKey),
+      profileName,
+      stateDir,
+    };
+  });
 }

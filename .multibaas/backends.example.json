@@ -8,8 +8,18 @@
     "mainnet-remote": {
       "baseUrl": "https://your-mainnet.multibaas.com",
       "apiKey": "replace-me",
+      "chainId": 1,
+      "chainName": "Ethereum Mainnet",
       "hardhatNetwork": "ethereum-mainnet",
       "stateDir": ".agent-state/mainnet-remote"
+    },
+    "arbitrum-one-remote": {
+      "baseUrl": "https://your-arbitrum.multibaas.com",
+      "apiKey": "replace-me",
+      "chainId": 42161,
+      "chainName": "Arbitrum One",
+      "hardhatNetwork": "arbitrum-one",
+      "stateDir": ".agent-state/arbitrum-one-remote"
     },
     "testnet-remote": {
       "baseUrl": "https://your-testnet.multibaas.com",

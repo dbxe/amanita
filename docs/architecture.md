@@ -25,6 +25,7 @@ Treat `hardhat/` as fixture infrastructure, not as the home of the runtime.
 - `config.ts` resolves runtime config from environment or local Hardhat deployment config.
 - `multibaas.ts` owns the MultiBaas SDK client and low-level helpers like balance normalization and webhook signatures.
 - `token-target-service.ts` resolves token names and contract addresses into explicit runtime targets.
+- `multichain-service.ts` resolves explicit targets across more than one configured backend and reports per-backend readiness and investigation context.
 - `query-service.ts` owns typed balance and concentration execution over explicit token targets.
 - `runtime-types.ts` owns neutral runtime state and execution-plan types.
 - `readiness.ts` owns reusable readiness classification and balance-monitor readiness evaluation.
@@ -59,6 +60,14 @@ The runtime now has the first pieces of the next layer:
 - contract-interface inspection and linking surfaces
 - a bounded event-view intermediate spec
 - compilation of that spec into MultiBaas event queries
+
+The next structural boundary is multibackend awareness:
+
+- backend identity belongs to the runtime config and tool inputs
+- the chain is selected by the MultiBaas deployment itself
+- for EVM deployments, the MultiBaas API path still remains `/api/v0/chains/ethereum/...`
+
+That last point is easy to trip over. The path segment is an API convention, not a trustworthy source of chain identity. Native multichain behavior should come from the configured backend registry and explicit profile-scoped target references.
 
 That is enough to start moving beyond hand-authored holder templates without falling back to raw model-generated backend payloads.
 

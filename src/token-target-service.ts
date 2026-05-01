@@ -1,3 +1,4 @@
+import type { RuntimeConfig } from "./config.js";
 import { resolveConfig } from "./config.js";
 import { createContractBalanceSource, resolveKnownAddress } from "./multibaas.js";
 
@@ -14,7 +15,10 @@ export interface ResolvedTokenTarget {
   unresolved?: boolean;
 }
 
-export async function resolveTokenTarget(input: TokenTargetInput): Promise<ResolvedTokenTarget> {
+export async function resolveTokenTarget(
+  input: TokenTargetInput,
+  config: RuntimeConfig = resolveConfig(),
+): Promise<ResolvedTokenTarget> {
   if (input.contractAddress) {
     return {
       address: input.contractAddress,
@@ -26,7 +30,7 @@ export async function resolveTokenTarget(input: TokenTargetInput): Promise<Resol
     return {};
   }
 
-  const resolved = await resolveKnownAddress(resolveConfig(), input.tokenName);
+  const resolved = await resolveKnownAddress(config, input.tokenName);
   if (!resolved) {
     return {
       tokenNameInput: input.tokenName,
@@ -42,12 +46,15 @@ export async function resolveTokenTarget(input: TokenTargetInput): Promise<Resol
   };
 }
 
-export async function requireTokenTarget(input: TokenTargetInput): Promise<{
+export async function requireTokenTarget(
+  input: TokenTargetInput,
+  config: RuntimeConfig = resolveConfig(),
+): Promise<{
   address: string;
   alias?: string;
   balanceSource: string;
 }> {
-  const resolved = await resolveTokenTarget(input);
+  const resolved = await resolveTokenTarget(input, config);
   if (resolved.unresolved) {
     throw new Error(`Unknown token target: ${resolved.tokenNameInput}`);
   }

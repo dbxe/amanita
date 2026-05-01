@@ -1,3 +1,4 @@
+import type { RuntimeConfig } from "./config.js";
 import { resolveConfig } from "./config.js";
 import {
   executeArbitraryEventQueryRows,
@@ -230,8 +231,7 @@ function methodNamesFromLookupCandidate(candidate: ContractLookupCandidate): str
   }
 }
 
-async function resolveAbiSurface(address: string): Promise<AbiSurface | undefined> {
-  const config = resolveConfig();
+async function resolveAbiSurface(address: string, config: RuntimeConfig): Promise<AbiSurface | undefined> {
   const registration = await getAddressRegistration(config, address);
 
   if (registration.contracts.length > 0) {
@@ -336,8 +336,9 @@ function formatActivityRows(rows: Array<Record<string, string>>, detailKeys: str
 
 export async function inspectEventCapabilities(
   request: EventCapabilityInspectionRequest,
+  config: RuntimeConfig = resolveConfig(),
 ): Promise<EventCapabilityInspectionResult> {
-  const resolved = await resolveTokenTarget(request);
+  const resolved = await resolveTokenTarget(request, config);
   if (resolved.unresolved) {
     return {
       eventNames: [],
@@ -355,10 +356,9 @@ export async function inspectEventCapabilities(
     };
   }
 
-  const config = resolveConfig();
   const [readiness, surface, metadata] = await Promise.all([
     resolveContractReadiness(config, resolved.address),
-    resolveAbiSurface(resolved.address),
+    resolveAbiSurface(resolved.address, config),
     getErc20Metadata(config, resolved.address).catch(() => undefined),
   ]);
 
@@ -378,9 +378,10 @@ export async function inspectEventCapabilities(
 
 export async function runEventInvestigation(
   request: EventInvestigationRequest,
+  config: RuntimeConfig = resolveConfig(),
 ): Promise<EventInvestigationResult> {
   const limit = request.limit ?? 10;
-  const resolved = await resolveTokenTarget(request);
+  const resolved = await resolveTokenTarget(request, config);
 
   if (resolved.unresolved) {
     return {
@@ -397,11 +398,10 @@ export async function runEventInvestigation(
     };
   }
 
-  const config = resolveConfig();
   const [readiness, metadata, surface] = await Promise.all([
     resolveContractReadiness(config, resolved.address),
     getErc20Metadata(config, resolved.address).catch(() => undefined),
-    resolveAbiSurface(resolved.address),
+    resolveAbiSurface(resolved.address, config),
   ]);
 
   const lead = deriveEventInvestigationLeads({

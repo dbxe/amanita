@@ -317,4 +317,10 @@ curl -sS -X POST "$MULTIBAAS_BASE_URL/api/v0/chains/ethereum/addresses/helloworl
   }'
 ```
 
+Note:
+
+- MultiBaas selects the indexed chain at deployment setup time.
+- For EVM deployments, the API path still remains `/api/v0/chains/ethereum/...` even when the backend is serving Arbitrum or another EVM chain.
+- When NanoClaw is working across multiple backends, chain identity should come from the selected backend profile or tool result, not from that URL fragment.
+
 On success, MultiBaas returns `TransactionToSignResponse` with `submitted: true`, the tracked token balance for the whale drops, and the webhook receiver can queue the resulting alert into the DM or Discord-backed NanoClaw session.

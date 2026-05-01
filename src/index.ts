@@ -14,7 +14,7 @@ import {
   inspectContractInterfaces,
   preloadKnownInterfaces,
 } from "./contract-interface-service.js";
-import { resolveConfig } from "./config.js";
+import { listConfiguredBackends, resolveConfig } from "./config.js";
 import { formatTokenControlEvents, getTokenControlEvents } from "./event-view-service.js";
 import {
   formatEventCapabilityInspection,
@@ -24,6 +24,7 @@ import {
 } from "./event-intelligence-service.js";
 import { evaluatePendingHolderQueries, requestTopHolders } from "./holder-query-service.js";
 import { formatTokenInvestigation, investigateToken } from "./investigation-service.js";
+import { formatConfiguredBackends, formatMultichainInspection, inspectTargetsAcrossBackends, type MultichainTargetInput } from "./multichain-service.js";
 import { getAddressBalanceForTokenTarget, getHolderConcentrationForTokenTarget } from "./query-service.js";
 import { sendNanoClawNotification } from "./nanoclaw-host.js";
 import { configureNanoClawGroup } from "./nanoclaw.js";
@@ -57,6 +58,8 @@ Usage:
   npm run dev -- query event-capabilities [--contract 0x... | --token <name>]
   npm run dev -- query event-investigation --lead <lead-id> [--contract 0x... | --token <name>] [--limit 10]
   npm run dev -- query investigate [--contract 0x... | --token <name>] [--limit 5]
+  npm run dev -- query multichain-inspect --targets mainnet-remote:0x...,arbitrum-one-remote:0x...
+  npm run dev -- backend list
   npm run dev -- contract list-interfaces
   npm run dev -- contract latest-block
   npm run dev -- contract investigate --contract 0x...
@@ -108,6 +111,32 @@ function parsePositiveIntegerFlag(args: string[], name: string, fallback: number
     throw new Error(`Expected a positive integer for ${name}, received "${value}"`);
   }
   return parsed;
+}
+
+function parseMultichainTargets(value: string): MultichainTargetInput[] {
+  return value
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+    .map((entry) => {
+      const [left, contractAddress] = entry.split(":");
+      if (!left || !contractAddress) {
+        throw new Error(`Expected multichain target entries in the form profile:0x... or role@profile:0x..., received "${entry}"`);
+      }
+
+      const [role, profileName] = left.includes("@")
+        ? left.split("@")
+        : [undefined, left];
+      if (!profileName?.trim() || !contractAddress.trim()) {
+        throw new Error(`Expected multichain target entries in the form profile:0x... or role@profile:0x..., received "${entry}"`);
+      }
+
+      return {
+        contractAddress: contractAddress.trim(),
+        profileName: profileName.trim(),
+        role: role?.trim() || undefined,
+      };
+    });
 }
 
 async function handleQuery(args: string[]): Promise<void> {
@@ -208,7 +237,24 @@ async function handleQuery(args: string[]): Promise<void> {
     return;
   }
 
+  if (subcommand === "multichain-inspect") {
+    const targets = parseMultichainTargets(requireFlag(args, "--targets"));
+    console.log(formatMultichainInspection(await inspectTargetsAcrossBackends(targets)));
+    return;
+  }
+
   throw new Error(`Unknown query command: ${subcommand ?? "(missing)"}`);
+}
+
+async function handleBackend(args: string[]): Promise<void> {
+  const subcommand = readCommand(args, 1);
+
+  if (subcommand === "list") {
+    console.log(formatConfiguredBackends(listConfiguredBackends()));
+    return;
+  }
+
+  throw new Error(`Unknown backend command: ${subcommand ?? "(missing)"}`);
 }
 
 async function handleContract(args: string[]): Promise<void> {
@@ -455,6 +501,11 @@ async function main(): Promise<void> {
 
   if (command === "contract") {
     await handleContract(args);
+    return;
+  }
+
+  if (command === "backend") {
+    await handleBackend(args);
     return;
   }
 

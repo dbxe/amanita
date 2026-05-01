@@ -67,6 +67,9 @@ The local backend-profile file is gitignored. Use `.multibaas/backends.example.j
 Backend switching should now be low-friction:
 
 ```bash
+# show all configured backends
+npm run dev -- backend list
+
 # use the gitignored default profile from .multibaas/backends.local.json
 npm run dev -- contract list-interfaces
 
@@ -76,6 +79,13 @@ MULTIBAAS_PROFILE=development npm run dev -- contract list-interfaces
 # force a specific remote profile
 MULTIBAAS_PROFILE=mainnet-remote npm run dev -- contract list-interfaces
 ```
+
+Important MultiBaas convention:
+
+- the deployment selects the chain
+- the API path still remains `/api/v0/chains/ethereum/...` for EVM deployments, including non-mainnet deployments such as Arbitrum One
+
+Do not treat the literal path segment `chains/ethereum` as proof that a backend is Ethereum mainnet. Chain identity comes from the backend profile / deployment, not from that URL fragment.
 
 When the runtime runs **inside NanoClaw**, authenticated MultiBaas calls should use **OneCLI path-scoped secret injection** rather than a raw API key in `container.json`. The runtime will send a placeholder bearer token when no direct key is configured so OneCLI can rewrite it on `/api/v0/*` requests.
 
@@ -96,6 +106,9 @@ npm run dev -- query controls --contract 0xd26fde38F244Dcbb13e8017347Ac37804d926
 
 # grounded token investigation
 npm run dev -- query investigate --contract 0xd26fde38F244Dcbb13e8017347Ac37804d926Bb5 --limit 5
+
+# inspect explicit targets across multiple configured backends
+npm run dev -- query multichain-inspect --targets source@mainnet-remote:0xd26fde38F244Dcbb13e8017347Ac37804d926Bb5,destination@arbitrum-one-remote:0xd26fde38F244Dcbb13e8017347Ac37804d926Bb5
 
 # inspect ABI/event capabilities and supported investigation leads
 npm run dev -- query event-capabilities --contract 0xd26fde38F244Dcbb13e8017347Ac37804d926Bb5
