@@ -1,4 +1,6 @@
 import crypto from "node:crypto";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 
 import {
   AddressesApi,
@@ -9,6 +11,8 @@ import {
 } from "@curvegrid/multibaas-sdk";
 
 import type { RuntimeConfig } from "./config.js";
+
+const execFileAsync = promisify(execFile);
 
 export interface BalanceRow {
   address: string;
@@ -25,6 +29,7 @@ export interface BalanceAlert {
 export interface KnownAddress {
   address: string;
   alias: string;
+  contractName?: string;
 }
 
 export interface AddressRegistration {
@@ -39,6 +44,10 @@ export interface AddressRegistration {
 
 export interface ContractCatalogEntry {
   contractName?: string;
+  instances?: Array<{
+    address: string;
+    alias?: string;
+  }>;
   label: string;
   version?: string;
 }
@@ -55,6 +64,7 @@ export interface ContractDefinition {
 
 const QUERY_PAGE_LIMIT = 100;
 const EVENT_EMITTED_WEBHOOK_SUBSCRIPTION = "event.emitted";
+const CURL_MAX_BUFFER = 10 * 1024 * 1024;
 
 function buildConfiguration(config: RuntimeConfig): Configuration {
   return new Configuration({
@@ -79,26 +89,112 @@ function adminApiUrl(config: RuntimeConfig, pathname: string): string {
   return new URL(pathname.replace(/^\/+/, ""), new URL("/api/v0/", config.baseUrl)).toString();
 }
 
+function withSearchParams(
+  url: URL,
+  params?: Record<string, string | number | Array<string | number> | undefined>,
+): URL {
+  if (!params) {
+    return url;
+  }
+
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined) {
+      continue;
+    }
+
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        url.searchParams.append(key, String(item));
+      }
+      continue;
+    }
+
+    url.searchParams.set(key, String(value));
+  }
+
+  return url;
+}
+
+async function requestJsonViaCurl<T>(
+  config: RuntimeConfig,
+  pathname: string,
+  options: {
+    body?: unknown;
+    method?: "GET" | "POST" | "PUT" | "DELETE";
+    params?: Record<string, string | number | Array<string | number> | undefined>;
+  } = {},
+): Promise<T> {
+  const url = withSearchParams(new URL(adminApiUrl(config, pathname)), options.params);
+  const args = [
+    "--silent",
+    "--show-error",
+    "--location",
+    "--request",
+    options.method ?? "GET",
+    url.toString(),
+    "--header",
+    "Accept: application/json",
+    "--header",
+    `Authorization: Bearer ${config.apiKey ?? "placeholder"}`,
+    "--write-out",
+    "\n%{http_code}",
+  ];
+
+  if (options.body !== undefined) {
+    args.push(
+      "--header",
+      "Content-Type: application/json",
+      "--data-binary",
+      JSON.stringify(options.body),
+    );
+  }
+
+  const { stdout } = await execFileAsync("curl", args, {
+    env: process.env,
+    maxBuffer: CURL_MAX_BUFFER,
+  });
+  const normalizedOutput = stdout.replace(/\r\n/g, "\n");
+  const statusSeparator = normalizedOutput.lastIndexOf("\n");
+
+  if (statusSeparator === -1) {
+    throw new Error(`Unexpected curl response while requesting ${url.toString()}`);
+  }
+
+  const bodyText = normalizedOutput.slice(0, statusSeparator);
+  const statusText = normalizedOutput.slice(statusSeparator + 1).trim();
+  const status = Number.parseInt(statusText, 10);
+
+  if (!Number.isInteger(status)) {
+    throw new Error(`Unable to parse curl status "${statusText}" for ${url.toString()}`);
+  }
+
+  if (status < 200 || status >= 300) {
+    throw new Error(`MultiBaas request failed (${status}): ${bodyText.trim()}`);
+  }
+
+  return (bodyText.trim() ? JSON.parse(bodyText) : {}) as T;
+}
+
+async function withCurlFallback<T>(
+  primary: () => Promise<T>,
+  fallback: () => Promise<T>,
+): Promise<T> {
+  try {
+    return await primary();
+  } catch {
+    return fallback();
+  }
+}
+
 async function requestAdminJson<T>(
   config: RuntimeConfig,
   pathname: string,
   init?: RequestInit,
 ): Promise<T> {
-  const response = await fetch(adminApiUrl(config, pathname), {
-    ...init,
-    headers: {
-      Accept: "application/json",
-      Authorization: `Bearer ${config.apiKey ?? "placeholder"}`,
-      ...(init?.body ? { "Content-Type": "application/json" } : {}),
-      ...(init?.headers ?? {}),
-    },
+  return requestJsonViaCurl<T>(config, pathname, {
+    body: init?.body ? JSON.parse(String(init.body)) : undefined,
+    method: (init?.method?.toUpperCase() as "GET" | "POST" | "PUT" | "DELETE" | undefined) ?? "GET",
   });
-
-  if (!response.ok) {
-    throw new Error(`MultiBaas admin request failed (${response.status}): ${await response.text()}`);
-  }
-
-  return (await response.json()) as T;
 }
 
 function readRows(result: unknown): Array<Record<string, unknown>> {
@@ -136,6 +232,45 @@ function toBigIntString(value: unknown): string {
 
 export function normalizeAddress(value: string): string {
   return value.trim().toLowerCase();
+}
+
+export function normalizeTokenIdentifier(value: string): string {
+  return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "");
+}
+
+export function findKnownAddressByTokenName(
+  tokenName: string,
+  knownAddresses: KnownAddress[],
+  contractCatalog: ContractCatalogEntry[] = [],
+): KnownAddress | undefined {
+  const normalizedTokenName = normalizeTokenIdentifier(tokenName);
+  if (!normalizedTokenName) {
+    return undefined;
+  }
+
+  const aliasMatch = knownAddresses.find((entry) => normalizeTokenIdentifier(entry.alias) === normalizedTokenName);
+  if (aliasMatch) {
+    return aliasMatch;
+  }
+
+  for (const contract of contractCatalog) {
+    if (normalizeTokenIdentifier(contract.contractName ?? "") !== normalizedTokenName) {
+      continue;
+    }
+    const instance = contract.instances?.find((candidate) => candidate.alias?.trim() && candidate.address?.trim());
+    if (!instance?.alias) {
+      continue;
+    }
+    return {
+      address: normalizeAddress(instance.address),
+      alias: instance.alias,
+      contractName: contract.contractName,
+    };
+  }
+
+  return knownAddresses.find(
+    (entry) => entry.contractName && normalizeTokenIdentifier(entry.contractName) === normalizedTokenName,
+  );
 }
 
 export function buildContractBalanceEventQuery(contractAddress: string): EventQuery {
@@ -246,8 +381,17 @@ export async function executeSavedBalanceQuery(
   offset = 0,
 ): Promise<BalanceRow[]> {
   const api = createEventQueriesApi(config);
-  const response = await api.executeEventQuery(queryName, offset, limit);
-  return normalizeBalanceRows(readRows(response.data as unknown));
+  const response = await withCurlFallback(
+    async () => {
+      const result = await api.executeEventQuery(queryName, offset, limit);
+      return result.data as unknown;
+    },
+    () =>
+      requestJsonViaCurl<unknown>(config, `/queries/${encodeURIComponent(queryName)}/results`, {
+        params: { limit, offset },
+      }),
+  );
+  return normalizeBalanceRows(readRows(response));
 }
 
 export async function executeContractBalanceQuery(
@@ -257,12 +401,23 @@ export async function executeContractBalanceQuery(
   offset = 0,
 ): Promise<BalanceRow[]> {
   const api = createEventQueriesApi(config);
-  const response = await api.executeArbitraryEventQuery(
-    buildContractBalanceEventQuery(contractAddress),
-    offset,
-    limit,
+  const response = await withCurlFallback(
+    async () => {
+      const result = await api.executeArbitraryEventQuery(
+        buildContractBalanceEventQuery(contractAddress),
+        offset,
+        limit,
+      );
+      return result.data as unknown;
+    },
+    () =>
+      requestJsonViaCurl<unknown>(config, "/queries", {
+        body: buildContractBalanceEventQuery(contractAddress),
+        method: "POST",
+        params: { limit, offset },
+      }),
   );
-  return normalizeBalanceRows(readRows(response.data as unknown));
+  return normalizeBalanceRows(readRows(response));
 }
 
 export async function fetchBalanceSnapshot(
@@ -327,9 +482,8 @@ export async function inspectContractReadiness(
   isProcessingPastLogs: boolean;
 }> {
   const normalizedAddress = normalizeAddress(address);
-  const addressesApi = createAddressesApi(config);
-  const { data } = await addressesApi.getAddress(normalizedAddress, ["contractLookup"]);
-  const linkedContracts = data.result?.contracts ?? [];
+  const addressDetails = await getAddressRegistration(config, normalizedAddress);
+  const linkedContracts = addressDetails.contracts ?? [];
   const contractLabel = linkedContracts[0]?.label;
 
   if (!contractLabel) {
@@ -338,18 +492,32 @@ export async function inspectContractReadiness(
     };
   }
 
-  const contractsApi = createContractsApi(config);
-  const status = await contractsApi.getEventIndexingStatus(normalizedAddress, contractLabel);
+  const status = await getEventIndexingStatus(config, normalizedAddress, contractLabel);
   return {
     contractLabel,
-    isProcessingPastLogs: status.data.result?.isProcessingPastLogs ?? false,
+    isProcessingPastLogs: status.isProcessingPastLogs,
   };
 }
 
 export async function getAddressRegistration(config: RuntimeConfig, addressOrAlias: string): Promise<AddressRegistration> {
   const normalizedAddressOrAlias = addressOrAlias.startsWith("0x") ? normalizeAddress(addressOrAlias) : addressOrAlias.trim();
   const addressesApi = createAddressesApi(config);
-  const { data } = await addressesApi.getAddress(normalizedAddressOrAlias, ["contractLookup"]);
+  const data = await withCurlFallback(
+    async () => {
+      const response = await addressesApi.getAddress(normalizedAddressOrAlias, ["contractLookup"]);
+      return response.data;
+    },
+    () =>
+      requestJsonViaCurl<{
+        result?: {
+          address?: string;
+          alias?: string;
+          contracts?: Array<{ label: string; name?: string; version?: string }>;
+        };
+      }>(config, `/chains/ethereum/addresses/${encodeURIComponent(normalizedAddressOrAlias)}`, {
+        params: { include: "contractLookup" },
+      }),
+  );
   return {
     address: normalizeAddress(data.result?.address ?? normalizedAddressOrAlias),
     alias: data.result?.alias?.trim() || undefined,
@@ -363,7 +531,19 @@ export async function getAddressRegistration(config: RuntimeConfig, addressOrAli
 
 export async function listKnownAddresses(config: RuntimeConfig): Promise<KnownAddress[]> {
   const addressesApi = createAddressesApi(config);
-  const { data } = await addressesApi.listAddresses();
+  const data = await withCurlFallback(
+    async () => {
+      const response = await addressesApi.listAddresses();
+      return response.data;
+    },
+    () =>
+      requestJsonViaCurl<{
+        result?: Array<{
+          address?: string;
+          alias?: string;
+        }>;
+      }>(config, "/chains/ethereum/addresses"),
+  );
   return (data.result ?? []).flatMap((entry) => {
     if (!entry.alias || !entry.address) {
       return [];
@@ -373,24 +553,56 @@ export async function listKnownAddresses(config: RuntimeConfig): Promise<KnownAd
 }
 
 export async function resolveKnownAddress(config: RuntimeConfig, tokenName: string): Promise<KnownAddress | undefined> {
-  const normalizedTokenName = tokenName.trim().toLowerCase();
-  const knownAddresses = await listKnownAddresses(config);
-  return knownAddresses.find((entry) => entry.alias.toLowerCase() === normalizedTokenName);
+  const [knownAddresses, contractCatalog] = await Promise.all([
+    listKnownAddresses(config),
+    listContractCatalog(config),
+  ]);
+  return findKnownAddressByTokenName(tokenName, knownAddresses, contractCatalog);
 }
 
 export async function setAddressAlias(config: RuntimeConfig, address: string, alias: string): Promise<void> {
   const addressesApi = createAddressesApi(config);
-  await addressesApi.setAddress({
-    address: normalizeAddress(address),
-    alias,
-  });
+  await withCurlFallback(
+    async () => {
+      await addressesApi.setAddress({
+        address: normalizeAddress(address),
+        alias,
+      });
+    },
+    () =>
+      requestJsonViaCurl(config, "/chains/ethereum/addresses", {
+        body: {
+          address: normalizeAddress(address),
+          alias,
+        },
+        method: "POST",
+      }).then(() => undefined),
+  );
 }
 
 export async function listContractCatalog(config: RuntimeConfig): Promise<ContractCatalogEntry[]> {
   const contractsApi = createContractsApi(config);
-  const { data } = await contractsApi.listContracts();
+  const data = await withCurlFallback(
+    async () => {
+      const response = await contractsApi.listContracts();
+      return response.data;
+    },
+    () =>
+      requestJsonViaCurl<{
+        result?: Array<{
+          contractName?: string;
+          label: string;
+          version?: string;
+          instances?: Array<{ address: string; alias?: string }>;
+        }>;
+      }>(config, "/contracts"),
+  );
   return (data.result ?? []).map((contract) => ({
     contractName: contract.contractName,
+    instances: (contract.instances ?? []).map((instance) => ({
+      address: normalizeAddress(instance.address),
+      alias: instance.alias?.trim() || undefined,
+    })),
     label: contract.label,
     version: contract.version,
   }));
@@ -398,7 +610,24 @@ export async function listContractCatalog(config: RuntimeConfig): Promise<Contra
 
 export async function getContractDefinition(config: RuntimeConfig, label: string): Promise<ContractDefinition> {
   const contractsApi = createContractsApi(config);
-  const { data } = await contractsApi.getContract(label);
+  const data = await withCurlFallback(
+    async () => {
+      const response = await contractsApi.getContract(label);
+      return response.data;
+    },
+    () =>
+      requestJsonViaCurl<{
+        result?: {
+          abi?: {
+            events?: Record<string, unknown>;
+            methods?: Record<string, unknown>;
+          };
+          contractName?: string;
+          label?: string;
+          version?: string;
+        };
+      }>(config, `/contracts/${encodeURIComponent(label)}`),
+  );
   return {
     abi: data.result?.abi
       ? {
@@ -418,7 +647,16 @@ export async function linkAddressToContract(
   request: { label: string; startingBlock: string; version?: string },
 ): Promise<void> {
   const contractsApi = createContractsApi(config);
-  await contractsApi.linkAddressContract(addressOrAlias, request);
+  await withCurlFallback(
+    async () => {
+      await contractsApi.linkAddressContract(addressOrAlias, request);
+    },
+    () =>
+      requestJsonViaCurl(config, `/chains/ethereum/addresses/${encodeURIComponent(addressOrAlias)}/contracts`, {
+        body: request,
+        method: "POST",
+      }).then(() => undefined),
+  );
 }
 
 export async function getEventIndexingStatus(
@@ -427,10 +665,96 @@ export async function getEventIndexingStatus(
   contract: string,
 ): Promise<{ isProcessingPastLogs: boolean }> {
   const contractsApi = createContractsApi(config);
-  const response = await contractsApi.getEventIndexingStatus(addressOrAlias, contract);
+  const response = await withCurlFallback(
+    async () => {
+      const result = await contractsApi.getEventIndexingStatus(addressOrAlias, contract);
+      return result.data;
+    },
+    () =>
+      requestJsonViaCurl<{
+        result?: {
+          isProcessingPastLogs?: boolean;
+        };
+      }>(
+        config,
+        `/chains/ethereum/addresses/${encodeURIComponent(addressOrAlias)}/contracts/${encodeURIComponent(contract)}/status`,
+      ),
+  );
   return {
-    isProcessingPastLogs: response.data.result?.isProcessingPastLogs ?? false,
+    isProcessingPastLogs: response.result?.isProcessingPastLogs ?? false,
   };
+}
+
+function readContractStringOutput(output: unknown): string | undefined {
+  if (typeof output === "string") {
+    const trimmed = output.trim();
+    return trimmed.length > 0 ? trimmed : undefined;
+  }
+
+  if (Array.isArray(output)) {
+    for (const entry of output) {
+      const value = readContractStringOutput(entry);
+      if (value) {
+        return value;
+      }
+    }
+    return undefined;
+  }
+
+  if (typeof output === "object" && output !== null) {
+    for (const entry of Object.values(output)) {
+      const value = readContractStringOutput(entry);
+      if (value) {
+        return value;
+      }
+    }
+  }
+
+  return undefined;
+}
+
+export async function getContractStringValue(
+  config: RuntimeConfig,
+  addressOrAlias: string,
+  contract: string,
+  method: string,
+  signature: string,
+): Promise<string | undefined> {
+  const contractsApi = createContractsApi(config);
+
+  const response = await withCurlFallback(
+    async () => {
+      const result = await contractsApi.callContractFunction(addressOrAlias, contract, method, {
+        args: [],
+        contractOverride: true,
+        signature,
+      });
+      return result.data as { result?: { output?: unknown } };
+    },
+    () =>
+      requestJsonViaCurl<{ result?: { output?: unknown } }>(
+        config,
+        `/chains/ethereum/addresses/${encodeURIComponent(addressOrAlias)}/contracts/${encodeURIComponent(contract)}/methods/${encodeURIComponent(method)}`,
+        {
+          body: {
+            args: [],
+            contractOverride: true,
+            signature,
+          },
+          method: "POST",
+        },
+      ),
+  );
+
+  return readContractStringOutput(response.result?.output);
+}
+
+export async function getErc20TokenName(config: RuntimeConfig, addressOrAlias: string): Promise<string | undefined> {
+  try {
+    return await getContractStringValue(config, addressOrAlias, "erc20interface", "name", "name()");
+  } catch {
+    return undefined;
+  }
 }
 
 export async function getAddressBalance(

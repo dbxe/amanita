@@ -1,4 +1,4 @@
-import { normalizeAddress } from "./multibaas.js";
+import { normalizeAddress, normalizeTokenIdentifier, type KnownAddress } from "./multibaas.js";
 import type { TaskState, WaitCondition } from "./planning.js";
 
 export interface AddressContractLink {
@@ -31,12 +31,14 @@ export interface ContractDefinition {
 export interface Erc20HolderOnboardingDeps {
   getAddress: (addressOrAlias: string) => Promise<AddressRecord>;
   getContract: (label: string) => Promise<ContractDefinition>;
+  getContractName: (addressOrAlias: string, contract: string) => Promise<string | undefined>;
   getEventIndexingStatus: (addressOrAlias: string, contract: string) => Promise<{ isProcessingPastLogs: boolean }>;
   linkAddressContract: (
     addressOrAlias: string,
     request: { label: string; startingBlock: string; version?: string },
   ) => Promise<void>;
   listContracts: () => Promise<ContractCatalogEntry[]>;
+  listKnownAddresses: () => Promise<KnownAddress[]>;
   setAddressAlias: (address: string, alias: string) => Promise<void>;
 }
 
@@ -51,6 +53,11 @@ export interface Erc20HolderOnboardingResult {
 
 export function createDeterministicAddressAlias(address: string): string {
   return `erc20-${normalizeAddress(address).slice(2)}`;
+}
+
+export function createContractNameAlias(tokenName: string): string | undefined {
+  const alias = normalizeTokenIdentifier(tokenName);
+  return alias.length > 0 ? alias : undefined;
 }
 
 export function contractSupportsErc20HolderView(contract: ContractDefinition): boolean {
@@ -69,6 +76,26 @@ function wait(state: WaitCondition["state"], reason: string): Erc20HolderOnboard
     state,
     waitCondition: { reason, state },
   };
+}
+
+function chooseAddressAlias(params: {
+  address: string;
+  knownAddresses: KnownAddress[];
+  tokenName?: string;
+}): string {
+  const namedAlias = params.tokenName ? createContractNameAlias(params.tokenName) : undefined;
+  if (namedAlias) {
+    const collision = params.knownAddresses.some(
+      (entry) =>
+        normalizeTokenIdentifier(entry.alias) === namedAlias &&
+        normalizeAddress(entry.address) !== normalizeAddress(params.address),
+    );
+    if (!collision) {
+      return namedAlias;
+    }
+  }
+
+  return createDeterministicAddressAlias(params.address);
 }
 
 export async function ensureErc20HolderQueryReady(
@@ -110,7 +137,13 @@ export async function ensureErc20HolderQueryReady(
     };
   }
 
-  const alias = address.alias?.trim() || createDeterministicAddressAlias(normalizedAddress);
+  const alias = address.alias?.trim()
+    ? address.alias.trim()
+    : chooseAddressAlias({
+        address: normalizedAddress,
+        knownAddresses: await deps.listKnownAddresses(),
+        tokenName: await deps.getContractName(normalizedAddress, erc20Interface.label),
+      });
   if (!address.alias?.trim()) {
     await deps.setAddressAlias(normalizedAddress, alias);
     address = await deps.getAddress(normalizedAddress);

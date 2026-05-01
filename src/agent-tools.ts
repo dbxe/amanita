@@ -10,10 +10,12 @@ import {
   fetchBalanceSnapshot,
   getAddressRegistration,
   getContractDefinition,
+  getErc20TokenName,
   getEventIndexingStatus,
   getAddressBalance,
   linkAddressToContract,
   listContractCatalog,
+  listKnownAddresses,
   resolveKnownAddress,
   normalizeAddress,
   setAddressAlias,
@@ -235,15 +237,17 @@ export async function requestTopHolders(params: {
     config.stateDir,
     params,
     {
-      ensureReady: (contractAddress) =>
-        ensureErc20HolderQueryReady(contractAddress, {
-          getAddress: (addressOrAlias) => getAddressRegistration(config, addressOrAlias),
-          getContract: (label) => getContractDefinition(config, label),
-          getEventIndexingStatus: (addressOrAlias, contract) => getEventIndexingStatus(config, addressOrAlias, contract),
-          linkAddressContract: (addressOrAlias, request) => linkAddressToContract(config, addressOrAlias, request),
-          listContracts: () => listContractCatalog(config),
-          setAddressAlias: (address, alias) => setAddressAlias(config, address, alias),
-        }),
+        ensureReady: (contractAddress) =>
+          ensureErc20HolderQueryReady(contractAddress, {
+            getAddress: (addressOrAlias) => getAddressRegistration(config, addressOrAlias),
+            getContract: (label) => getContractDefinition(config, label),
+            getContractName: (addressOrAlias, contract) => getErc20TokenName(config, addressOrAlias),
+            getEventIndexingStatus: (addressOrAlias, contract) => getEventIndexingStatus(config, addressOrAlias, contract),
+            linkAddressContract: (addressOrAlias, request) => linkAddressToContract(config, addressOrAlias, request),
+            listContracts: () => listContractCatalog(config),
+            listKnownAddresses: () => listKnownAddresses(config),
+            setAddressAlias: (address, alias) => setAddressAlias(config, address, alias),
+          }),
       executeHolderQuery: async (task) => {
         const result = await executeAnalyticalViewFromTask(task);
         return result;
@@ -259,15 +263,17 @@ export async function evaluatePendingHolderQueries(queryName?: string): Promise<
   return evaluateStoredHolderQueries(
     config.stateDir,
     {
-      ensureReady: (contractAddress) =>
-        ensureErc20HolderQueryReady(contractAddress, {
-          getAddress: (addressOrAlias) => getAddressRegistration(config, addressOrAlias),
-          getContract: (label) => getContractDefinition(config, label),
-          getEventIndexingStatus: (addressOrAlias, contract) => getEventIndexingStatus(config, addressOrAlias, contract),
-          linkAddressContract: (addressOrAlias, request) => linkAddressToContract(config, addressOrAlias, request),
-          listContracts: () => listContractCatalog(config),
-          setAddressAlias: (address, alias) => setAddressAlias(config, address, alias),
-        }),
+        ensureReady: (contractAddress) =>
+          ensureErc20HolderQueryReady(contractAddress, {
+            getAddress: (addressOrAlias) => getAddressRegistration(config, addressOrAlias),
+            getContract: (label) => getContractDefinition(config, label),
+            getContractName: (addressOrAlias, contract) => getErc20TokenName(config, addressOrAlias),
+            getEventIndexingStatus: (addressOrAlias, contract) => getEventIndexingStatus(config, addressOrAlias, contract),
+            linkAddressContract: (addressOrAlias, request) => linkAddressToContract(config, addressOrAlias, request),
+            listContracts: () => listContractCatalog(config),
+            listKnownAddresses: () => listKnownAddresses(config),
+            setAddressAlias: (address, alias) => setAddressAlias(config, address, alias),
+          }),
       executeHolderQuery: async (task) => executeAnalyticalViewFromTask(task),
     },
     queryName ?? config.defaultQueryName,

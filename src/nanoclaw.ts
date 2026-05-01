@@ -159,8 +159,8 @@ export function configureNanoClawGroup(options: ConfigureNanoClawOptions): Confi
   containerConfig.packages = containerConfig.packages ?? { apt: [], npm: [] };
 
   containerConfig.mcpServers[SERVER_NAME] = {
-    command: "bun",
-    args: ["run", `${mountPathFor(CONTAINER_MOUNT_NAME)}/src/mcp.ts`],
+    command: "node",
+    args: [`${mountPathFor(CONTAINER_MOUNT_NAME)}/dist/mcp.js`],
     env: {
       MULTIBAAS_BASE_URL: containerBaseUrl,
       MULTIBAAS_QUERY_NAME: config.defaultQueryName,

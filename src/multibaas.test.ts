@@ -4,7 +4,9 @@ import assert from "node:assert/strict";
 import {
   buildContractBalanceEventQuery,
   createSignature,
+  findKnownAddressByTokenName,
   normalizeBalanceRows,
+  normalizeTokenIdentifier,
   selectTopPositiveHolders,
   verifyWebhookSignature,
 } from "./multibaas.js";
@@ -60,4 +62,30 @@ test("buildContractBalanceEventQuery filters transfer math by contract address",
   assert.equal(query.groupBy, "address");
   assert.equal(children?.[0]?.fieldType, "contract_address");
   assert.equal(children?.[0]?.value, "0xd26fde38f244dcbb13e8017347ac37804d926bb5");
+});
+
+test("normalizeTokenIdentifier strips spacing and punctuation for matching", () => {
+  assert.equal(normalizeTokenIdentifier(" Hello-World Token "), "helloworldtoken");
+});
+
+test("findKnownAddressByTokenName matches aliases and linked contract names", () => {
+  assert.deepEqual(
+    findKnownAddressByTokenName(
+      "hello world token",
+      [{ address: "0xabc", alias: "sampletoken" }],
+      [
+        {
+          contractName: "Hello World Token",
+          instances: [{ address: "0xdef", alias: "helloworld" }],
+          label: "helloworld",
+          version: "1.0",
+        },
+      ],
+    ),
+    {
+      address: "0xdef",
+      alias: "helloworld",
+      contractName: "Hello World Token",
+    },
+  );
 });

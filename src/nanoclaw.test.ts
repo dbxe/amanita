@@ -54,10 +54,10 @@ test("configureNanoClawGroup writes a relative mount and workspace/extra MCP pat
 
     assert.equal(result.mountPath, "/workspace/extra/multibaas-agent-harness");
 
-      const containerConfig = JSON.parse(fs.readFileSync(containerConfigPath, "utf8")) as {
-        additionalMounts: Array<{ hostPath: string; containerPath: string; readonly?: boolean }>;
-        mcpServers: Record<string, { command: string; args?: string[]; env?: Record<string, string>; instructions?: string }>;
-      };
+    const containerConfig = JSON.parse(fs.readFileSync(containerConfigPath, "utf8")) as {
+      additionalMounts: Array<{ hostPath: string; containerPath: string; readonly?: boolean }>;
+      mcpServers: Record<string, { command: string; args?: string[]; env?: Record<string, string>; instructions?: string }>;
+    };
 
     assert.deepEqual(containerConfig.additionalMounts, [
       {
@@ -67,9 +67,10 @@ test("configureNanoClawGroup writes a relative mount and workspace/extra MCP pat
       },
     ]);
 
+    assert.equal(containerConfig.mcpServers["multibaas-agent"].command, "node");
     assert.equal(
-      containerConfig.mcpServers["multibaas-agent"].args?.[1],
-      "/workspace/extra/multibaas-agent-harness/src/mcp.ts",
+      containerConfig.mcpServers["multibaas-agent"].args?.[0],
+      "/workspace/extra/multibaas-agent-harness/dist/mcp.js",
     );
     assert.equal(
       containerConfig.mcpServers["multibaas-agent"].env?.MULTIBAAS_BASE_URL,
@@ -79,12 +80,12 @@ test("configureNanoClawGroup writes a relative mount and workspace/extra MCP pat
       containerConfig.mcpServers["multibaas-agent"].env?.MULTIBAAS_QUERY_NAME,
       "helloworld_balance",
     );
-     assert.equal(
-       containerConfig.mcpServers["multibaas-agent"].env?.MULTIBAAS_AGENT_STATE_DIR,
-       "/workspace/agent/.agent-state",
-     );
-      assert.match(containerConfig.mcpServers["multibaas-agent"].instructions ?? "", /do not ask the user for a saved query name/i);
-    } finally {
+    assert.equal(
+      containerConfig.mcpServers["multibaas-agent"].env?.MULTIBAAS_AGENT_STATE_DIR,
+      "/workspace/agent/.agent-state",
+    );
+    assert.match(containerConfig.mcpServers["multibaas-agent"].instructions ?? "", /do not ask the user for a saved query name/i);
+  } finally {
     if (previousBaseUrl === undefined) {
       delete process.env.MULTIBAAS_BASE_URL;
     } else {

@@ -131,6 +131,14 @@ This writes:
 - an in-container state directory for watches
 - a container-safe MultiBaas base URL
 
+The NanoClaw container runs the harness MCP through the built artifact:
+
+```text
+/workspace/extra/multibaas-agent-harness/dist/mcp.js
+```
+
+So for live NanoClaw tests, make sure the repo build is current before `nanoclaw configure` and restart. `npm test` already does this because it rebuilds `dist/`.
+
 ## Auth model
 
 For NanoClaw-backed runs, do not put a real `MULTIBAAS_API_KEY` in `container.json`.
@@ -144,6 +152,13 @@ This matters because both services may be reached through `host.docker.internal`
 
 The harness is compatible with this model by sending a placeholder bearer token when no direct MultiBaas key is configured.
 
+Treat this as a hard boundary for NanoClaw-backed work:
+
+- MultiBaas secrets belong in **OneCLI**
+- do **not** copy the real API key into `container.json`
+- do **not** rely on mounted repo config or ad hoc env injection as a substitute secret path for the NanoClaw container
+- if the container transport/runtime path is broken, fix the transport/runtime path instead of moving secrets out of OneCLI
+
 If a prior secret install is dirty, this cleanup pattern was useful:
 
 ```bash
@@ -155,8 +170,9 @@ onecli secrets delete --id <secret-id>
 Before any live NanoClaw retest, run this preflight:
 
 1. if the change touched `src/nanoclaw.ts` or any generated `container.json` behavior, rerun `nanoclaw configure` for the target group
-2. if the change touched mounted harness business logic (`src/mcp.ts`, `src/intent.ts`, `src/agent-tools.ts`, `src/holder-tasks.ts`, `src/onboarding.ts`, `src/multibaas.ts`), restart NanoClaw or stop the affected session container before trusting the next live result
-3. only skip restart for docs-only, test-only, or repo-local validation that does not use a live NanoClaw session
+2. if the change touched mounted harness business logic (`src/mcp.ts`, `src/intent.ts`, `src/agent-tools.ts`, `src/holder-tasks.ts`, `src/onboarding.ts`, `src/multibaas.ts`), rebuild the repo and restart NanoClaw or stop the affected session container before trusting the next live result
+3. verify the OneCLI secret path is still the intended auth path; do not switch to container-held secrets as a debugging shortcut
+4. only skip restart for docs-only, test-only, or repo-local validation that does not use a live NanoClaw session
 
 Start with the deterministic local CLI channel:
 
