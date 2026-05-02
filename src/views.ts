@@ -9,6 +9,8 @@ import {
   fetchBalanceSnapshot,
   getAddressBalance,
   getContractTargetFromBalanceSource,
+  getErc20TokenDecimals,
+  getErc20TokenSymbol,
   normalizeTokenIdentifier,
   resolveBalanceSource,
   selectTopPositiveHolders,
@@ -21,6 +23,8 @@ export interface TopHoldersResult {
   kind: "holder-list";
   limit: number;
   queryName: string;
+  tokenDecimals?: number;
+  tokenSymbol?: string;
 }
 
 export interface BalanceResult {
@@ -80,28 +84,12 @@ export function computeHolderConcentration(
 export async function getTopHolders(limit = 20, queryName?: string): Promise<TopHoldersResult> {
   const config = resolveConfig();
   const effectiveQueryName = resolveBalanceSource(queryName);
-  const rows = await executeBalanceSourceQuery(config, effectiveQueryName, Math.min(limit, 100));
-
-  return {
-    contractAddress: getContractTargetFromBalanceSource(effectiveQueryName),
-    holders: selectTopPositiveHolders(rows, limit).map((row) => ({
-      address: row.address,
-      rawBalance: row.rawBalance,
-    })),
-    kind: "holder-list",
-    limit,
-    queryName: effectiveQueryName,
-  };
-}
-
-export async function getContractTopHolders(
-  contractAddress: string,
-  limit = 20,
-  queryName?: string,
-): Promise<TopHoldersResult> {
-  const config = resolveConfig();
-  const effectiveQueryName = queryName?.trim() || createContractBalanceSource(contractAddress);
-  const rows = await executeContractBalanceQuery(config, contractAddress, Math.min(limit, 100));
+  const contractAddress = getContractTargetFromBalanceSource(effectiveQueryName);
+  const [rows, tokenDecimals, tokenSymbol] = await Promise.all([
+    executeBalanceSourceQuery(config, effectiveQueryName, Math.min(limit, 100)),
+    contractAddress ? getErc20TokenDecimals(config, contractAddress) : undefined,
+    contractAddress ? getErc20TokenSymbol(config, contractAddress) : undefined,
+  ]);
 
   return {
     contractAddress,
@@ -112,6 +100,35 @@ export async function getContractTopHolders(
     kind: "holder-list",
     limit,
     queryName: effectiveQueryName,
+    tokenDecimals,
+    tokenSymbol,
+  };
+}
+
+export async function getContractTopHolders(
+  contractAddress: string,
+  limit = 20,
+  queryName?: string,
+): Promise<TopHoldersResult> {
+  const config = resolveConfig();
+  const effectiveQueryName = queryName?.trim() || createContractBalanceSource(contractAddress);
+  const [rows, tokenDecimals, tokenSymbol] = await Promise.all([
+    executeContractBalanceQuery(config, contractAddress, Math.min(limit, 100)),
+    getErc20TokenDecimals(config, contractAddress),
+    getErc20TokenSymbol(config, contractAddress),
+  ]);
+
+  return {
+    contractAddress,
+    holders: selectTopPositiveHolders(rows, limit).map((row) => ({
+      address: row.address,
+      rawBalance: row.rawBalance,
+    })),
+    kind: "holder-list",
+    limit,
+    queryName: effectiveQueryName,
+    tokenDecimals,
+    tokenSymbol,
   };
 }
 
@@ -179,6 +196,47 @@ function formatTokenLabel(label: string | undefined): string {
   return label;
 }
 
+const DISPLAY_FRACTION_DIGITS = 6;
+
+function groupIntegerDigits(value: string): string {
+  return value.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
+
+export function formatTokenBalance(rawBalance: string, decimals: number, symbol?: string): string {
+  const normalized = rawBalance.trim();
+  if (!/^-?\d+$/.test(normalized) || decimals < 0 || !Number.isSafeInteger(decimals)) {
+    return rawBalance;
+  }
+
+  const raw = BigInt(normalized);
+  const negative = raw < 0n;
+  const absolute = negative ? -raw : raw;
+  const displayDecimals = Math.min(decimals, DISPLAY_FRACTION_DIGITS);
+  const reductionFactor = 10n ** BigInt(decimals - displayDecimals);
+  const rounded =
+    reductionFactor === 1n
+      ? absolute
+      : (absolute + (reductionFactor / 2n)) / reductionFactor;
+
+  if (absolute > 0n && rounded === 0n && displayDecimals > 0) {
+    return `<0.${"0".repeat(displayDecimals - 1)}1${symbol?.trim() ? ` ${symbol.trim()}` : ""}`;
+  }
+
+  const digits = rounded.toString();
+  const padded = displayDecimals > 0 && digits.length <= displayDecimals ? digits.padStart(displayDecimals + 1, "0") : digits;
+  const splitIndex = displayDecimals === 0 ? padded.length : padded.length - displayDecimals;
+  const integerPart = padded.slice(0, splitIndex) || "0";
+  const fractionalPart = displayDecimals === 0 ? "" : padded.slice(splitIndex).replace(/0+$/, "");
+  const amount = `${negative ? "-" : ""}${groupIntegerDigits(integerPart)}${fractionalPart ? `.${fractionalPart}` : ""}`;
+  return symbol?.trim() ? `${amount} ${symbol.trim()}` : amount;
+}
+
+function formatHolderBalance(result: TopHoldersResult, rawBalance: string): string {
+  return result.tokenDecimals === undefined
+    ? rawBalance
+    : formatTokenBalance(rawBalance, result.tokenDecimals, result.tokenSymbol);
+}
+
 export function formatTopHoldersEvidence(
   result: TopHoldersResult,
   options: {
@@ -197,6 +255,8 @@ export function formatTopHoldersEvidence(
     "Checked",
     `- Network: ${config.hardhatNetwork === "ethereum-mainnet" ? "Ethereum mainnet" : config.hardhatNetwork} (\`${config.profileName}\`)`,
     ...(result.contractAddress ? [`- Token: ${formatTokenLabel(options.contractLabel)} \`${result.contractAddress}\``] : []),
+    ...(result.tokenSymbol ? [`- Symbol: ${result.tokenSymbol}`] : []),
+    ...(result.tokenDecimals === undefined ? [] : [`- Decimals: ${result.tokenDecimals}`]),
     "- Capability: ERC-20 holder reconstruction from Transfer events",
     ...(options.statusReason ? [`- Sync status: ${options.statusReason}`] : []),
     "",
@@ -207,9 +267,12 @@ export function formatTopHoldersEvidence(
   if (result.holders.length === 0) {
     lines.push("- No positive balances returned by the current indexed view.");
   } else {
-    lines.push("| Rank | Holder | Raw balance |", "| ---: | --- | ---: |");
+    lines.push(
+      `| Rank | Holder | ${result.tokenDecimals === undefined ? "Raw balance" : "Balance"} |`,
+      "| ---: | --- | ---: |",
+    );
     result.holders.forEach((row, index) => {
-      lines.push(`| ${index + 1} | \`${row.address}\` | ${row.rawBalance} |`);
+      lines.push(`| ${index + 1} | \`${row.address}\` | ${formatHolderBalance(result, row.rawBalance)} |`);
     });
   }
 
@@ -221,6 +284,9 @@ export function formatTopHoldersEvidence(
     `stream: ${formatHolderQueryTarget(result, config)}`,
     "fields: from + to + value + block number + tx hash + timestamp",
     "aggregation: add value to `to`; subtract value from `from`; rank positive balances descending",
+    ...(result.tokenDecimals === undefined
+      ? []
+      : [`post_processing: scale raw uint256 balance by token decimals (${result.tokenDecimals}) in the runtime formatter`]),
     `source: ${result.queryName}`,
     `limit: top ${result.limit} positive balances`,
     `status: ${status === "partial" ? "syncing historical events; partial indexed snapshot" : "ready"}`,
