@@ -11,6 +11,33 @@ That distinction matters. Operator prompts are build-stage tools for stabilizing
 
 Run live tests **sequentially**. Do not overlap NanoClaw chat requests.
 
+## Source-of-truth rule
+
+For live validation, treat **MultiBaas as authoritative** and treat the agent as a reporting layer that may still be wrong.
+
+That means:
+
+- judge live answers against host-side MultiBaas-backed verification
+- do not accept a confident agent summary if the backend says otherwise
+- when the agent and backend disagree, record that as an agent/runtime failure, not as an ambiguous result
+
+## Pacing rule
+
+Once the agent has recently responded to basic liveness or narrow readiness checks, **let it work**.
+
+For this live path:
+
+- inference can be slow even when the contract and backend state are healthy
+- a slow answer is not the same thing as a bad answer
+- sending more prompts too quickly makes the session less trustworthy
+
+Validation discipline:
+
+1. run one prompt at a time
+2. wait for the current prompt to finish
+3. prefer patience over retries when liveness already succeeded recently
+4. only escalate to reset/restart when there is stronger evidence than slowness alone
+
 ## Required host-side abilities
 
 For these tests to be meaningful, the coding agent needs host-side access to:
@@ -71,6 +98,7 @@ A pass means:
 - the answer is grounded in the intended target and backend context
 - uncertainty from `needs-link` or `syncing` is preserved clearly
 - operator-health state is not confused with DAO-level conclusions
+- the answer does not overrule host-side MultiBaas verification
 
 Fail the run if the answer:
 
@@ -78,10 +106,15 @@ Fail the run if the answer:
 - treats missing auth as a product conclusion
 - reports a whole contract set as unlinked when the issue is only one backend or one still-syncing target
 - uses stale session context
+- disagrees with host-side MultiBaas state for readiness, linkage, or supported investigations
 
 ## Category 1: Operator / health checks
 
 These should be the first live tests run after preflight.
+
+Before expanding to broader prompts, confirm there is at least one narrow prompt class that agrees with host-side MultiBaas state on a known-good contract.
+
+After that narrow class succeeds, keep the same disciplined pacing. Do not turn a slow-but-healthy session into a noisy failure by hammering the CLI client.
 
 ### 1. Liveness
 
@@ -256,6 +289,7 @@ A pass means:
 - no false `completely unlinked` answer
 - correct backend/profile split
 - `preflight` plus `reset-group` is enough to recover common stale-state failures
+- the agent's readiness claims match host-side MultiBaas verification
 
 ### DAO intelligence probes
 
@@ -265,6 +299,7 @@ A pass means:
 - syncing uncertainty is preserved clearly
 - operator-health state is not confused with product conclusions
 - failures are described as part of an evolving story, not silently treated as done
+- the agent does not claim a broader story than the backend currently supports
 
 ## Handoff checklist
 

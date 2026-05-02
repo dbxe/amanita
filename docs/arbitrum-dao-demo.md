@@ -4,6 +4,20 @@ This repo is a generic Web3 intelligence runtime. The current live packaging is 
 
 The immediate goal is to make the DAO path reliable enough to learn what the strongest story actually is. That means operational and backend-health questions are temporarily important, but they are not the intended end-state user experience.
 
+## Source of truth
+
+For this repo, **MultiBaas is the source of truth**.
+
+The agent is useful only to the extent that it reports MultiBaas state accurately:
+
+- linked vs unlinked
+- `ready` vs `syncing`
+- actual interface coverage
+- actual event-backed investigation coverage
+- actual grounded historical results
+
+If the agent's answer conflicts with backend state, the backend wins. That mismatch is not a nuance in interpretation. It is a product bug.
+
 ## What we are validating now
 
 The current build-stage validation loop is focused on whether the live DAO path is trustworthy enough to support stronger intelligence later.
@@ -24,6 +38,8 @@ In practice, that means questions like:
 - whether a given address is really the treasury governor, timelock, or upgrade executor
 
 These are valid and important build-stage uses of the runtime. They just are not the final DAO story.
+
+They also serve a second purpose: they keep the agent honest against the source of truth. A newcomer should assume that live agent answers still need comparison against backend state until the runtime has earned more trust.
 
 ## What we expect the story to become
 

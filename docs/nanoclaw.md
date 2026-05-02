@@ -9,6 +9,7 @@ Use this doc for:
 - OneCLI secret coverage
 - restart and stale-session recovery
 - debugging `missing backend`, `needs-link`, and stuck-session failures
+- operator pacing during slow live inference
 
 For broader live prompt coverage, use [`docs/nanoclaw-live-tests.md`](docs/nanoclaw-live-tests.md). For the DAO story framing, use [`docs/arbitrum-dao-demo.md`](docs/arbitrum-dao-demo.md).
 
@@ -145,6 +146,25 @@ pnpm run chat -- "Is 0xE6841D92B0C345144506576eC13ECf5103aC7f49 linked, ready, o
 
 These are operator checks, not the finished DAO demo.
 
+## Patience rule
+
+Once the agent has recently passed basic liveness or narrow validation prompts, **do not assume silence means failure immediately**.
+
+For this setup:
+
+- the live agent inference can be slow
+- narrow prompts on healthy contracts can still take noticeable time
+- overlapping or repeated prompts make the result less trustworthy
+
+Practical rule:
+
+1. confirm liveness with `hello` or one narrow readiness question
+2. send one prompt
+3. let the agent work
+4. do not hammer the same session with rapid follow-ups while it is still processing
+
+Treat "slow after recent liveness success" differently from "dead". If the agent already answered basic checks in the same session or a fresh nearby session, be patient before escalating to reset or restart.
+
 ## When to rerun configure vs when to restart
 
 Treat NanoClaw as sticky:
@@ -168,6 +188,8 @@ Practical default for channel-facing retests:
 3. run `nanoclaw preflight`
 4. restart NanoClaw or stop the exact affected session container
 5. retest from a fresh message
+
+Do not confuse impatience with recovery criteria. A slow reply after recent liveness success is not, by itself, evidence that the session is poisoned.
 
 ## Restarting NanoClaw
 

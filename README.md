@@ -6,6 +6,27 @@ The **current demo focus is Arbitrum DAO**. That story is still early. Live sync
 
 Do not read today's operator prompts and backend-health checks as the finished DAO demo. They are build-stage validation tools that help stabilize the runtime while the DAO intelligence story is still being discovered.
 
+## Source Of Truth
+
+**MultiBaas is the source of truth.**
+
+This repo's task is to get the agent to report what MultiBaas actually knows:
+
+- which contracts are linked
+- which contracts are `ready` vs `syncing`
+- which event surfaces and bounded investigations are really available
+- which historical results are grounded enough to report
+
+Do not take the agent's prose at face value when it conflicts with backend state. While this runtime is still being hardened, trust the host-side MultiBaas-backed checks over the agent's summary:
+
+- `npm run dev -- backend list`
+- `npm run dev -- contract inspect --contract 0x...`
+- `npm run dev -- query event-capabilities --contract 0x...`
+- `npm run dev -- query controls --contract 0x... --limit 10`
+- `npm run dev -- query multichain-inspect --targets ...`
+
+The point of the project is not to make the agent sound confident. The point is to make the agent report the source of truth accurately.
+
 ## Documentation map
 
 - `README.md` — quickstart and current repo posture
@@ -60,6 +81,7 @@ A fresh operator should also understand that:
 - some contracts may still be syncing
 - today's stable result set is narrower than the intended final DAO story
 - operator-health prompts are not the intended end-state user experience
+- the agent is not the source of truth; MultiBaas is
 
 ## Prerequisites
 
@@ -185,6 +207,7 @@ The correct live behavior here is:
 - stay grounded in current tool results
 - preserve syncing uncertainty explicitly
 - avoid turning operator-health facts into finished product conclusions
+- prefer under-claiming over reporting something that MultiBaas has not actually established
 
 ## NanoClaw operator loop
 
@@ -209,6 +232,8 @@ Its purpose is to verify:
 `nanoclaw reset-group` is also an operator tool. It is for stale-session recovery and poisoned-state cleanup, not part of the product story.
 
 See [`docs/nanoclaw.md`](docs/nanoclaw.md) for the operational runbook and [`docs/nanoclaw-live-tests.md`](docs/nanoclaw-live-tests.md) for the live validation matrix.
+
+When a live answer looks suspicious, verify the same question against the host-side CLI that talks to MultiBaas directly. If the agent and MultiBaas disagree, treat the MultiBaas-backed result as authoritative and treat the agent behavior as a bug to fix.
 
 ## Webhooks
 
