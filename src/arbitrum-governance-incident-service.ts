@@ -457,7 +457,7 @@ function appendProposalQuerySummary(lines: string[], proposalStatus: IncidentPro
     "query: multibaas.eventQuery",
     `stream: ${formatQueryTarget(proposalStatus.queryTarget)} / ProposalCreated`,
     "order: newest first",
-    "decoded_fields: proposalId, proposer, targets, values, calldatas, description",
+    "fields: proposal metadata + execution payload + description",
     `match: ${INCIDENT_MARKERS.join(" | ")}`,
   ]);
 }
@@ -475,7 +475,7 @@ function appendControlQuerySummary(lines: string[]): void {
     `stream: ${formatQueryTarget(l1Timelock)} / CallScheduled, CallExecuted, Cancelled`,
     `stream: ${formatQueryTarget(l2CoreTimelock)} / CallScheduled, CallExecuted, Cancelled`,
     `stream: ${formatQueryTarget(l2UpgradeExecutor)} / UpgradeExecuted, TargetCallExecuted`,
-    "decoded_fields: target, value, data, operation_id, delay, tx_hash, triggered_at",
+    "fields: target + value + calldata + operation id + delay + tx hash + timestamp",
   ]);
 }
 
@@ -628,7 +628,7 @@ export function formatArbitrumGovernanceIncidentMonitorSetup(result: ArbitrumGov
     "query: multibaas.eventQuery",
     `stream: ${formatQueryTarget(result.monitorPlan)} / ProposalCreated`,
     "order: newest first",
-    "decoded_fields: proposalId, proposer, targets, values, calldatas, description",
+    "fields: proposal metadata + execution payload + description",
     `match: ${filters}`,
     "```",
     "",

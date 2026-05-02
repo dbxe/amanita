@@ -72,7 +72,7 @@ test("formatArbitrumGovernanceIncidentAnalysis renders proposal-status evidence 
 
   assert.match(text, /```event_query/i);
   assert.match(text, /query: multibaas\.eventQuery/i);
-  assert.match(text, /decoded_fields: proposalId, proposer, targets, values, calldatas, description/i);
+  assert.match(text, /fields: proposal metadata \+ execution payload \+ description/i);
   assert.match(text, /match: Kelp \| rsETH \| frozen ETH/i);
   assert.match(text, /Verdict: not onchain yet/i);
   assert.match(text, /Checked: 28 indexed ProposalCreated event/i);
@@ -116,7 +116,7 @@ test("formatArbitrumGovernanceIncidentAnalysis renders control evidence", () => 
   assert.match(text, /```event_query/i);
   assert.match(text, /stream: mainnet-remote.*L1 Upgrade Executor.*UpgradeExecuted, TargetCallExecuted/i);
   assert.match(text, /stream: arbitrum-one-remote.*L2 Core Timelock.*CallScheduled, CallExecuted, Cancelled/i);
-  assert.match(text, /decoded_fields: target, value, data, operation_id, delay, tx_hash, triggered_at/i);
+  assert.match(text, /fields: target \+ value \+ calldata \+ operation id \+ delay \+ tx hash \+ timestamp/i);
   assert.match(text, /Primary emergency-response evidence: L1 Upgrade Executor/i);
   assert.match(text, /UpgradeExecuted/i);
   assert.match(text, /selector=0x0a2e5a5b/i);
