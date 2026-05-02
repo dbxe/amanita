@@ -65,12 +65,21 @@ function parseHardhatDeploymentConfig(networkName: string): Partial<Pick<Runtime
 }
 
 function readBackendProfileConfig(): BackendProfileConfig {
+  const envJson = process.env.MULTIBAAS_BACKENDS_JSON?.trim();
+  if (envJson) {
+    return JSON.parse(envJson) as BackendProfileConfig;
+  }
+
   const configPath = path.resolve(process.cwd(), ".multibaas", "backends.local.json");
   if (!fs.existsSync(configPath)) {
     return {};
   }
 
   return JSON.parse(fs.readFileSync(configPath, "utf8")) as BackendProfileConfig;
+}
+
+export function readConfiguredBackendProfiles(): BackendProfileConfig {
+  return readBackendProfileConfig();
 }
 
 function selectedProfileName(backendProfiles: BackendProfileConfig): string {

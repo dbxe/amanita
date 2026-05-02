@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-import { resolveConfig } from "./config.js";
+import { listConfiguredBackends, readConfiguredBackendProfiles, resolveConfig } from "./config.js";
 
 interface McpServerConfig {
   command: string;
@@ -161,6 +161,52 @@ function removeMount(mounts: AdditionalMountConfig[], containerPath: string): Ad
   return mounts.filter((candidate) => candidate.containerPath !== containerPath);
 }
 
+function preferredNanoClawProfileName(): string {
+  const configured = listConfiguredBackends();
+  const current = resolveConfig().profileName;
+
+  if (current !== "development") {
+    return current;
+  }
+
+  const mainnet = configured.find((backend) => backend.profileName === "mainnet-remote");
+  if (mainnet) {
+    return mainnet.profileName;
+  }
+
+  const firstNonDevelopment = configured.find((backend) => backend.profileName !== "development");
+  if (firstNonDevelopment) {
+    return firstNonDevelopment.profileName;
+  }
+
+  return current;
+}
+
+function containerBackendProfilesJson(): string | undefined {
+  const configured = readConfiguredBackendProfiles();
+  if (!configured.profiles || Object.keys(configured.profiles).length === 0) {
+    return undefined;
+  }
+
+  const sanitizedProfiles = Object.fromEntries(
+    Object.entries(configured.profiles).map(([profileName, profile]) => {
+      const baseUrl = profile.baseUrl ? deriveContainerBaseUrl(profile.baseUrl) : undefined;
+      return [profileName, {
+        baseUrl,
+        chainId: profile.chainId,
+        chainName: profile.chainName,
+        hardhatNetwork: profile.hardhatNetwork,
+        stateDir: `/workspace/agent/.agent-state/${profileName}`,
+      }];
+    }),
+  );
+
+  return JSON.stringify({
+    defaultProfile: preferredNanoClawProfileName(),
+    profiles: sanitizedProfiles,
+  });
+}
+
 function ensureAllowlist(repoDir: string): string {
   const allowlistPath = path.join(os.homedir(), ".config", "nanoclaw", "mount-allowlist.json");
   const allowlist = parseJsonFile<MountAllowlist>(allowlistPath, {
@@ -191,6 +237,7 @@ export function configureNanoClawGroup(options: ConfigureNanoClawOptions): Confi
   const repoDir = fs.realpathSync(options.repoDir ?? process.cwd());
   const config = resolveConfig();
   const containerBaseUrl = deriveContainerBaseUrl(config.baseUrl);
+  const backendProfilesJson = containerBackendProfilesJson();
   const containerConfigPath = path.join(options.nanoclawDir, "groups", options.groupFolder, "container.json");
   const containerConfig = parseJsonFile<ContainerConfig>(containerConfigPath, {
     mcpServers: {},
@@ -208,8 +255,13 @@ export function configureNanoClawGroup(options: ConfigureNanoClawOptions): Confi
     command: "node",
     args: [`${mountPathFor(CONTAINER_MOUNT_NAME)}/dist/mcp.js`],
     env: {
-      MULTIBAAS_BASE_URL: containerBaseUrl,
-      MULTIBAAS_AGENT_STATE_DIR: "/workspace/agent/.agent-state",
+      ...(backendProfilesJson ? {
+        MULTIBAAS_BACKENDS_JSON: backendProfilesJson,
+        MULTIBAAS_PROFILE: preferredNanoClawProfileName(),
+      } : {
+        MULTIBAAS_BASE_URL: containerBaseUrl,
+        MULTIBAAS_AGENT_STATE_DIR: "/workspace/agent/.agent-state",
+      }),
     },
     instructions: containerInstructions(),
   };

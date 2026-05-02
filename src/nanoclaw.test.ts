@@ -76,8 +76,35 @@ test("configureNanoClawGroup writes a relative mount and workspace/extra MCP pat
 
   const previousBaseUrl = process.env.MULTIBAAS_BASE_URL;
   const previousApiKey = process.env.MULTIBAAS_API_KEY;
-  process.env.MULTIBAAS_BASE_URL = "http://localhost:8080";
-  process.env.MULTIBAAS_API_KEY = "test-api-key";
+  const previousBackendsJson = process.env.MULTIBAAS_BACKENDS_JSON;
+  const previousProfile = process.env.MULTIBAAS_PROFILE;
+  process.env.MULTIBAAS_BACKENDS_JSON = JSON.stringify({
+    defaultProfile: "development",
+    profiles: {
+      development: {
+        baseUrl: "http://localhost:8080",
+        hardhatNetwork: "development",
+        stateDir: ".agent-state/development",
+      },
+      "mainnet-remote": {
+        baseUrl: "https://mainnet.example.multibaas.com",
+        chainId: 1,
+        chainName: "Ethereum Mainnet",
+        hardhatNetwork: "ethereum-mainnet",
+        stateDir: ".agent-state/mainnet-remote",
+      },
+      "arbitrum-one-remote": {
+        baseUrl: "https://arb.example.multibaas.com",
+        chainId: 42161,
+        chainName: "Arbitrum One",
+        hardhatNetwork: "arbitrum-one",
+        stateDir: ".agent-state/arbitrum-one-remote",
+      },
+    },
+  });
+  delete process.env.MULTIBAAS_BASE_URL;
+  delete process.env.MULTIBAAS_API_KEY;
+  delete process.env.MULTIBAAS_PROFILE;
 
   try {
     const result = configureNanoClawGroup({
@@ -107,16 +134,32 @@ test("configureNanoClawGroup writes a relative mount and workspace/extra MCP pat
       containerConfig.mcpServers["multibaas-runtime"].args?.[0],
       "/workspace/extra/multibaas-runtime/dist/mcp.js",
     );
+    assert.equal(containerConfig.mcpServers["multibaas-runtime"].env?.MULTIBAAS_PROFILE, "mainnet-remote");
+    assert.ok(containerConfig.mcpServers["multibaas-runtime"].env?.MULTIBAAS_BACKENDS_JSON);
+    const backendJson = JSON.parse(containerConfig.mcpServers["multibaas-runtime"].env?.MULTIBAAS_BACKENDS_JSON ?? "{}");
+    assert.equal(backendJson.defaultProfile, "mainnet-remote");
     assert.equal(
-      containerConfig.mcpServers["multibaas-runtime"].env?.MULTIBAAS_BASE_URL,
+      backendJson.profiles.development.baseUrl,
       "http://host.docker.internal:8080",
     );
     assert.equal(
-      containerConfig.mcpServers["multibaas-runtime"].env?.MULTIBAAS_AGENT_STATE_DIR,
-      "/workspace/agent/.agent-state",
+      backendJson.profiles["mainnet-remote"].stateDir,
+      "/workspace/agent/.agent-state/mainnet-remote",
     );
     assert.match(containerConfig.mcpServers["multibaas-runtime"].instructions ?? "", /do not ask the user for a saved query name/i);
   } finally {
+    if (previousBackendsJson === undefined) {
+      delete process.env.MULTIBAAS_BACKENDS_JSON;
+    } else {
+      process.env.MULTIBAAS_BACKENDS_JSON = previousBackendsJson;
+    }
+
+    if (previousProfile === undefined) {
+      delete process.env.MULTIBAAS_PROFILE;
+    } else {
+      process.env.MULTIBAAS_PROFILE = previousProfile;
+    }
+
     if (previousBaseUrl === undefined) {
       delete process.env.MULTIBAAS_BASE_URL;
     } else {
@@ -167,9 +210,24 @@ test("configureNanoClawGroup prunes the legacy multibaas-agent server and mount"
 
   const previousBaseUrl = process.env.MULTIBAAS_BASE_URL;
   const previousApiKey = process.env.MULTIBAAS_API_KEY;
+  const previousBackendsJson = process.env.MULTIBAAS_BACKENDS_JSON;
+  const previousProfile = process.env.MULTIBAAS_PROFILE;
 
-  process.env.MULTIBAAS_BASE_URL = "http://localhost:8080";
-  process.env.MULTIBAAS_API_KEY = "test-api-key";
+  process.env.MULTIBAAS_BACKENDS_JSON = JSON.stringify({
+    defaultProfile: "mainnet-remote",
+    profiles: {
+      "mainnet-remote": {
+        baseUrl: "https://mainnet.example.multibaas.com",
+        chainId: 1,
+        chainName: "Ethereum Mainnet",
+        hardhatNetwork: "ethereum-mainnet",
+        stateDir: ".agent-state/mainnet-remote",
+      },
+    },
+  });
+  delete process.env.MULTIBAAS_BASE_URL;
+  delete process.env.MULTIBAAS_API_KEY;
+  delete process.env.MULTIBAAS_PROFILE;
 
   try {
     configureNanoClawGroup({
@@ -190,6 +248,18 @@ test("configureNanoClawGroup prunes the legacy multibaas-agent server and mount"
       false,
     );
   } finally {
+    if (previousBackendsJson === undefined) {
+      delete process.env.MULTIBAAS_BACKENDS_JSON;
+    } else {
+      process.env.MULTIBAAS_BACKENDS_JSON = previousBackendsJson;
+    }
+
+    if (previousProfile === undefined) {
+      delete process.env.MULTIBAAS_PROFILE;
+    } else {
+      process.env.MULTIBAAS_PROFILE = previousProfile;
+    }
+
     if (previousBaseUrl === undefined) {
       delete process.env.MULTIBAAS_BASE_URL;
     } else {

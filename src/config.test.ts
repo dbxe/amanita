@@ -216,3 +216,40 @@ test("resolveConfigForProfile and listConfiguredBackends expose multiple configu
     fs.rmSync(tempDir, { recursive: true, force: true });
   }
 });
+
+test("resolveConfig can read backend profiles from MULTIBAAS_BACKENDS_JSON", () => {
+  const config = withEnv(
+    {
+      HARDHAT_NETWORK: undefined,
+      MULTIBAAS_API_KEY: undefined,
+      MULTIBAAS_BACKENDS_JSON: JSON.stringify({
+        defaultProfile: "mainnet-remote",
+        profiles: {
+          "arbitrum-one-remote": {
+            baseUrl: "https://arb.example.multibaas.com",
+            chainId: 42161,
+            chainName: "Arbitrum One",
+            hardhatNetwork: "arbitrum-one",
+            stateDir: "/workspace/agent/.agent-state/arbitrum-one-remote",
+          },
+          "mainnet-remote": {
+            baseUrl: "https://mainnet.example.multibaas.com",
+            chainId: 1,
+            chainName: "Ethereum Mainnet",
+            hardhatNetwork: "ethereum-mainnet",
+            stateDir: "/workspace/agent/.agent-state/mainnet-remote",
+          },
+        },
+      }),
+      MULTIBAAS_BASE_URL: undefined,
+      MULTIBAAS_NETWORK: undefined,
+      MULTIBAAS_PROFILE: undefined,
+    },
+    () => resolveConfig(),
+  );
+
+  assert.equal(config.baseUrl, "https://mainnet.example.multibaas.com");
+  assert.equal(config.hardhatNetwork, "ethereum-mainnet");
+  assert.equal(config.profileName, "mainnet-remote");
+  assert.equal(config.stateDir, "/workspace/agent/.agent-state/mainnet-remote");
+});
