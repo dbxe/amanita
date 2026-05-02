@@ -1,7 +1,6 @@
 import { getArbitrumDaoActiveTargets, type ArbitrumDaoTargetDefinition } from "./arbitrum-dao-service.js";
 import { resolveConfigForProfile, type RuntimeConfig } from "./config.js";
 import {
-  buildArbitrumGovernorLifecycleEventViewSpec,
   buildArbitrumGovernorProposalCreatedEventViewSpec,
   buildArbitrumTimelockOperationEventViewSpec,
   buildArbitrumUpgradeExecutorActivityEventViewSpec,
@@ -18,6 +17,13 @@ export const ARBITRUM_GOVERNANCE_INCIDENT_FOCUS_VALUES = [
 ] as const;
 
 export type ArbitrumGovernanceIncidentFocus = (typeof ARBITRUM_GOVERNANCE_INCIDENT_FOCUS_VALUES)[number];
+
+export interface IncidentQueryTarget {
+  network: string;
+  profileName: string;
+  targetAddress: string;
+  targetLabel: string;
+}
 
 export interface IncidentProposalEvent {
   blockNumber?: string;
@@ -42,6 +48,8 @@ export interface IncidentControlEvent {
   delaySeconds?: string;
   eventSignature?: string;
   operationId?: string;
+  operationIndex?: string;
+  source?: IncidentQueryTarget;
   target?: string;
   targetLabel?: string;
   triggeredAt?: string;
@@ -52,6 +60,7 @@ export interface IncidentControlEvent {
 
 export interface IncidentProposalStatus {
   matches: IncidentProposalEvent[];
+  queryTarget: IncidentQueryTarget;
   recent: IncidentProposalEvent[];
   searchedCount: number;
 }
@@ -72,12 +81,14 @@ export interface ArbitrumGovernanceIncidentAnalysis {
   focus: ArbitrumGovernanceIncidentFocus;
   l1TimelockOperations?: IncidentControlEvent[];
   l1UpgradeExecutorEvents?: IncidentControlEvent[];
+  l2TimelockOperations?: IncidentControlEvent[];
+  l2UpgradeExecutorEvents?: IncidentControlEvent[];
   limit: number;
   monitorPlan?: IncidentMonitorPlan;
   proposalStatus?: IncidentProposalStatus;
 }
 
-const DEFAULT_LIMIT = 5;
+const DEFAULT_LIMIT = 3;
 const EVENT_QUERY_PAGE_LIMIT = 20;
 const PROPOSAL_SEARCH_LIMIT = 100;
 
@@ -103,6 +114,15 @@ function targetById(id: ArbitrumDaoTargetDefinition["id"]): ArbitrumDaoTargetDef
     throw new Error(`Missing Arbitrum DAO target ${id}`);
   }
   return target;
+}
+
+function toQueryTarget(target: ArbitrumDaoTargetDefinition): IncidentQueryTarget {
+  return {
+    network: target.chainLabel,
+    profileName: target.profileName,
+    targetAddress: target.contractAddress,
+    targetLabel: target.roleLabel,
+  };
 }
 
 function knownAddressLabels(): Map<string, string> {
@@ -240,7 +260,7 @@ function formatWeiAsEth(valueWei?: string): string | undefined {
   return `${whole.toString()}.${fractionText} ETH`;
 }
 
-function toControlEvent(row: Record<string, unknown>): IncidentControlEvent {
+function toControlEvent(row: Record<string, unknown>, source: ArbitrumDaoTargetDefinition): IncidentControlEvent {
   const calldataHex = bytesValueToHex(rowString(row, "data"));
   const target = rowString(row, "target");
   const valueWei = rowString(row, "value");
@@ -253,6 +273,8 @@ function toControlEvent(row: Record<string, unknown>): IncidentControlEvent {
     delaySeconds: rowString(row, "delay"),
     eventSignature: rowString(row, "event_signature"),
     operationId: bytesValueToHex(rowString(row, "operation_id")),
+    operationIndex: rowString(row, "index"),
+    source: toQueryTarget(source),
     target,
     targetLabel: labelAddress(target),
     triggeredAt: rowString(row, "triggered_at"),
@@ -291,31 +313,38 @@ async function getProposalStatus(limit: number): Promise<IncidentProposalStatus>
 
   return {
     matches: proposals.filter((proposal) => proposal.matchedMarkers.length > 0),
+    queryTarget: toQueryTarget(coreGovernor),
     recent: proposals.slice(0, limit),
     searchedCount: proposals.length,
   };
 }
 
-async function getL1UpgradeExecutorEvents(limit: number): Promise<IncidentControlEvent[]> {
-  const upgradeExecutor = targetById("l1_upgrade_executor");
+async function getUpgradeExecutorEvents(
+  targetId: "l1_upgrade_executor" | "l2_upgrade_executor",
+  limit: number,
+): Promise<IncidentControlEvent[]> {
+  const upgradeExecutor = targetById(targetId);
   const config = resolveConfigForProfile(upgradeExecutor.profileName);
   const rows = await fetchEventRows(
     config,
     compileEventViewSpec(buildArbitrumUpgradeExecutorActivityEventViewSpec(targetReference(upgradeExecutor.contractAddress))),
     limit,
   );
-  return rows.map(toControlEvent);
+  return rows.map((row) => toControlEvent(row, upgradeExecutor));
 }
 
-async function getL1TimelockOperations(limit: number): Promise<IncidentControlEvent[]> {
-  const timelock = targetById("l1_timelock");
+async function getTimelockOperations(
+  targetId: "l1_timelock" | "l2_core_timelock",
+  limit: number,
+): Promise<IncidentControlEvent[]> {
+  const timelock = targetById(targetId);
   const config = resolveConfigForProfile(timelock.profileName);
   const rows = await fetchEventRows(
     config,
     compileEventViewSpec(buildArbitrumTimelockOperationEventViewSpec(targetReference(timelock.contractAddress))),
     limit,
   );
-  return rows.map(toControlEvent);
+  return rows.map((row) => toControlEvent(row, timelock));
 }
 
 export function parseArbitrumGovernanceIncidentFocus(value: string | undefined): ArbitrumGovernanceIncidentFocus {
@@ -339,8 +368,8 @@ function buildMonitorPlan(): IncidentMonitorPlan {
     followUpAnalysis: [
       "inspect proposal ID, proposer, targets, values, calldata, and description",
       "label known Arbitrum DAO control contracts and the frozen ETH address",
-      "watch for later ProposalQueued, CallScheduled, and CallExecuted events",
-      "check whether L1 timelock or L1 upgrade executor activity appears",
+      "watch for later ProposalQueued, ProposalExecuted, CallScheduled, and CallExecuted events",
+      "check whether L2 or L1 timelock / upgrade executor activity appears",
     ],
     network: coreGovernor.chainLabel,
     profileName: coreGovernor.profileName,
@@ -372,12 +401,21 @@ export async function analyzeArbitrumGovernanceIncident(
   }
 
   if (focus === "verify-freeze") {
-    const [l1UpgradeExecutorEvents, l1TimelockOperations] = await Promise.all([
-      getL1UpgradeExecutorEvents(limit),
-      getL1TimelockOperations(limit),
+    const [
+      l1UpgradeExecutorEvents,
+      l1TimelockOperations,
+      l2UpgradeExecutorEvents,
+      l2TimelockOperations,
+    ] = await Promise.all([
+      getUpgradeExecutorEvents("l1_upgrade_executor", limit),
+      getTimelockOperations("l1_timelock", limit),
+      getUpgradeExecutorEvents("l2_upgrade_executor", limit),
+      getTimelockOperations("l2_core_timelock", limit),
     ]);
     result.l1UpgradeExecutorEvents = l1UpgradeExecutorEvents;
     result.l1TimelockOperations = l1TimelockOperations;
+    result.l2UpgradeExecutorEvents = l2UpgradeExecutorEvents;
+    result.l2TimelockOperations = l2TimelockOperations;
   }
 
   if (focus === "monitor") {
@@ -405,6 +443,10 @@ function formatProposal(proposal: IncidentProposalEvent): string {
   return `- ${details.join(" | ")}`;
 }
 
+function formatQueryTarget(target: IncidentQueryTarget): string {
+  return `${target.profileName} (${target.network}) | ${target.targetLabel} ${target.targetAddress}`;
+}
+
 function formatControlEvent(event: IncidentControlEvent): string {
   const target = event.target
     ? `${event.target}${event.targetLabel ? ` (${event.targetLabel})` : ""}`
@@ -413,6 +455,8 @@ function formatControlEvent(event: IncidentControlEvent): string {
     event.triggeredAt,
     event.eventSignature,
     `target=${target}`,
+    event.operationId ? `op=${shortId(event.operationId, 14)}` : undefined,
+    event.operationIndex ? `index=${event.operationIndex}` : undefined,
     event.calldataSelector ? `selector=${event.calldataSelector}` : undefined,
     event.valueEth ? `value=${event.valueEth}` : undefined,
     event.delaySeconds ? `delay=${event.delaySeconds}s` : undefined,
@@ -421,9 +465,26 @@ function formatControlEvent(event: IncidentControlEvent): string {
   return `- ${details.join(" | ")}`;
 }
 
+function appendControlEvents(lines: string[], heading: string, events: IncidentControlEvent[] | undefined): void {
+  lines.push("", heading);
+  const source = events?.[0]?.source;
+  if (source) {
+    lines.push(`Source: ${formatQueryTarget(source)}`);
+  }
+
+  if (events && events.length > 0) {
+    for (const event of events) {
+      lines.push(formatControlEvent(event));
+    }
+    return;
+  }
+
+  lines.push("- No matching activity returned in the queried window.");
+}
+
 export function formatArbitrumGovernanceIncidentAnalysis(result: ArbitrumGovernanceIncidentAnalysis): string {
   const lines = [
-    "Arbitrum governance incident analysis",
+    "Arbitrum frozen-ETH governance brief",
     "",
     `Focus: ${result.focus}`,
   ];
@@ -436,29 +497,35 @@ export function formatArbitrumGovernanceIncidentAnalysis(result: ArbitrumGoverna
       `- Frozen funds address: ${FROZEN_ETH_ADDRESS}.`,
       "- Releasing those funds requires Arbitrum governance action.",
       "",
-      "Onchain control path to inspect",
-      "- Core Governor ProposalCreated on Arbitrum One",
-      "- L2 Core Timelock CallScheduled / CallExecuted",
-      "- L2 and L1 Upgrade Executor activity if execution touches protocol-control paths",
+      "Onchain control path",
+      "- Core Governor emits ProposalCreated on Arbitrum One.",
+      "- Delegates vote through VoteCast / VoteCastWithParams.",
+      "- A successful proposal is queued and executed through the L2 Core Timelock.",
+      "- L2 or L1 upgrade executors may appear if execution touches protocol-control paths.",
     );
   }
 
   if (result.proposalStatus) {
-    lines.push("", "Core Governor proposal status");
+    lines.push(
+      "",
+      "Core Governor proposal status",
+      `Source: ${formatQueryTarget(result.proposalStatus.queryTarget)}`,
+    );
     if (result.proposalStatus.matches.length > 0) {
-      lines.push(`Found ${result.proposalStatus.matches.length} matching ProposalCreated event(s):`);
+      lines.push(`Verdict: found ${result.proposalStatus.matches.length} matching ProposalCreated event(s).`);
       for (const proposal of result.proposalStatus.matches.slice(0, result.limit)) {
         lines.push(formatProposal(proposal));
       }
     } else {
       lines.push(
-        `No matching Core Governor ProposalCreated event was found in ${result.proposalStatus.searchedCount} indexed proposal(s).`,
-        "Next onchain signal to watch: ProposalCreated on the Core Governor with Kelp / rsETH / frozen-ETH markers.",
+        `Verdict: not onchain yet in the checked Core Governor ProposalCreated stream.`,
+        `Checked: ${result.proposalStatus.searchedCount} indexed ProposalCreated event(s).`,
+        "Next binding signal: ProposalCreated on the Core Governor with Kelp / rsETH / frozen-ETH markers.",
       );
     }
 
-    if (result.proposalStatus.recent.length > 0 && result.focus !== "brief") {
-      lines.push("", `Recent ProposalCreated events checked`);
+    if (result.proposalStatus.recent.length > 0 && result.focus === "proposal-status") {
+      lines.push("", "Recent ProposalCreated events checked");
       for (const proposal of result.proposalStatus.recent) {
         lines.push(formatProposal(proposal));
       }
@@ -466,23 +533,17 @@ export function formatArbitrumGovernanceIncidentAnalysis(result: ArbitrumGoverna
   }
 
   if (result.focus === "verify-freeze") {
-    lines.push("", "L1 Upgrade Executor evidence");
-    if (result.l1UpgradeExecutorEvents && result.l1UpgradeExecutorEvents.length > 0) {
-      for (const event of result.l1UpgradeExecutorEvents) {
-        lines.push(formatControlEvent(event));
-      }
-    } else {
-      lines.push("- No L1 Upgrade Executor activity returned in the queried window.");
-    }
+    lines.push(
+      "",
+      "What the live event data verifies",
+      "- MultiBaas returned decoded governance-control events from the configured Arbitrum DAO contracts.",
+      "- This verifies control-plane activity through emitted events; it does not reconstruct the exploit or trace all funds.",
+    );
 
-    lines.push("", "L1 Timelock context");
-    if (result.l1TimelockOperations && result.l1TimelockOperations.length > 0) {
-      for (const event of result.l1TimelockOperations) {
-        lines.push(formatControlEvent(event));
-      }
-    } else {
-      lines.push("- No L1 Timelock operations returned in the queried window.");
-    }
+    appendControlEvents(lines, "Primary emergency-response evidence: L1 Upgrade Executor", result.l1UpgradeExecutorEvents);
+    appendControlEvents(lines, "L1 Timelock context", result.l1TimelockOperations);
+    appendControlEvents(lines, "L2 Core Timelock context", result.l2TimelockOperations);
+    appendControlEvents(lines, "L2 Upgrade Executor context", result.l2UpgradeExecutorEvents);
   }
 
   if (result.monitorPlan) {
@@ -492,8 +553,9 @@ export function formatArbitrumGovernanceIncidentAnalysis(result: ArbitrumGoverna
       `- Network: ${result.monitorPlan.profileName} (${result.monitorPlan.network})`,
       `- Contract: ${result.monitorPlan.targetLabel} ${result.monitorPlan.targetAddress}`,
       `- Event: ${result.monitorPlan.eventName}`,
-      `- Direct description filtering in MultiBaas webhook: ${result.monitorPlan.directDescriptionFilteringSupported ? "yes" : "no"}`,
+      `- Direct description filtering in the webhook: ${result.monitorPlan.directDescriptionFilteringSupported ? "yes" : "no"}`,
       `- Agent-side filters: ${result.monitorPlan.agentSideFilters.join(", ")}`,
+      "- Payoff: wake up when the public proposal becomes a binding onchain ProposalCreated event.",
       "- Follow-up analysis:",
     );
     for (const step of result.monitorPlan.followUpAnalysis) {
@@ -505,6 +567,50 @@ export function formatArbitrumGovernanceIncidentAnalysis(result: ArbitrumGoverna
   for (const boundary of result.evidenceBoundaries) {
     lines.push(`- ${boundary}`);
   }
+
+  return lines.join("\n");
+}
+
+export function formatArbitrumGovernanceIncidentMonitorSetup(result: ArbitrumGovernanceIncidentAnalysis): string {
+  if (!result.monitorPlan) {
+    return formatArbitrumGovernanceIncidentAnalysis(result);
+  }
+
+  const proposalStatus = result.proposalStatus;
+  const status = proposalStatus && proposalStatus.matches.length > 0
+    ? `Current verdict: found ${proposalStatus.matches.length} matching ProposalCreated event(s).`
+    : `Current verdict: no matching release ProposalCreated event found in ${proposalStatus?.searchedCount ?? 0} checked Core Governor event(s).`;
+  const filters = result.monitorPlan.agentSideFilters.join(", ");
+  const followUp = result.monitorPlan.followUpAnalysis.join("; ");
+
+  const lines = [
+    "Arbitrum frozen-ETH release monitor",
+    "",
+    status,
+    "",
+    "User-facing acknowledgement",
+    `I will watch ${result.monitorPlan.profileName} (${result.monitorPlan.network}) on ${result.monitorPlan.targetLabel} ${result.monitorPlan.targetAddress} for ${result.monitorPlan.eventName}. I will match decoded proposal fields against: ${filters}. After a match, I will ${followUp}.`,
+    "",
+    "Monitor target",
+    `- Network: ${result.monitorPlan.profileName} (${result.monitorPlan.network})`,
+    `- Contract: ${result.monitorPlan.targetLabel} ${result.monitorPlan.targetAddress}`,
+    `- Event: ${result.monitorPlan.eventName}`,
+    `- Trigger rule: read ${result.monitorPlan.eventName} events, then apply agent-side text/address matching to the decoded proposal fields.`,
+    `- Agent-side filters: ${filters}`,
+    `- Follow-up after trigger: ${followUp}.`,
+    "",
+    "Follow-up analysis after trigger",
+  ];
+
+  for (const step of result.monitorPlan.followUpAnalysis) {
+    lines.push(`- ${step}`);
+  }
+
+  lines.push(
+    "",
+    "Evidence boundary",
+    "- This monitor watches for the binding onchain proposal event; it does not claim the release proposal exists until a matching ProposalCreated event is returned.",
+  );
 
   return lines.join("\n");
 }

@@ -7,6 +7,7 @@ import {
   ARBITRUM_GOVERNANCE_INCIDENT_FOCUS_VALUES,
   analyzeArbitrumGovernanceIncident,
   formatArbitrumGovernanceIncidentAnalysis,
+  formatArbitrumGovernanceIncidentMonitorSetup,
 } from "./arbitrum-governance-incident-service.js";
 import {
   ensureContractInterfaceLink,
@@ -50,6 +51,39 @@ const server = new McpServer({
   version: "0.1.0",
 });
 
+async function arbitrumGovernanceIncidentToolContent(
+  input: {
+    focus?: (typeof ARBITRUM_GOVERNANCE_INCIDENT_FOCUS_VALUES)[number];
+    limit?: number;
+  },
+) {
+  return {
+    content: [{
+      type: "text" as const,
+      text: formatArbitrumGovernanceIncidentAnalysis(
+        await analyzeArbitrumGovernanceIncident({
+          focus: input.focus,
+          limit: input.limit,
+        }),
+      ),
+    }],
+  };
+}
+
+async function arbitrumGovernanceIncidentMonitorToolContent(input: { limit?: number }) {
+  return {
+    content: [{
+      type: "text" as const,
+      text: formatArbitrumGovernanceIncidentMonitorSetup(
+        await analyzeArbitrumGovernanceIncident({
+          focus: "monitor",
+          limit: input.limit,
+        }),
+      ),
+    }],
+  };
+}
+
 server.tool("list_preloaded_interfaces", {}, async () => ({
   content: [{
     type: "text",
@@ -79,21 +113,30 @@ server.tool(
 
 server.tool(
   "analyze_arbitrum_governance_incident",
+  "Use this for the KelpDAO / rsETH frozen-ETH Arbitrum governance incident demo. It returns the incident brief, decoded live event evidence, proposal-status verdict, or monitor plan without requiring the agent to author raw event-query JSON.",
   {
     focus: z.enum(ARBITRUM_GOVERNANCE_INCIDENT_FOCUS_VALUES).optional(),
     limit: z.number().int().min(1).max(20).optional(),
   },
-  async ({ focus, limit }) => ({
-    content: [{
-      type: "text",
-      text: formatArbitrumGovernanceIncidentAnalysis(
-        await analyzeArbitrumGovernanceIncident({
-          focus,
-          limit,
-        }),
-      ),
-    }],
-  }),
+  async ({ focus, limit }) => arbitrumGovernanceIncidentToolContent({ focus, limit }),
+);
+
+server.tool(
+  "get_arbitrum_frozen_eth_governance_brief",
+  "Mandatory for opening demo prompts like: Arbitrum froze funds from the KelpDAO exploit; give me the onchain governance brief, what contracts to inspect, and what can happen next. Returns the live MultiBaas-backed brief.",
+  {
+    limit: z.number().int().min(1).max(20).optional(),
+  },
+  async ({ limit }) => arbitrumGovernanceIncidentToolContent({ focus: "brief", limit }),
+);
+
+server.tool(
+  "get_arbitrum_frozen_eth_monitor_plan",
+  "Mandatory for demo prompts like: let me know when the frozen-ETH release proposal reaches onchain governance. Returns a user-facing acknowledgement plus the actionable Core Governor ProposalCreated monitor target, filters, current verdict, and follow-up analysis. The final response must include those details, not only a one-sentence acknowledgement.",
+  {
+    limit: z.number().int().min(1).max(20).optional(),
+  },
+  async ({ limit }) => arbitrumGovernanceIncidentMonitorToolContent({ limit }),
 );
 
 server.tool(

@@ -72,7 +72,7 @@ Usage:
   npm run dev -- query event-investigation --lead <lead-id> [--contract 0x... | --token <name>] [--limit 10]
   npm run dev -- query investigate [--contract 0x... | --token <name>] [--limit 5]
   npm run dev -- query arbitrum-dao [--focus ${ARBITRUM_DAO_FOCUS_VALUES.join("|")}]
-  npm run dev -- query arbitrum-governance-incident [--focus ${ARBITRUM_GOVERNANCE_INCIDENT_FOCUS_VALUES.join("|")}] [--limit 5]
+  npm run dev -- query arbitrum-governance-incident [--focus ${ARBITRUM_GOVERNANCE_INCIDENT_FOCUS_VALUES.join("|")}] [--limit 3]
   npm run dev -- query multichain-inspect --targets mainnet-remote:0x...,arbitrum-one-remote:0x...
   npm run dev -- backend list
   npm run dev -- contract list-interfaces
@@ -264,7 +264,7 @@ async function handleQuery(args: string[]): Promise<void> {
       formatArbitrumGovernanceIncidentAnalysis(
         await analyzeArbitrumGovernanceIncident({
           focus: parseArbitrumGovernanceIncidentFocus(readFlag(args, "--focus")),
-          limit: parsePositiveIntegerFlag(args, "--limit", 5),
+          limit: parsePositiveIntegerFlag(args, "--limit", 3),
         }),
       ),
     );

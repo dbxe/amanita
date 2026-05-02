@@ -5,6 +5,7 @@ import {
   bytesValueToHex,
   calldataSelector,
   formatArbitrumGovernanceIncidentAnalysis,
+  formatArbitrumGovernanceIncidentMonitorSetup,
   matchIncidentMarkers,
   parseArbitrumGovernanceIncidentFocus,
   type ArbitrumGovernanceIncidentAnalysis,
@@ -47,6 +48,12 @@ test("formatArbitrumGovernanceIncidentAnalysis renders proposal-status evidence 
     limit: 2,
     proposalStatus: {
       matches: [],
+      queryTarget: {
+        network: "Arbitrum One",
+        profileName: "arbitrum-one-remote",
+        targetAddress: "0xf07DeD9dC292157749B6Fd268E37DF6EA38395B9",
+        targetLabel: "Core Governor",
+      },
       recent: [
         {
           matchedMarkers: [],
@@ -63,8 +70,10 @@ test("formatArbitrumGovernanceIncidentAnalysis renders proposal-status evidence 
 
   const text = formatArbitrumGovernanceIncidentAnalysis(result);
 
-  assert.match(text, /No matching Core Governor ProposalCreated event was found in 28 indexed proposal/i);
-  assert.match(text, /Next onchain signal to watch: ProposalCreated/i);
+  assert.match(text, /Verdict: not onchain yet/i);
+  assert.match(text, /Checked: 28 indexed ProposalCreated event/i);
+  assert.match(text, /Next binding signal: ProposalCreated/i);
+  assert.match(text, /arbitrum-one-remote.*Core Governor/i);
   assert.match(text, /DVP Quorum & Proposal Cancellation/i);
   assert.match(text, /Do not confuse public proposal context/i);
 });
@@ -100,9 +109,52 @@ test("formatArbitrumGovernanceIncidentAnalysis renders control evidence", () => 
 
   const text = formatArbitrumGovernanceIncidentAnalysis(result);
 
-  assert.match(text, /L1 Upgrade Executor evidence/i);
+  assert.match(text, /Primary emergency-response evidence: L1 Upgrade Executor/i);
   assert.match(text, /UpgradeExecuted/i);
   assert.match(text, /selector=0x0a2e5a5b/i);
   assert.match(text, /L1 Timelock context/i);
+  assert.match(text, /does not reconstruct the exploit/i);
   assert.match(text, /target=0x3fffbadaf827559da092217e474760e2b2c3cedd \(L1 Upgrade Executor\)/i);
+});
+
+test("formatArbitrumGovernanceIncidentMonitorSetup renders actionable monitor details", () => {
+  const result: ArbitrumGovernanceIncidentAnalysis = {
+    evidenceBoundaries: [],
+    focus: "monitor",
+    limit: 3,
+    monitorPlan: {
+      agentSideFilters: ["Kelp", "rsETH", "frozen ETH"],
+      directDescriptionFilteringSupported: false,
+      eventName: "ProposalCreated",
+      followUpAnalysis: [
+        "inspect proposal ID, proposer, targets, values, calldata, and description",
+        "watch for later ProposalQueued and ProposalExecuted events",
+      ],
+      network: "Arbitrum One",
+      profileName: "arbitrum-one-remote",
+      targetAddress: "0xf07DeD9dC292157749B6Fd268E37DF6EA38395B9",
+      targetLabel: "Core Governor",
+    },
+    proposalStatus: {
+      matches: [],
+      queryTarget: {
+        network: "Arbitrum One",
+        profileName: "arbitrum-one-remote",
+        targetAddress: "0xf07DeD9dC292157749B6Fd268E37DF6EA38395B9",
+        targetLabel: "Core Governor",
+      },
+      recent: [],
+      searchedCount: 28,
+    },
+  };
+
+  const text = formatArbitrumGovernanceIncidentMonitorSetup(result);
+
+  assert.match(text, /Current verdict: no matching release ProposalCreated event found in 28 checked/i);
+  assert.match(text, /User-facing acknowledgement/i);
+  assert.match(text, /Network: arbitrum-one-remote \(Arbitrum One\)/i);
+  assert.match(text, /Contract: Core Governor 0xf07DeD9dC292157749B6Fd268E37DF6EA38395B9/i);
+  assert.match(text, /Event: ProposalCreated/i);
+  assert.match(text, /Agent-side filters: Kelp, rsETH, frozen ETH/i);
+  assert.match(text, /Follow-up analysis after trigger/i);
 });

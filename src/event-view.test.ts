@@ -2,6 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  buildArbitrumGovernorLifecycleEventViewSpec,
+  buildArbitrumGovernorProposalCreatedEventViewSpec,
+  buildArbitrumGovernorVoteActivityEventViewSpec,
+  buildArbitrumTimelockOperationEventViewSpec,
+  buildArbitrumUpgradeExecutorActivityEventViewSpec,
   buildErc20BalanceEventViewSpec,
   buildTokenControlTimelineEventViewSpec,
   compileEventViewSpec,
@@ -32,4 +37,34 @@ test("compileEventViewSpec builds a token control timeline query", () => {
   assert.ok((query.events ?? []).some((event) => event.eventName === "OwnershipTransferred(address,address)"));
   assert.equal(query.events?.[0]?.filter?.children?.[0]?.fieldType, "contract_address_alias");
   assert.equal(query.events?.[0]?.filter?.children?.[0]?.value, "usdc");
+});
+
+test("compileEventViewSpec builds Arbitrum governance incident event queries", () => {
+  const target = { kind: "address" as const, value: "0xf07DeD9dC292157749B6Fd268E37DF6EA38395B9" };
+  const proposalQuery = compileEventViewSpec(buildArbitrumGovernorProposalCreatedEventViewSpec(target));
+  const lifecycleQuery = compileEventViewSpec(buildArbitrumGovernorLifecycleEventViewSpec(target));
+  const voteQuery = compileEventViewSpec(buildArbitrumGovernorVoteActivityEventViewSpec(target));
+  const timelockQuery = compileEventViewSpec(
+    buildArbitrumTimelockOperationEventViewSpec({
+      kind: "address",
+      value: "0x34d45e99f7D8c45ed05B5cA72D54bbD1fb3F98f0",
+    }),
+  );
+  const executorQuery = compileEventViewSpec(
+    buildArbitrumUpgradeExecutorActivityEventViewSpec({
+      kind: "address",
+      value: "0xCF57572261c7c2BCF21ffD220ea7d1a27D40A827",
+    }),
+  );
+
+  assert.equal(proposalQuery.events?.[0]?.eventName, "ProposalCreated");
+  assert.ok(proposalQuery.events?.[0]?.select?.some((field) => field.alias === "description"));
+  assert.ok((lifecycleQuery.events ?? []).some((event) => event.eventName === "ProposalQueued"));
+  assert.ok((lifecycleQuery.events ?? []).some((event) => event.eventName === "ProposalExecuted"));
+  assert.ok((voteQuery.events ?? []).some((event) => event.eventName === "VoteCast"));
+  assert.ok((voteQuery.events ?? []).some((event) => event.eventName === "VoteCastWithParams"));
+  assert.ok((timelockQuery.events ?? []).some((event) => event.eventName === "CallScheduled"));
+  assert.ok((timelockQuery.events ?? []).some((event) => event.eventName === "CallExecuted"));
+  assert.ok((executorQuery.events ?? []).some((event) => event.eventName === "UpgradeExecuted"));
+  assert.ok((executorQuery.events ?? []).some((event) => event.eventName === "TargetCallExecuted"));
 });

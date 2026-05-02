@@ -341,6 +341,7 @@ Do not claim the webhook is directly filtered by description unless that is actu
 Before recording:
 
 - `npm test` passes
+- run the concrete script in [`docs/phase-03-demo-script.md`](phase-03-demo-script.md)
 - `nanoclaw configure` has been rerun for the recording group
 - `nanoclaw reset-group` has been run for the recording group
 - `nanoclaw preflight` shows only remote profiles
