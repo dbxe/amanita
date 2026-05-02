@@ -121,7 +121,7 @@ test("formatArbitrumGovernanceIncidentAnalysis renders control evidence", () => 
   assert.match(text, /UpgradeExecuted/i);
   assert.match(text, /selector=0x0a2e5a5b/i);
   assert.match(text, /L1 Timelock context/i);
-  assert.match(text, /does not reconstruct the exploit/i);
+  assert.match(text, /does not directly prove the KelpDAO freeze transaction/i);
   assert.match(text, /target=0x3fffbadaf827559da092217e474760e2b2c3cedd \(L1 Upgrade Executor\)/i);
 });
 

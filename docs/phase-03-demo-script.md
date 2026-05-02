@@ -15,6 +15,7 @@ Goal: pass a live NanoClaw demo where the agent uses the prescriptive Arbitrum g
 5. The answer must lead with the current verdict, then show decoded events and the next onchain signal.
 6. The release-proposal status beat must not set up or promise a monitor.
 7. The monitor answer must describe the exact event stream, agent-side filters, and follow-up analysis.
+8. For live event-query turns, the agent should feel active: when `send_message` is available, send one short progress acknowledgement before the evidence tool call, then synthesize a final answer from the evidence packet rather than copying it wholesale. A progress-only reply is a failure; if `send_message` is unavailable, skip the progress note and call the evidence tool directly.
 
 ## Host-Side Verification
 
@@ -66,9 +67,10 @@ pnpm run chat -- "Arbitrum froze funds from the KelpDAO exploit. Give me the onc
 
 Expected behavior:
 
+- sends one short progress message when supported, e.g. "I’ll check the Core Governor proposal stream and the known governance control path."
 - calls `analyze_arbitrum_governance_incident` with `focus=brief`, or `get_arbitrum_frozen_eth_governance_brief`
 - includes an `event_query` block showing the Core Governor `ProposalCreated` stream and decoded marker fields
-- gives public context, control path, and next binding signal
+- synthesizes public context, control path, and next binding signal from the evidence packet
 - avoids backend-health framing unless something blocks the answer
 
 ### Beat 2: Onchain Verification
@@ -80,6 +82,7 @@ pnpm run chat -- "Can you verify the emergency governance response from live eve
 
 Expected behavior:
 
+- sends one short progress message when supported, e.g. "I’ll check the L1/L2 timelock and upgrade-executor event streams."
 - calls `analyze_arbitrum_governance_incident` with `focus=verify-freeze`, or `verify_arbitrum_frozen_eth_emergency_response`
 - includes an `event_query` block showing the L1/L2 timelock and upgrade-executor event streams
 - surfaces decoded `UpgradeExecuted(address,uint256,bytes)` evidence from `mainnet-remote`
@@ -94,6 +97,7 @@ pnpm run chat -- "Has the frozen-ETH release proposal reached onchain governance
 
 Expected behavior:
 
+- sends one short progress message when supported, e.g. "I’ll check the Core Governor ProposalCreated stream for Kelp / rsETH markers."
 - calls `analyze_arbitrum_governance_incident` with `focus=proposal-status`, or `get_arbitrum_frozen_eth_proposal_status`
 - checks Arbitrum One Core Governor `ProposalCreated`
 - distinguishes public/forum proposal context from onchain `ProposalCreated`
@@ -119,8 +123,10 @@ Expected behavior:
 A live pass means:
 
 - the agent calls the intended MCP tool for all four beats
+- the agent uses a short progress acknowledgement on live event-query turns when supported
 - the agent includes a compact fenced `event_query` block for the live query it ran instead of making the answer feel like an ungrounded script
 - the output is event-backed and concise
+- the final answer is synthesized from the evidence packet, not a wholesale copy of the tool output
 - public incident context and live event evidence stay separate
 - the current onchain status is stated as a verdict, not buried
 - the proposal-status beat does not promise monitoring

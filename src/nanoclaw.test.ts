@@ -24,6 +24,11 @@ test("containerInstructions steer NanoClaw away from saved queries for ERC-20 ho
   assert.match(instructions, /inspect_targets_across_backends/i);
   assert.match(instructions, /broad Arbitrum DAO questions.*`inspect_arbitrum_dao` first/i);
   assert.match(instructions, /KelpDAO \/ rsETH frozen-ETH governance incident demo.*`analyze_arbitrum_governance_incident`/i);
+  assert.match(instructions, /Treat the incident tools as evidence sources, not scripts to recite/i);
+  assert.match(instructions, /`send_message` is available.*must use a two-step cadence.*one short progress message/i);
+  assert.match(instructions, /Use at most one progress message per user turn/i);
+  assert.match(instructions, /progress message only counts.*NanoClaw `send_message` tool/i);
+  assert.match(instructions, /Do not output only the progress note as your final answer/i);
   assert.match(instructions, /frozen-funds incident brief.*focus `brief`/i);
   assert.match(instructions, /emergency governance response.*live event data.*focus `verify-freeze`/i);
   assert.match(instructions, /release proposal has reached onchain governance.*focus `proposal-status`/i);
@@ -31,7 +36,10 @@ test("containerInstructions steer NanoClaw away from saved queries for ERC-20 ho
   assert.match(instructions, /Do not set up, promise, imply, or mention a monitor/i);
   assert.match(instructions, /notified when the release proposal reaches onchain governance.*focus `monitor`/i);
   assert.match(instructions, /fenced `event_query` block.*cited process/i);
-  assert.match(instructions, /lead with the verdict.*decoded event evidence.*next onchain signal/i);
+  assert.match(instructions, /Every final answer based on an incident tool must include the fenced `event_query` block/i);
+  assert.match(instructions, /do not answer as though the specific freeze transaction itself was directly verified/i);
+  assert.match(instructions, /do not copy the whole tool output/i);
+  assert.match(instructions, /Lead with your conclusion.*most relevant event rows.*next onchain signal/i);
   assert.match(instructions, /names a specific non-default chain.*inspect_targets_across_backends/i);
   assert.match(instructions, /mentions both Ethereum and Arbitrum.*inspect_targets_across_backends/i);
   assert.match(instructions, /broad Arbitrum DAO or cross-chain governance questions.*configured backend set.*explicit contract targets/i);

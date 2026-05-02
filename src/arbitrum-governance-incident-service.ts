@@ -390,6 +390,7 @@ export async function analyzeArbitrumGovernanceIncident(
     evidenceBoundaries: [
       "This investigates the governance response and next onchain transition, not the full KelpDAO exploit.",
       "MultiBaas event queries can return decoded proposal, vote, timelock, and executor events; free-text incident matching is applied locally.",
+      "For emergency-response verification, say the event data verifies governance control-plane activity, not the specific freeze transaction, unless a matching freeze-specific event or transaction is present.",
       "Do not treat a public forum proposal as binding onchain evidence unless a matching Core Governor ProposalCreated event is found.",
     ],
     focus,
@@ -448,7 +449,7 @@ function formatQueryTarget(target: IncidentQueryTarget): string {
 }
 
 function appendEventQueryBlock(lines: string[], entries: string[]): void {
-  lines.push("", "Tool check", "```event_query", ...entries, "```");
+  lines.push("", "Required final citation (copy this block exactly)", "```event_query", ...entries, "```");
 }
 
 function appendProposalQuerySummary(lines: string[], proposalStatus: IncidentProposalStatus): void {
@@ -516,20 +517,21 @@ function appendControlEvents(lines: string[], heading: string, events: IncidentC
 
 export function formatArbitrumGovernanceIncidentAnalysis(result: ArbitrumGovernanceIncidentAnalysis): string {
   const lines = [
-    "Arbitrum frozen-ETH governance brief",
+    "Evidence packet: Arbitrum frozen-ETH governance incident",
     "",
     `Focus: ${result.focus}`,
+    "Use this packet as source material. Do not copy it wholesale; synthesize the user-facing answer from the evidence below.",
   ];
 
   if (result.focus === "brief") {
     lines.push(
       "",
-      "Public incident context",
+      "Public context",
       `- Security Council action froze 30,765.667501709008927568 ETH connected to the KelpDAO / rsETH exploit.`,
       `- Frozen funds address: ${FROZEN_ETH_ADDRESS}.`,
       "- Releasing those funds requires Arbitrum governance action.",
       "",
-      "Onchain control path",
+      "Possible onchain control path",
       "- Core Governor emits ProposalCreated on Arbitrum One.",
       "- Delegates vote through VoteCast / VoteCastWithParams.",
       "- A successful proposal is queued and executed through the L2 Core Timelock.",
@@ -541,7 +543,7 @@ export function formatArbitrumGovernanceIncidentAnalysis(result: ArbitrumGoverna
     appendProposalQuerySummary(lines, result.proposalStatus);
     lines.push(
       "",
-      "Core Governor proposal status",
+      "Observed Core Governor proposal status",
       `Source: ${formatQueryTarget(result.proposalStatus.queryTarget)}`,
     );
     if (result.proposalStatus.matches.length > 0) {
@@ -569,9 +571,9 @@ export function formatArbitrumGovernanceIncidentAnalysis(result: ArbitrumGoverna
     appendControlQuerySummary(lines);
     lines.push(
       "",
-      "What the live event data verifies",
+      "Observed live event data",
       "- MultiBaas returned decoded governance-control events from the configured Arbitrum DAO contracts.",
-      "- This verifies control-plane activity through emitted events; it does not reconstruct the exploit or trace all funds.",
+      "- This verifies governance control-plane activity through emitted events; it does not directly prove the KelpDAO freeze transaction unless a freeze-specific event or transaction is present.",
     );
 
     appendControlEvents(lines, "Primary emergency-response evidence: L1 Upgrade Executor", result.l1UpgradeExecutorEvents);
@@ -583,7 +585,7 @@ export function formatArbitrumGovernanceIncidentAnalysis(result: ArbitrumGoverna
   if (result.monitorPlan) {
     lines.push(
       "",
-      "Monitor plan",
+      "Monitor evidence",
       `- Network: ${result.monitorPlan.profileName} (${result.monitorPlan.network})`,
       `- Contract: ${result.monitorPlan.targetLabel} ${result.monitorPlan.targetAddress}`,
       `- Event: ${result.monitorPlan.eventName}`,
@@ -618,7 +620,9 @@ export function formatArbitrumGovernanceIncidentMonitorSetup(result: ArbitrumGov
   const followUp = result.monitorPlan.followUpAnalysis.join("; ");
 
   const lines = [
-    "Arbitrum frozen-ETH release monitor",
+    "Evidence packet: Arbitrum frozen-ETH release monitor",
+    "",
+    "Use this packet as source material. Do not copy it wholesale; synthesize the user-facing acknowledgement from the evidence below.",
     "",
     status,
     "",
