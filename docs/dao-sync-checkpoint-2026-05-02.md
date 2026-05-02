@@ -229,3 +229,41 @@ Based on the raw MultiBaas status payloads sampled around `2026-05-02T06:14Z`:
   - working estimate: could still finish on `2026-05-02`, but this is less reliable because repeated spot checks showed no movement and the same `updatedAt` during this sample window
 
 This estimate is intentionally provisional. Recheck the raw `/status` payloads before treating either target as done.
+
+## Late-afternoon recheck
+
+Snapshot captured:
+
+- UTC: `2026-05-02T07:22:04Z`
+- JST: `2026-05-02T16:22:04+0900`
+- current mainnet head: `25,005,742`
+- current Arbitrum head: `458,534,015`
+
+### Status update
+
+- `arbitrumdaotreasurygovernor` is now `ready`.
+  - raw status sample:
+    - `isProcessingPastLogs = false`
+    - `latestBlockNumber = 458,530,691`
+- `arbtokenethereum` is still `syncing`, but it is moving again.
+  - raw status sample:
+    - `latestBlockNumber = 21,428,688`
+    - `updatedAt = 2026-05-02T07:15:51.193799Z`
+  - current rough progress at this check: about `85.7%`
+
+### Native ARB token re-added
+
+The native ARB token on Arbitrum One has now been added back into the backend sync set from block `0`:
+
+- address: `0x912CE59144191C1204E64559FE8253a0e49E6548`
+- imported from verified lookup candidate: `L2ArbitrumToken`
+- linked label: `arbtokenarbitrum`
+- current state: `syncing`
+- first raw status sample after linking:
+  - `latestBlockNumber = 470,046`
+  - `updatedAt = 2026-05-02T07:22:28.070797Z`
+
+### Current interpretation
+
+- The original DAO governance / timelock / treasury set is effectively complete except for the bridged ARB token on Ethereum mainnet.
+- Delegate-power and vote-distribution work is no longer blocked on the token being absent from MultiBaas; it is now blocked only on the new Arbitrum-side token history finishing its sync.
