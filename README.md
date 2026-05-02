@@ -279,7 +279,7 @@ For local development:
 - if MultiBaas is running on the host, use `http://127.0.0.1:8787/webhooks/multibaas`
 - if MultiBaas is running in a container that can reach the host via Docker DNS, use `http://host.docker.internal:8787/webhooks/multibaas`
 
-The webhook handler validates `X-MultiBaas-Signature` and `X-MultiBaas-Timestamp`, refreshes tracked watch state, and appends alerts to `.agent-state/alerts.jsonl`.
+The webhook handler validates `X-MultiBaas-Signature` and `X-MultiBaas-Timestamp`, refreshes tracked watch state, evaluates persisted event monitors, and appends alerts under `.agent-state/`.
 
 ## MCP server
 
@@ -307,6 +307,7 @@ Representative tools:
 - `list_balance_watches`
 - `evaluate_tasks`
 - `ensure_event_webhook`
+- `create_arbitrum_frozen_eth_release_monitor`
 
 The preferred direction is still:
 

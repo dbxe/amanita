@@ -5,6 +5,12 @@ export {
   parseArbitrumDaoFocus,
 } from "./arbitrum-dao-service.js";
 export {
+  createArbitrumFrozenEthReleaseMonitor,
+  evaluateEventMonitors,
+  formatArbitrumFrozenEthReleaseMonitorRegistration,
+  formatEventMonitorAlerts,
+} from "./event-monitor-service.js";
+export {
   ensureContractInterfaceLink,
   formatContractInterfaceInspection,
   formatPreloadedInterfaceStatuses,

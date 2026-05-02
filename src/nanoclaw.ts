@@ -84,7 +84,9 @@ export function containerInstructions(): string {
     "- Demo prompt mapping: if the user asks whether the emergency governance response can be verified from live event data, call `verify_arbitrum_frozen_eth_emergency_response` or `analyze_arbitrum_governance_incident` with focus `verify-freeze`.",
     "- Demo prompt mapping: if the user asks whether the frozen-ETH release proposal has reached onchain governance, call `get_arbitrum_frozen_eth_proposal_status` or `analyze_arbitrum_governance_incident` with focus `proposal-status`.",
     "- For proposal-status questions, answer only the current onchain status. Do not set up, promise, imply, or mention a monitor unless the user explicitly asks to be notified, alerted, watched, or monitored.",
-    "- Demo prompt mapping: if the user asks to be notified when the release proposal reaches onchain governance, call `get_arbitrum_frozen_eth_monitor_plan` or `analyze_arbitrum_governance_incident` with focus `monitor`, then call NanoClaw `schedule_task`, then answer with the network, contract, event, agent-side filters, current verdict, follow-up analysis, scheduled cadence, and required `event_query` block. Do not say a monitor is set until `schedule_task` succeeds.",
+    "- Demo prompt mapping: if the user asks to be notified when the release proposal reaches onchain governance, call `create_arbitrum_frozen_eth_release_monitor`, then answer with the network, contract, event, agent-side filters, current verdict, follow-up analysis, webhook id/status, webhook path, and required `event_query` block. Do not invent or supply a webhook URL. Do not use NanoClaw `schedule_task` for this incident monitor.",
+    "- Exact demo prompt mapping: `Let me know when this release proposal actually reaches onchain governance.` means the Arbitrum frozen-ETH release proposal from the prior demo beats; call `create_arbitrum_frozen_eth_release_monitor` before answering.",
+    "- Never say the incident monitor is active, set up, activated, or scheduled unless `create_arbitrum_frozen_eth_release_monitor` returns `Webhook status: registered` plus a `Webhook: id=...` line. If that tool errors, say the monitor was not activated and name the webhook configuration error.",
     "- For the incident demo, make tool-backed discovery visible: copy the compact fenced `event_query` block exactly from the tool output so the query reads like cited process, not ordinary prose. Do not rewrite or expand lines inside that block.",
     "- Every final answer based on an incident tool must include the fenced `event_query` block. Never omit it, even when answering briefly.",
     "- For emergency-response verification, do not answer as though the specific freeze transaction itself was directly verified unless the tool returns a freeze-specific event or transaction. Say that live events verify governance control-plane activity and keep that evidence boundary explicit.",
@@ -279,19 +281,27 @@ export function configureNanoClawGroup(options: ConfigureNanoClawOptions): Confi
   containerConfig.additionalMounts = containerConfig.additionalMounts ?? [];
   containerConfig.packages = containerConfig.packages ?? { apt: [], npm: [] };
   delete containerConfig.mcpServers[LEGACY_SERVER_NAME];
+  const existingEnv = containerConfig.mcpServers[SERVER_NAME]?.env ?? {};
+  const webhookPublicUrl =
+    process.env.MULTIBAAS_WEBHOOK_PUBLIC_URL ?? existingEnv.MULTIBAAS_WEBHOOK_PUBLIC_URL;
+  const runtimeEnv: Record<string, string> = {
+    ...(backendProfilesJson ? {
+      MULTIBAAS_BACKENDS_JSON: backendProfilesJson,
+      MULTIBAAS_PROFILE: preferredNanoClawProfileName(),
+    } : {
+      MULTIBAAS_BASE_URL: containerBaseUrl,
+      MULTIBAAS_AGENT_STATE_DIR: "/workspace/agent/.agent-state",
+    }),
+  };
+
+  if (webhookPublicUrl) {
+    runtimeEnv.MULTIBAAS_WEBHOOK_PUBLIC_URL = webhookPublicUrl;
+  }
 
   containerConfig.mcpServers[SERVER_NAME] = {
     command: "node",
     args: [`${mountPathFor(CONTAINER_MOUNT_NAME)}/dist/mcp.js`],
-    env: {
-      ...(backendProfilesJson ? {
-        MULTIBAAS_BACKENDS_JSON: backendProfilesJson,
-        MULTIBAAS_PROFILE: preferredNanoClawProfileName(),
-      } : {
-        MULTIBAAS_BASE_URL: containerBaseUrl,
-        MULTIBAAS_AGENT_STATE_DIR: "/workspace/agent/.agent-state",
-      }),
-    },
+    env: runtimeEnv,
     instructions: containerInstructions(),
   };
 

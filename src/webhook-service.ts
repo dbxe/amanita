@@ -3,14 +3,23 @@ import http from "node:http";
 import type { NanoClawNotificationTarget } from "./nanoclaw-host.js";
 import { sendNanoClawNotification } from "./nanoclaw-host.js";
 import { resolveConfig } from "./config.js";
+import { evaluateEventMonitors, formatEventMonitorAlerts } from "./event-monitor-service.js";
 import { ensureEventWebhook, verifyWebhookSignature } from "./multibaas.js";
 import { loadState, saveState, type LocalState } from "./state.js";
 import { formatAlerts } from "./task-formatting.js";
 import { evaluateBalanceWatches } from "./watch-service.js";
-
-export const DEFAULT_WEBHOOK_LABEL = "balance-watch";
-export const DEFAULT_WEBHOOK_PATH = "/webhooks/multibaas";
-export const DEFAULT_WEBHOOK_PORT = 8787;
+import {
+  DEFAULT_WEBHOOK_LABEL,
+  DEFAULT_WEBHOOK_PATH,
+  DEFAULT_WEBHOOK_PORT,
+  deriveDefaultWebhookUrl,
+} from "./webhook-url.js";
+export {
+  DEFAULT_WEBHOOK_LABEL,
+  DEFAULT_WEBHOOK_PATH,
+  DEFAULT_WEBHOOK_PORT,
+  deriveDefaultWebhookUrl,
+} from "./webhook-url.js";
 
 export interface WebhookEnsureResult {
   id: number;
@@ -26,34 +35,6 @@ export interface WebhookServerOptions {
   port: number;
   requestPath: string;
   secret?: string;
-}
-
-function normalizeRequestPath(requestPath: string): string {
-  return requestPath.startsWith("/") ? requestPath : `/${requestPath}`;
-}
-
-export function deriveDefaultWebhookUrl(
-  multibaasBaseUrl: string,
-  options: {
-    port?: number;
-    requestPath?: string;
-    publicBaseUrl?: string;
-  } = {},
-): string | undefined {
-  const requestPath = normalizeRequestPath(options.requestPath ?? DEFAULT_WEBHOOK_PATH);
-  const port = options.port ?? DEFAULT_WEBHOOK_PORT;
-  const publicBaseUrl = options.publicBaseUrl ?? process.env.MULTIBAAS_WEBHOOK_PUBLIC_URL;
-
-  if (publicBaseUrl) {
-    return new URL(requestPath, publicBaseUrl.endsWith("/") ? publicBaseUrl : `${publicBaseUrl}/`).toString();
-  }
-
-  const url = new URL(multibaasBaseUrl);
-  if (url.hostname === "localhost" || url.hostname === "127.0.0.1") {
-    return `http://127.0.0.1:${port}${requestPath}`;
-  }
-
-  return undefined;
 }
 
 export async function ensureBalanceWebhook(url: string, label = DEFAULT_WEBHOOK_LABEL): Promise<WebhookEnsureResult> {
@@ -125,14 +106,21 @@ export async function startWebhookServer(options: WebhookServerOptions): Promise
       return;
     }
 
-    const result = await evaluateBalanceWatches(events.length);
+    const balanceResult = await evaluateBalanceWatches(events.length);
+    const eventMonitorResult = evaluateEventMonitors(events);
+    const alertText = [
+      balanceResult.alerts.length > 0 ? formatAlerts(balanceResult.state, balanceResult.alerts) : undefined,
+      eventMonitorResult.alerts.length > 0
+        ? formatEventMonitorAlerts(eventMonitorResult.state, eventMonitorResult.alerts)
+        : undefined,
+    ].filter((value): value is string => Boolean(value));
     let notifyError: string | undefined;
 
-    if (result.alerts.length > 0 && options.nanoclawTarget) {
+    if (alertText.length > 0 && options.nanoclawTarget) {
       try {
         sendNanoClawNotification(
           options.nanoclawTarget,
-          [`[MultiBaas alert]`, formatAlerts(result.state, result.alerts)].join("\n"),
+          [`[MultiBaas alert]`, ...alertText].join("\n"),
         );
       } catch (error) {
         notifyError = error instanceof Error ? error.message : String(error);
@@ -141,7 +129,13 @@ export async function startWebhookServer(options: WebhookServerOptions): Promise
     }
 
     response.writeHead(200, { "Content-Type": "application/json" });
-    response.end(JSON.stringify({ alerts: result.alerts.length, notifyError, received: events.length }));
+    response.end(JSON.stringify({
+      alerts: balanceResult.alerts.length + eventMonitorResult.alerts.length,
+      balanceAlerts: balanceResult.alerts.length,
+      eventAlerts: eventMonitorResult.alerts.length,
+      notifyError,
+      received: events.length,
+    }));
   });
 
   await new Promise<void>((resolve) => {

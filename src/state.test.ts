@@ -18,6 +18,7 @@ test("loadState and saveState persist capability-oriented task records", () => {
     });
 
     saveState(stateDir, {
+      eventMonitors: [],
       tasks: [task],
       version: 3,
       watches: [],

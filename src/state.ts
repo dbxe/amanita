@@ -23,7 +23,25 @@ export interface StoredWebhook {
   url: string;
 }
 
+export interface EventMonitor {
+  contractAddress: string;
+  contractLabel: string;
+  createdAt: string;
+  eventName: string;
+  followUpAnalysis: string[];
+  id: string;
+  kind: "arbitrum-frozen-eth-release-proposal";
+  label: string;
+  lastTriggeredAt?: string;
+  matchText: string[];
+  network: string;
+  profileName: string;
+  triggeredEventKeys: string[];
+  updatedAt: string;
+}
+
 export interface LocalState {
+  eventMonitors: EventMonitor[];
   tasks: TaskRecord[];
   version: 3;
   watches: Watch[];
@@ -40,8 +58,18 @@ export interface AlertRecord {
   watchId: string;
 }
 
+export interface EventMonitorAlertRecord {
+  eventKey: string;
+  id: string;
+  matchedText: string[];
+  monitorId: string;
+  observedAt: string;
+  summary: string;
+}
+
 function createEmptyState(): LocalState {
   return {
+    eventMonitors: [],
     tasks: [],
     version: 3,
     watches: [],
@@ -95,12 +123,14 @@ export function loadState(stateDir: string): LocalState {
   }
 
   const parsed = JSON.parse(fs.readFileSync(filePath, "utf8")) as {
+    eventMonitors?: unknown;
     tasks?: unknown;
     version?: number;
     watches?: unknown;
     webhook?: StoredWebhook;
   };
   return {
+    eventMonitors: Array.isArray(parsed.eventMonitors) ? parsed.eventMonitors as EventMonitor[] : [],
     tasks: Array.isArray(parsed.tasks) ? parsed.tasks.map((task) => migrateTaskRecord(task as PersistedTaskRecord)) : [],
     version: 3,
     watches: Array.isArray(parsed.watches) ? parsed.watches : [],
@@ -121,4 +151,18 @@ export function appendAlerts(stateDir: string, alerts: AlertRecord[]): void {
   ensureStateDir(stateDir);
   const serialized = alerts.map((alert) => JSON.stringify(alert)).join("\n");
   fs.appendFileSync(alertsPath(stateDir), `${serialized}\n`);
+}
+
+function eventMonitorAlertsPath(stateDir: string): string {
+  return path.join(stateDir, "event-alerts.jsonl");
+}
+
+export function appendEventMonitorAlerts(stateDir: string, alerts: EventMonitorAlertRecord[]): void {
+  if (alerts.length === 0) {
+    return;
+  }
+
+  ensureStateDir(stateDir);
+  const serialized = alerts.map((alert) => JSON.stringify(alert)).join("\n");
+  fs.appendFileSync(eventMonitorAlertsPath(stateDir), `${serialized}\n`);
 }

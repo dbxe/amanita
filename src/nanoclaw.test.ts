@@ -33,8 +33,12 @@ test("containerInstructions steer NanoClaw away from saved queries for ERC-20 ho
   assert.match(instructions, /release proposal has reached onchain governance.*focus `proposal-status`/i);
   assert.match(instructions, /proposal-status questions.*answer only the current onchain status/i);
   assert.match(instructions, /Do not set up, promise, imply, or mention a monitor/i);
-  assert.match(instructions, /notified when the release proposal reaches onchain governance.*focus `monitor`.*`schedule_task`/i);
-  assert.match(instructions, /Do not say a monitor is set until `schedule_task` succeeds/i);
+  assert.match(instructions, /notified when the release proposal reaches onchain governance.*`create_arbitrum_frozen_eth_release_monitor`/i);
+  assert.match(instructions, /webhook id\/status/i);
+  assert.match(instructions, /Do not invent or supply a webhook URL/i);
+  assert.match(instructions, /Do not use NanoClaw `schedule_task` for this incident monitor/i);
+  assert.match(instructions, /Exact demo prompt mapping.*Let me know when this release proposal actually reaches onchain governance/i);
+  assert.match(instructions, /Never say the incident monitor is active.*Webhook status: registered.*Webhook: id=/i);
   assert.match(instructions, /fenced `event_query` block.*cited process/i);
   assert.match(instructions, /Every final answer based on an incident tool must include the fenced `event_query` block/i);
   assert.match(instructions, /do not answer as though the specific freeze transaction itself was directly verified/i);
@@ -100,11 +104,29 @@ test("configureNanoClawGroup writes a relative mount and workspace/extra MCP pat
 
   fs.mkdirSync(repoDir, { recursive: true });
   fs.mkdirSync(path.dirname(containerConfigPath), { recursive: true });
+  fs.writeFileSync(
+    containerConfigPath,
+    JSON.stringify(
+      {
+        mcpServers: {
+          "multibaas-runtime": {
+            command: "node",
+            env: {
+              MULTIBAAS_WEBHOOK_PUBLIC_URL: "https://agent.example/webhooks/multibaas",
+            },
+          },
+        },
+      },
+      null,
+      2,
+    ),
+  );
 
   const previousBaseUrl = process.env.MULTIBAAS_BASE_URL;
   const previousApiKey = process.env.MULTIBAAS_API_KEY;
   const previousBackendsJson = process.env.MULTIBAAS_BACKENDS_JSON;
   const previousProfile = process.env.MULTIBAAS_PROFILE;
+  const previousWebhookPublicUrl = process.env.MULTIBAAS_WEBHOOK_PUBLIC_URL;
   process.env.MULTIBAAS_BACKENDS_JSON = JSON.stringify({
     defaultProfile: "development",
     profiles: {
@@ -132,6 +154,7 @@ test("configureNanoClawGroup writes a relative mount and workspace/extra MCP pat
   delete process.env.MULTIBAAS_BASE_URL;
   delete process.env.MULTIBAAS_API_KEY;
   delete process.env.MULTIBAAS_PROFILE;
+  delete process.env.MULTIBAAS_WEBHOOK_PUBLIC_URL;
 
   try {
     const result = configureNanoClawGroup({
@@ -162,6 +185,10 @@ test("configureNanoClawGroup writes a relative mount and workspace/extra MCP pat
       "/workspace/extra/multibaas-runtime/dist/mcp.js",
     );
     assert.equal(containerConfig.mcpServers["multibaas-runtime"].env?.MULTIBAAS_PROFILE, "mainnet-remote");
+    assert.equal(
+      containerConfig.mcpServers["multibaas-runtime"].env?.MULTIBAAS_WEBHOOK_PUBLIC_URL,
+      "https://agent.example/webhooks/multibaas",
+    );
     assert.ok(containerConfig.mcpServers["multibaas-runtime"].env?.MULTIBAAS_BACKENDS_JSON);
     const backendJson = JSON.parse(containerConfig.mcpServers["multibaas-runtime"].env?.MULTIBAAS_BACKENDS_JSON ?? "{}");
     assert.equal(backendJson.defaultProfile, "mainnet-remote");
@@ -194,6 +221,12 @@ test("configureNanoClawGroup writes a relative mount and workspace/extra MCP pat
       delete process.env.MULTIBAAS_API_KEY;
     } else {
       process.env.MULTIBAAS_API_KEY = previousApiKey;
+    }
+
+    if (previousWebhookPublicUrl === undefined) {
+      delete process.env.MULTIBAAS_WEBHOOK_PUBLIC_URL;
+    } else {
+      process.env.MULTIBAAS_WEBHOOK_PUBLIC_URL = previousWebhookPublicUrl;
     }
 
     fs.rmSync(tempDir, { recursive: true, force: true });

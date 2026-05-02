@@ -26,6 +26,10 @@ import {
 } from "./contract-lookup-service.js";
 import { listConfiguredBackends, resolveConfig } from "./config.js";
 import {
+  createArbitrumFrozenEthReleaseMonitor,
+  formatArbitrumFrozenEthReleaseMonitorRegistration,
+} from "./event-monitor-service.js";
+import {
   formatEventCapabilityInspection,
   formatEventInvestigation,
   inspectEventCapabilities,
@@ -113,7 +117,7 @@ server.tool(
 
 server.tool(
   "analyze_arbitrum_governance_incident",
-  "Use this for every KelpDAO / rsETH frozen-ETH Arbitrum governance incident demo turn before answering, even if a previous turn already checked related event data. Do not answer from prior context alone. Do not send a standalone progress-only message before calling this tool. It returns an evidence packet: public context, decoded live event evidence, proposal-status verdict, monitor plan, and evidence boundaries. For explicit notify/watch/alert monitor requests, call NanoClaw schedule_task after this tool and before the final answer; do not claim a monitor is set until schedule_task succeeds. Do not recite the packet wholesale. Synthesize your own concise answer from the packet, copy the compact fenced event_query block exactly as the required final citation, and preserve the stated evidence boundaries.",
+  "Use this for every KelpDAO / rsETH frozen-ETH Arbitrum governance incident demo turn before answering, even if a previous turn already checked related event data. Do not answer from prior context alone. Do not send a standalone progress-only message before calling this tool. It returns an evidence packet: public context, decoded live event evidence, proposal-status verdict, monitor plan, and evidence boundaries. For explicit notify/watch/alert monitor requests, use create_arbitrum_frozen_eth_release_monitor so the follow-up is driven by the MultiBaas webhook path. Do not recite the packet wholesale. Synthesize your own concise answer from the packet, copy the compact fenced event_query block exactly as the required final citation, and preserve the stated evidence boundaries.",
   {
     focus: z.enum(ARBITRUM_GOVERNANCE_INCIDENT_FOCUS_VALUES).optional(),
     limit: z.number().int().min(1).max(20).optional(),
@@ -150,11 +154,27 @@ server.tool(
 
 server.tool(
   "get_arbitrum_frozen_eth_monitor_plan",
-  "Mandatory only for explicit monitor requests like: let me know, notify me, alert me, watch for, or monitor when the frozen-ETH release proposal reaches onchain governance. Call this before answering even if the current monitor target is obvious from prior context. Do not answer monitor requests from memory alone. Do not send a standalone progress-only message before calling this tool. Do not call this for status-only questions such as has it reached onchain governance yet. After this tool returns, call NanoClaw schedule_task before the final answer; do not claim a monitor is set until schedule_task succeeds. Returns an evidence packet with the current verdict, monitor target, filters, and follow-up analysis. Synthesize the acknowledgement yourself, copy the fenced event_query block exactly as the required final citation, and include monitor details plus scheduled cadence.",
+  "Use for dry-run or explanatory monitor-plan questions about how the frozen-ETH release proposal would be watched. Do not call this for status-only questions such as has it reached onchain governance yet. For explicit notify/watch/alert requests, call create_arbitrum_frozen_eth_release_monitor instead so the monitor is registered through the MultiBaas webhook path. Returns an evidence packet with the current verdict, monitor target, filters, and follow-up analysis. Synthesize the acknowledgement yourself and copy the fenced event_query block exactly as the required final citation.",
   {
     limit: z.number().int().min(1).max(20).optional(),
   },
   async ({ limit }) => arbitrumGovernanceIncidentMonitorToolContent({ limit }),
+);
+
+server.tool(
+  "create_arbitrum_frozen_eth_release_monitor",
+  "Mandatory for explicit monitor requests like: let me know, notify me, alert me, watch for, or monitor when the Arbitrum frozen-ETH release proposal reaches onchain governance. This uses the configured or already-active MultiBaas event.emitted webhook and persists the Core Governor ProposalCreated monitor with agent-side incident filters. Do not use NanoClaw schedule_task for this incident monitor. Do not invent or provide a webhook URL. After this succeeds, answer that the webhook-backed monitor is active, include the event_query block, and describe the exact stream, filters, webhook id, and follow-up analysis.",
+  {
+    limit: z.number().int().min(1).max(20).optional(),
+  },
+  async ({ limit }) => ({
+    content: [{
+      type: "text",
+      text: formatArbitrumFrozenEthReleaseMonitorRegistration(
+        await createArbitrumFrozenEthReleaseMonitor({ limit }),
+      ),
+    }],
+  }),
 );
 
 server.tool(

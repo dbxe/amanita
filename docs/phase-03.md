@@ -143,8 +143,8 @@ Let me know when this release proposal actually reaches onchain governance.
 
 The agent should:
 
-- create or describe a monitor for Arbitrum One Core Governor `ProposalCreated`
-- use agent-side filtering if MultiBaas webhooks cannot directly filter free-text descriptions
+- create the MultiBaas webhook-backed monitor for Arbitrum One Core Governor `ProposalCreated`
+- use agent-side filtering over decoded webhook events for description, calldata, targets, and incident markers
 - state the exact follow-up analysis it will run when triggered
 
 Monitor target:
@@ -329,12 +329,9 @@ This beat is optional because it can become a data dump. The stronger recorded f
 
 The demo should show the transition from one-shot research to persistent monitoring.
 
-If precise webhook filtering is not supported:
+The webhook path is active for the recording. MultiBaas delivers `event.emitted` callbacks to the runtime; the runtime keeps a Core Governor `ProposalCreated` monitor and applies agent-side filtering to description, targets, calldata, and known incident markers before notifying the agent.
 
-- create a broad `ProposalCreated` monitor
-- state that agent-side filtering checks description, targets, calldata, and known incident markers
-
-Do not claim the webhook is directly filtered by description unless that is actually implemented.
+Do not claim the webhook itself is directly filtered by description unless that is actually implemented.
 
 ## Acceptance checks
 
@@ -348,7 +345,7 @@ Before recording:
 - live prompt 1 returns incident brief without backend-health framing
 - live prompt 2 surfaces live `UpgradeExecuted` evidence or a clear onchain evidence boundary
 - live prompt 3 distinguishes public proposal from onchain `ProposalCreated`
-- live prompt 4 creates or clearly describes the monitor and follow-up analysis
+- live prompt 4 creates the MultiBaas webhook-backed monitor and describes the follow-up analysis
 
 ## Video close
 

@@ -5,17 +5,17 @@ Goal: pass a live NanoClaw demo where the agent uses the prescriptive Arbitrum g
 ## What Needs To Happen
 
 1. The agent must use the Arbitrum governance incident MCP surface for the KelpDAO / rsETH frozen-ETH story: either `analyze_arbitrum_governance_incident` or a dedicated alias backed by the same service.
-2. Each demo prompt must map to the correct `focus` value:
+2. Each demo prompt must map to the correct typed tool path:
    - incident brief -> `brief`
    - emergency response verification -> `verify-freeze`
    - release proposal status -> `proposal-status`
-   - persistent monitor request -> `monitor`
+   - persistent monitor request -> `create_arbitrum_frozen_eth_release_monitor`
 3. The agent must call the mapped incident tool on every matching turn, even if a previous turn checked related event data.
 4. The answer must make the tool-backed query visible as a compact fenced `event_query` block: what event stream was checked, which decoded fields matter, and what filter or marker set was applied.
 5. The answer must separate public context from MultiBaas-returned event evidence.
 6. The answer must lead with the current verdict, then show decoded events and the next onchain signal.
 7. The release-proposal status beat must not set up or promise a monitor.
-8. The monitor answer must describe the exact event stream, agent-side filters, and follow-up analysis.
+8. The monitor answer must describe the exact event stream, agent-side filters, webhook path, and follow-up analysis.
 9. For live event-query turns, the agent should synthesize a final answer from the evidence packet rather than copying it wholesale. Do not use model-authored standalone progress acknowledgements in this demo path; visible progress should come from NanoClaw runtime behavior, not from a progress-only assistant reply.
 
 ## Host-Side Verification
@@ -111,8 +111,7 @@ pnpm run chat -- "Let me know when this release proposal actually reaches onchai
 
 Expected behavior:
 
-- calls `analyze_arbitrum_governance_incident` with `focus=monitor` or `get_arbitrum_frozen_eth_monitor_plan`
-- calls NanoClaw `schedule_task` before claiming the monitor is set
+- calls `create_arbitrum_frozen_eth_release_monitor` before claiming the monitor is active
 - describes the `ProposalCreated` monitor target on the Core Governor
 - uses agent-side filters for Kelp / rsETH / frozen ETH / `30,765` / `0x0000000000000000000000000000000000000DA0`
 - lists the follow-up analysis to run after trigger
@@ -128,7 +127,7 @@ A live pass means:
 - public incident context and live event evidence stay separate
 - the current onchain status is stated as a verdict, not buried
 - the proposal-status beat does not promise monitoring
-- the monitor beat creates the scheduled NanoClaw task, then clearly describes what is watched and what the agent will inspect next
+- the monitor beat creates the MultiBaas webhook-backed monitor, then clearly describes what is watched and what the agent will inspect next
 
 Fail the run if the agent:
 
@@ -138,3 +137,4 @@ Fail the run if the agent:
 - claims exploit reconstruction from executor or timelock events
 - gives a generic DAO-readiness answer instead of the incident brief
 - says it has set up a monitor before the user asks to be notified
+- uses recurring NanoClaw scheduling instead of the MultiBaas webhook-backed monitor path

@@ -359,7 +359,7 @@ export function parseArbitrumGovernanceIncidentFocus(value: string | undefined):
   );
 }
 
-function buildMonitorPlan(): IncidentMonitorPlan {
+export function buildArbitrumFrozenEthReleaseMonitorPlan(): IncidentMonitorPlan {
   const coreGovernor = targetById("core_governor");
   return {
     agentSideFilters: [...INCIDENT_MARKERS],
@@ -420,7 +420,7 @@ export async function analyzeArbitrumGovernanceIncident(
   }
 
   if (focus === "monitor") {
-    result.monitorPlan = buildMonitorPlan();
+    result.monitorPlan = buildArbitrumFrozenEthReleaseMonitorPlan();
   }
 
   return result;
@@ -454,7 +454,6 @@ function appendEventQueryBlock(lines: string[], entries: string[]): void {
 
 function appendProposalQuerySummary(lines: string[], proposalStatus: IncidentProposalStatus): void {
   appendEventQueryBlock(lines, [
-    "tool: analyze_arbitrum_governance_incident",
     "query: multibaas.eventQuery",
     `stream: ${formatQueryTarget(proposalStatus.queryTarget)} / ProposalCreated`,
     "order: newest first",
@@ -470,7 +469,6 @@ function appendControlQuerySummary(lines: string[]): void {
   const l2UpgradeExecutor = toQueryTarget(targetById("l2_upgrade_executor"));
 
   appendEventQueryBlock(lines, [
-    "tool: analyze_arbitrum_governance_incident",
     "query: multibaas.eventQuery",
     `stream: ${formatQueryTarget(l1UpgradeExecutor)} / UpgradeExecuted, TargetCallExecuted`,
     `stream: ${formatQueryTarget(l1Timelock)} / CallScheduled, CallExecuted, Cancelled`,
@@ -585,11 +583,9 @@ export function formatArbitrumGovernanceIncidentAnalysis(result: ArbitrumGoverna
   if (result.monitorPlan) {
     lines.push(
       "",
-      "Agent scheduling instruction",
-      "- If the user explicitly asked to be notified, alerted, watched, or monitored, call NanoClaw `schedule_task` after reading this packet and before the final user-facing acknowledgement.",
-      "- Suggested schedule: first run about five minutes from now using a naive local ISO timestamp with no `Z` suffix, then recurrence `0 */6 * * *` unless the user requested a different cadence.",
-      "- Scheduled task prompt: check the Arbitrum frozen-ETH release proposal status with `get_arbitrum_frozen_eth_proposal_status`; notify the user only if a matching Core Governor ProposalCreated event exists, then inspect proposal ID, proposer, targets, values, calldata, and description.",
-      "- Final answer must say the scheduled monitor is set only after `schedule_task` succeeds.",
+      "Agent monitor instruction",
+      "- If the user explicitly asked to be notified, alerted, watched, or monitored, create the MultiBaas-backed event monitor with `create_arbitrum_frozen_eth_release_monitor` before the final acknowledgement.",
+      "- The create-monitor tool registers the MultiBaas event webhook; after it succeeds, say the monitor is active.",
       "",
       "Monitor evidence",
       `- Network: ${result.monitorPlan.profileName} (${result.monitorPlan.network})`,
@@ -629,13 +625,12 @@ export function formatArbitrumGovernanceIncidentMonitorSetup(result: ArbitrumGov
     "Evidence packet: Arbitrum frozen-ETH release monitor",
     "",
     "Use this packet as source material. Do not copy it wholesale; synthesize the user-facing acknowledgement from the evidence below.",
-    "If the user asked to be notified, call NanoClaw `schedule_task` after reading this packet and before the final acknowledgement. Say the monitor is set only after `schedule_task` succeeds.",
+    "If the user asked to be notified, create the MultiBaas-backed event monitor with `create_arbitrum_frozen_eth_release_monitor` before the final acknowledgement. After it succeeds, say the monitor is active.",
     "",
     status,
     "",
     "Status check before setting the monitor",
     "```event_query",
-    "tool: analyze_arbitrum_governance_incident",
     "query: multibaas.eventQuery",
     `stream: ${formatQueryTarget(result.monitorPlan)} / ProposalCreated`,
     "order: newest first",
@@ -653,8 +648,7 @@ export function formatArbitrumGovernanceIncidentMonitorSetup(result: ArbitrumGov
     `- Trigger rule: read ${result.monitorPlan.eventName} events, then apply agent-side text/address matching to the decoded proposal fields.`,
     `- Agent-side filters: ${filters}`,
     `- Follow-up after trigger: ${followUp}.`,
-    "- Suggested schedule: first run about five minutes from now using a naive local ISO timestamp with no `Z` suffix, then recurrence `0 */6 * * *` unless the user requested a different cadence.",
-    "- Scheduled task prompt: check the Arbitrum frozen-ETH release proposal status with `get_arbitrum_frozen_eth_proposal_status`; notify the user only if a matching Core Governor ProposalCreated event exists, then inspect proposal ID, proposer, targets, values, calldata, and description.",
+    "- Runtime path: MultiBaas event.emitted webhook wakes the local runtime; the runtime applies this monitor's event-name, contract-address, and incident-marker filters before notifying the agent.",
     "",
     "Follow-up analysis after trigger",
   ];

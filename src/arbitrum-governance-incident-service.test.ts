@@ -72,6 +72,7 @@ test("formatArbitrumGovernanceIncidentAnalysis renders proposal-status evidence 
 
   assert.match(text, /```event_query/i);
   assert.match(text, /query: multibaas\.eventQuery/i);
+  assert.doesNotMatch(text, /tool: analyze_arbitrum_governance_incident/i);
   assert.match(text, /fields: proposal metadata \+ execution payload \+ description/i);
   assert.match(text, /match: Kelp \| rsETH \| frozen ETH/i);
   assert.match(text, /Verdict: not onchain yet/i);
@@ -114,6 +115,7 @@ test("formatArbitrumGovernanceIncidentAnalysis renders control evidence", () => 
   const text = formatArbitrumGovernanceIncidentAnalysis(result);
 
   assert.match(text, /```event_query/i);
+  assert.doesNotMatch(text, /tool: analyze_arbitrum_governance_incident/i);
   assert.match(text, /stream: mainnet-remote.*L1 Upgrade Executor.*UpgradeExecuted, TargetCallExecuted/i);
   assert.match(text, /stream: arbitrum-one-remote.*L2 Core Timelock.*CallScheduled, CallExecuted, Cancelled/i);
   assert.match(text, /fields: target \+ value \+ calldata \+ operation id \+ delay \+ tx hash \+ timestamp/i);
@@ -161,11 +163,13 @@ test("formatArbitrumGovernanceIncidentMonitorSetup renders actionable monitor de
   assert.match(text, /Current verdict: no matching release ProposalCreated event found in 28 checked/i);
   assert.match(text, /```event_query/i);
   assert.match(text, /stream: arbitrum-one-remote.*Core Governor.*ProposalCreated/i);
+  assert.doesNotMatch(text, /tool: analyze_arbitrum_governance_incident/i);
   assert.match(text, /match: Kelp, rsETH, frozen ETH/i);
   assert.match(text, /User-facing acknowledgement/i);
-  assert.match(text, /call NanoClaw `schedule_task`/i);
-  assert.match(text, /naive local ISO timestamp with no `Z` suffix/i);
-  assert.match(text, /recurrence `0 \*\/6 \* \* \*`/i);
+  assert.match(text, /create_arbitrum_frozen_eth_release_monitor/i);
+  assert.match(text, /MultiBaas event\.emitted webhook wakes the local runtime/i);
+  assert.doesNotMatch(text, /call NanoClaw `schedule_task`/i);
+  assert.doesNotMatch(text, /recurrence `0 \*\/6 \* \* \*`/i);
   assert.match(text, /Network: arbitrum-one-remote \(Arbitrum One\)/i);
   assert.match(text, /Contract: Core Governor 0xf07DeD9dC292157749B6Fd268E37DF6EA38395B9/i);
   assert.match(text, /Event: ProposalCreated/i);

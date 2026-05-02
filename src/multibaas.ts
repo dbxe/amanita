@@ -1249,6 +1249,34 @@ export async function ensureEventWebhook(
   };
 }
 
+export async function findEventWebhook(
+  config: RuntimeConfig,
+  preferredLabel?: string,
+): Promise<{
+  id: number;
+  label: string;
+  subscriptions: string[];
+  url: string;
+} | undefined> {
+  const existingResponse = await requestAdminJson<{
+    result?: Array<{
+      id: number;
+      label: string;
+      subscriptions: string[];
+      url: string;
+    }>;
+  }>(config, "/webhooks");
+  const existing = existingResponse.result ?? [];
+  const eventWebhooks = existing.filter((webhook) =>
+    webhook.subscriptions.includes(EVENT_EMITTED_WEBHOOK_SUBSCRIPTION)
+  );
+
+  return (
+    (preferredLabel ? eventWebhooks.find((webhook) => webhook.label === preferredLabel) : undefined)
+    ?? eventWebhooks[0]
+  );
+}
+
 export function createSignature(body: Buffer, timestamp: string, secret: string): string {
   const mac = crypto.createHmac("sha256", secret);
   mac.update(body);
