@@ -447,6 +447,38 @@ function formatQueryTarget(target: IncidentQueryTarget): string {
   return `${target.profileName} (${target.network}) | ${target.targetLabel} ${target.targetAddress}`;
 }
 
+function appendEventQueryBlock(lines: string[], entries: string[]): void {
+  lines.push("", "Tool check", "```event_query", ...entries, "```");
+}
+
+function appendProposalQuerySummary(lines: string[], proposalStatus: IncidentProposalStatus): void {
+  appendEventQueryBlock(lines, [
+    "tool: analyze_arbitrum_governance_incident",
+    "query: multibaas.eventQuery",
+    `stream: ${formatQueryTarget(proposalStatus.queryTarget)} / ProposalCreated`,
+    "order: newest first",
+    "decoded_fields: proposalId, proposer, targets, values, calldatas, description",
+    `match: ${INCIDENT_MARKERS.join(" | ")}`,
+  ]);
+}
+
+function appendControlQuerySummary(lines: string[]): void {
+  const l1UpgradeExecutor = toQueryTarget(targetById("l1_upgrade_executor"));
+  const l1Timelock = toQueryTarget(targetById("l1_timelock"));
+  const l2CoreTimelock = toQueryTarget(targetById("l2_core_timelock"));
+  const l2UpgradeExecutor = toQueryTarget(targetById("l2_upgrade_executor"));
+
+  appendEventQueryBlock(lines, [
+    "tool: analyze_arbitrum_governance_incident",
+    "query: multibaas.eventQuery",
+    `stream: ${formatQueryTarget(l1UpgradeExecutor)} / UpgradeExecuted, TargetCallExecuted`,
+    `stream: ${formatQueryTarget(l1Timelock)} / CallScheduled, CallExecuted, Cancelled`,
+    `stream: ${formatQueryTarget(l2CoreTimelock)} / CallScheduled, CallExecuted, Cancelled`,
+    `stream: ${formatQueryTarget(l2UpgradeExecutor)} / UpgradeExecuted, TargetCallExecuted`,
+    "decoded_fields: target, value, data, operation_id, delay, tx_hash, triggered_at",
+  ]);
+}
+
 function formatControlEvent(event: IncidentControlEvent): string {
   const target = event.target
     ? `${event.target}${event.targetLabel ? ` (${event.targetLabel})` : ""}`
@@ -506,6 +538,7 @@ export function formatArbitrumGovernanceIncidentAnalysis(result: ArbitrumGoverna
   }
 
   if (result.proposalStatus) {
+    appendProposalQuerySummary(lines, result.proposalStatus);
     lines.push(
       "",
       "Core Governor proposal status",
@@ -533,6 +566,7 @@ export function formatArbitrumGovernanceIncidentAnalysis(result: ArbitrumGoverna
   }
 
   if (result.focus === "verify-freeze") {
+    appendControlQuerySummary(lines);
     lines.push(
       "",
       "What the live event data verifies",
@@ -587,6 +621,16 @@ export function formatArbitrumGovernanceIncidentMonitorSetup(result: ArbitrumGov
     "Arbitrum frozen-ETH release monitor",
     "",
     status,
+    "",
+    "Status check before setting the monitor",
+    "```event_query",
+    "tool: analyze_arbitrum_governance_incident",
+    "query: multibaas.eventQuery",
+    `stream: ${formatQueryTarget(result.monitorPlan)} / ProposalCreated`,
+    "order: newest first",
+    "decoded_fields: proposalId, proposer, targets, values, calldatas, description",
+    `match: ${filters}`,
+    "```",
     "",
     "User-facing acknowledgement",
     `I will watch ${result.monitorPlan.profileName} (${result.monitorPlan.network}) on ${result.monitorPlan.targetLabel} ${result.monitorPlan.targetAddress} for ${result.monitorPlan.eventName}. I will match decoded proposal fields against: ${filters}. After a match, I will ${followUp}.`,

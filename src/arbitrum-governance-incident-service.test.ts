@@ -70,6 +70,10 @@ test("formatArbitrumGovernanceIncidentAnalysis renders proposal-status evidence 
 
   const text = formatArbitrumGovernanceIncidentAnalysis(result);
 
+  assert.match(text, /```event_query/i);
+  assert.match(text, /query: multibaas\.eventQuery/i);
+  assert.match(text, /decoded_fields: proposalId, proposer, targets, values, calldatas, description/i);
+  assert.match(text, /match: Kelp \| rsETH \| frozen ETH/i);
   assert.match(text, /Verdict: not onchain yet/i);
   assert.match(text, /Checked: 28 indexed ProposalCreated event/i);
   assert.match(text, /Next binding signal: ProposalCreated/i);
@@ -109,6 +113,10 @@ test("formatArbitrumGovernanceIncidentAnalysis renders control evidence", () => 
 
   const text = formatArbitrumGovernanceIncidentAnalysis(result);
 
+  assert.match(text, /```event_query/i);
+  assert.match(text, /stream: mainnet-remote.*L1 Upgrade Executor.*UpgradeExecuted, TargetCallExecuted/i);
+  assert.match(text, /stream: arbitrum-one-remote.*L2 Core Timelock.*CallScheduled, CallExecuted, Cancelled/i);
+  assert.match(text, /decoded_fields: target, value, data, operation_id, delay, tx_hash, triggered_at/i);
   assert.match(text, /Primary emergency-response evidence: L1 Upgrade Executor/i);
   assert.match(text, /UpgradeExecuted/i);
   assert.match(text, /selector=0x0a2e5a5b/i);
@@ -151,6 +159,9 @@ test("formatArbitrumGovernanceIncidentMonitorSetup renders actionable monitor de
   const text = formatArbitrumGovernanceIncidentMonitorSetup(result);
 
   assert.match(text, /Current verdict: no matching release ProposalCreated event found in 28 checked/i);
+  assert.match(text, /```event_query/i);
+  assert.match(text, /stream: arbitrum-one-remote.*Core Governor.*ProposalCreated/i);
+  assert.match(text, /match: Kelp, rsETH, frozen ETH/i);
   assert.match(text, /User-facing acknowledgement/i);
   assert.match(text, /Network: arbitrum-one-remote \(Arbitrum One\)/i);
   assert.match(text, /Contract: Core Governor 0xf07DeD9dC292157749B6Fd268E37DF6EA38395B9/i);

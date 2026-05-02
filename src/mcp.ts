@@ -113,7 +113,7 @@ server.tool(
 
 server.tool(
   "analyze_arbitrum_governance_incident",
-  "Use this for the KelpDAO / rsETH frozen-ETH Arbitrum governance incident demo. It returns the incident brief, decoded live event evidence, proposal-status verdict, or monitor plan without requiring the agent to author raw event-query JSON.",
+  "Use this for the KelpDAO / rsETH frozen-ETH Arbitrum governance incident demo. It returns the incident brief, decoded live event evidence, proposal-status verdict, or monitor plan without requiring the agent to author raw event-query JSON. In the final answer, preserve the compact fenced event_query block so the tool-backed query is visibly cited process, not generic prose.",
   {
     focus: z.enum(ARBITRUM_GOVERNANCE_INCIDENT_FOCUS_VALUES).optional(),
     limit: z.number().int().min(1).max(20).optional(),
@@ -123,7 +123,7 @@ server.tool(
 
 server.tool(
   "get_arbitrum_frozen_eth_governance_brief",
-  "Mandatory for opening demo prompts like: Arbitrum froze funds from the KelpDAO exploit; give me the onchain governance brief, what contracts to inspect, and what can happen next. Returns the live MultiBaas-backed brief.",
+  "Mandatory for opening demo prompts like: Arbitrum froze funds from the KelpDAO exploit; give me the onchain governance brief, what contracts to inspect, and what can happen next. Returns the live MultiBaas-backed brief and the Core Governor ProposalCreated query that was checked. Preserve the fenced event_query block in the final answer.",
   {
     limit: z.number().int().min(1).max(20).optional(),
   },
@@ -131,8 +131,26 @@ server.tool(
 );
 
 server.tool(
+  "verify_arbitrum_frozen_eth_emergency_response",
+  "Mandatory for demo prompts asking whether the emergency governance response can be verified from live event data. This runs the decoded MultiBaas event queries for the L1/L2 timelocks and upgrade executors and returns what those queries verify. The final answer should preserve the fenced event_query block and the boundary that this verifies governance-control activity, not full exploit reconstruction.",
+  {
+    limit: z.number().int().min(1).max(20).optional(),
+  },
+  async ({ limit }) => arbitrumGovernanceIncidentToolContent({ focus: "verify-freeze", limit }),
+);
+
+server.tool(
+  "get_arbitrum_frozen_eth_proposal_status",
+  "Mandatory for status-only demo prompts like: has the frozen-ETH release proposal reached onchain governance yet? This checks the Arbitrum One Core Governor ProposalCreated stream for Kelp / rsETH / frozen-ETH markers. Preserve the fenced event_query block in the final answer. Do not use this tool response to set up, promise, or imply a monitor unless the user explicitly asks to be notified, alerted, or watched.",
+  {
+    limit: z.number().int().min(1).max(20).optional(),
+  },
+  async ({ limit }) => arbitrumGovernanceIncidentToolContent({ focus: "proposal-status", limit }),
+);
+
+server.tool(
   "get_arbitrum_frozen_eth_monitor_plan",
-  "Mandatory for demo prompts like: let me know when the frozen-ETH release proposal reaches onchain governance. Returns a user-facing acknowledgement plus the actionable Core Governor ProposalCreated monitor target, filters, current verdict, and follow-up analysis. The final response must include those details, not only a one-sentence acknowledgement.",
+  "Mandatory only for explicit monitor requests like: let me know, notify me, alert me, watch for, or monitor when the frozen-ETH release proposal reaches onchain governance. Do not call this for status-only questions such as has it reached onchain governance yet. Returns a user-facing acknowledgement plus the actionable Core Governor ProposalCreated monitor target, filters, current verdict, and follow-up analysis. Preserve the fenced event_query block in the final answer and include the monitor details, not only a one-sentence acknowledgement.",
   {
     limit: z.number().int().min(1).max(20).optional(),
   },

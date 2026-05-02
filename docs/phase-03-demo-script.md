@@ -10,9 +10,11 @@ Goal: pass a live NanoClaw demo where the agent uses the prescriptive Arbitrum g
    - emergency response verification -> `verify-freeze`
    - release proposal status -> `proposal-status`
    - persistent monitor request -> `monitor`
-3. The answer must separate public context from MultiBaas-returned event evidence.
-4. The answer must lead with the current verdict, then show decoded events and the next onchain signal.
-5. The monitor answer must describe the exact event stream, agent-side filters, and follow-up analysis.
+3. The answer must make the tool-backed query visible as a compact fenced `event_query` block: what event stream was checked, which decoded fields matter, and what filter or marker set was applied.
+4. The answer must separate public context from MultiBaas-returned event evidence.
+5. The answer must lead with the current verdict, then show decoded events and the next onchain signal.
+6. The release-proposal status beat must not set up or promise a monitor.
+7. The monitor answer must describe the exact event stream, agent-side filters, and follow-up analysis.
 
 ## Host-Side Verification
 
@@ -65,6 +67,7 @@ pnpm run chat -- "Arbitrum froze funds from the KelpDAO exploit. Give me the onc
 Expected behavior:
 
 - calls `analyze_arbitrum_governance_incident` with `focus=brief`, or `get_arbitrum_frozen_eth_governance_brief`
+- includes an `event_query` block showing the Core Governor `ProposalCreated` stream and decoded marker fields
 - gives public context, control path, and next binding signal
 - avoids backend-health framing unless something blocks the answer
 
@@ -77,7 +80,8 @@ pnpm run chat -- "Can you verify the emergency governance response from live eve
 
 Expected behavior:
 
-- calls `analyze_arbitrum_governance_incident` with `focus=verify-freeze`
+- calls `analyze_arbitrum_governance_incident` with `focus=verify-freeze`, or `verify_arbitrum_frozen_eth_emergency_response`
+- includes an `event_query` block showing the L1/L2 timelock and upgrade-executor event streams
 - surfaces decoded `UpgradeExecuted(address,uint256,bytes)` evidence from `mainnet-remote`
 - states that this verifies control-plane activity, not the full exploit
 
@@ -90,10 +94,11 @@ pnpm run chat -- "Has the frozen-ETH release proposal reached onchain governance
 
 Expected behavior:
 
-- calls `analyze_arbitrum_governance_incident` with `focus=proposal-status`
+- calls `analyze_arbitrum_governance_incident` with `focus=proposal-status`, or `get_arbitrum_frozen_eth_proposal_status`
 - checks Arbitrum One Core Governor `ProposalCreated`
 - distinguishes public/forum proposal context from onchain `ProposalCreated`
 - names `ProposalCreated` as the next binding signal if no match exists
+- does not mention that a monitor has been set up
 
 ### Beat 4: Persistent Monitor Payoff
 
@@ -114,9 +119,11 @@ Expected behavior:
 A live pass means:
 
 - the agent calls the intended MCP tool for all four beats
+- the agent includes a compact fenced `event_query` block for the live query it ran instead of making the answer feel like an ungrounded script
 - the output is event-backed and concise
 - public incident context and live event evidence stay separate
 - the current onchain status is stated as a verdict, not buried
+- the proposal-status beat does not promise monitoring
 - the monitor beat clearly describes what is watched and what the agent will inspect next
 
 Fail the run if the agent:
@@ -126,3 +133,4 @@ Fail the run if the agent:
 - treats a public proposal as binding onchain evidence
 - claims exploit reconstruction from executor or timelock events
 - gives a generic DAO-readiness answer instead of the incident brief
+- says it has set up a monitor before the user asks to be notified

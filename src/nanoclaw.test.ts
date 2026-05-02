@@ -27,7 +27,10 @@ test("containerInstructions steer NanoClaw away from saved queries for ERC-20 ho
   assert.match(instructions, /frozen-funds incident brief.*focus `brief`/i);
   assert.match(instructions, /emergency governance response.*live event data.*focus `verify-freeze`/i);
   assert.match(instructions, /release proposal has reached onchain governance.*focus `proposal-status`/i);
+  assert.match(instructions, /proposal-status questions.*answer only the current onchain status/i);
+  assert.match(instructions, /Do not set up, promise, imply, or mention a monitor/i);
   assert.match(instructions, /notified when the release proposal reaches onchain governance.*focus `monitor`/i);
+  assert.match(instructions, /fenced `event_query` block.*cited process/i);
   assert.match(instructions, /lead with the verdict.*decoded event evidence.*next onchain signal/i);
   assert.match(instructions, /names a specific non-default chain.*inspect_targets_across_backends/i);
   assert.match(instructions, /mentions both Ethereum and Arbitrum.*inspect_targets_across_backends/i);
