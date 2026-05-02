@@ -1,4 +1,10 @@
 export {
+  ARBITRUM_DAO_FOCUS_VALUES,
+  formatArbitrumDaoInspection,
+  inspectArbitrumDao,
+  parseArbitrumDaoFocus,
+} from "./arbitrum-dao-service.js";
+export {
   ensureContractInterfaceLink,
   formatContractInterfaceInspection,
   formatPreloadedInterfaceStatuses,

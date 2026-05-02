@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 
+import { ARBITRUM_DAO_FOCUS_VALUES, formatArbitrumDaoInspection, inspectArbitrumDao } from "./arbitrum-dao-service.js";
 import {
   ensureContractInterfaceLink,
   formatContractInterfaceInspection,
@@ -57,6 +58,19 @@ server.tool("list_configured_backends", {}, async () => ({
     text: formatConfiguredBackends(listConfiguredBackends()),
   }],
 }));
+
+server.tool(
+  "inspect_arbitrum_dao",
+  {
+    focus: z.enum(ARBITRUM_DAO_FOCUS_VALUES).optional(),
+  },
+  async ({ focus }) => ({
+    content: [{
+      type: "text",
+      text: formatArbitrumDaoInspection(await inspectArbitrumDao(focus)),
+    }],
+  }),
+);
 
 server.tool(
   "inspect_targets_across_backends",

@@ -1,3 +1,4 @@
+import { ARBITRUM_DAO_FOCUS_VALUES, formatArbitrumDaoInspection, inspectArbitrumDao, parseArbitrumDaoFocus } from "./arbitrum-dao-service.js";
 import {
   formatContractAddressInvestigationResult,
   formatContractLookupResult,
@@ -64,6 +65,7 @@ Usage:
   npm run dev -- query event-capabilities [--contract 0x... | --token <name>]
   npm run dev -- query event-investigation --lead <lead-id> [--contract 0x... | --token <name>] [--limit 10]
   npm run dev -- query investigate [--contract 0x... | --token <name>] [--limit 5]
+  npm run dev -- query arbitrum-dao [--focus ${ARBITRUM_DAO_FOCUS_VALUES.join("|")}]
   npm run dev -- query multichain-inspect --targets mainnet-remote:0x...,arbitrum-one-remote:0x...
   npm run dev -- backend list
   npm run dev -- contract list-interfaces
@@ -242,6 +244,11 @@ async function handleQuery(args: string[]): Promise<void> {
         }),
       ),
     );
+    return;
+  }
+
+  if (subcommand === "arbitrum-dao") {
+    console.log(formatArbitrumDaoInspection(await inspectArbitrumDao(parseArbitrumDaoFocus(readFlag(args, "--focus")))));
     return;
   }
 
