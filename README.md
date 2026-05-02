@@ -215,6 +215,27 @@ npm run dev -- query multichain-inspect --targets mainnet-remote:0xE6841D92B0C34
 npm run mcp
 ```
 
+Representative tools:
+
+- `get_runtime_status`
+- `list_preloaded_interfaces`
+- `inspect_contract_interfaces`
+- `ensure_contract_interface`
+- `resolve_contract_target`
+- `analyze_arbitrum_governance_incident`
+- `inspect_event_capabilities`
+- `run_event_investigation`
+- `get_token_control_events`
+- `investigate_token`
+- `get_top_holders`
+- `get_holder_concentration`
+- `get_address_balance`
+- `create_balance_watch`
+- `list_balance_watches`
+- `evaluate_tasks`
+- `ensure_event_webhook`
+- `create_arbitrum_frozen_eth_release_monitor`
+
 NanoClaw mounts the built MCP entrypoint at:
 
 ```text

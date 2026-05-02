@@ -186,6 +186,20 @@ function formatHolderQueryTarget(result: TopHoldersResult, config: RuntimeConfig
   return `${config.profileName} (${network}) | ${label} / Transfer`;
 }
 
+function resolveFormattingConfig(): RuntimeConfig {
+  try {
+    return resolveConfig();
+  } catch {
+    return {
+      baseUrl: "unconfigured",
+      networkName: "unknown",
+      profileName: "unconfigured",
+      scanLimit: 1000,
+      stateDir: ".agent-state",
+    };
+  }
+}
+
 function formatTokenLabel(label: string | undefined): string {
   if (!label) {
     return "ERC-20";
@@ -245,7 +259,7 @@ export function formatTopHoldersEvidence(
     statusReason?: string;
   } = {},
 ): string {
-  const config = resolveConfig();
+  const config = resolveFormattingConfig();
   const status = options.status ?? "ready";
   const lines = [
     status === "partial"

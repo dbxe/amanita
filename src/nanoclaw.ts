@@ -72,6 +72,7 @@ function mountPathFor(containerPath: string): string {
 export function containerInstructions(): string {
   return [
     "Use this MCP server for MultiBaas event-query and watch tasks.",
+    "- Use `get_runtime_status` when the user asks what runtime version, commit, deployment, or build is currently running.",
     "- Prefer typed capability tools over any workflow-specific or prompt-matched fallback behavior.",
     "- This judge-facing NanoClaw session requires explicit user confirmation before mutating MultiBaas setup. For contract ABI import/linking, raw contract holder onboarding, or arbitrary webhook registration, first call the relevant tool without confirmation. If the tool says confirmation is required, explain the sync/configuration impact and ask the user to confirm. Only call the tool again with `confirmed: true` after the tool requested confirmation and the user gave an explicit yes in a later message. Do not treat the user's initial imperative request as confirmation.",
     "- Mandatory routing: if the user mentions KelpDAO, rsETH, frozen ETH, frozen funds, the 30,765 ETH freeze, the 0x0000000000000000000000000000000000000DA0 address, or the Arbitrum release proposal, call the Arbitrum governance incident tool surface before answering. Prefer the capability-shaped tools `summarize_governance_incident`, `verify_governance_control_activity`, `check_governance_proposal_status`, and `monitor_governance_proposal`; use `analyze_arbitrum_governance_incident` only when no narrower capability fits. Do not answer those prompts from memory.",
@@ -271,6 +272,16 @@ function ensureAllowlist(repoDir: string): string {
   return allowlistPath;
 }
 
+function readDeployCommit(repoDir: string): string | undefined {
+  const commitPath = path.join(repoDir, ".deploy-commit");
+  if (!fs.existsSync(commitPath)) {
+    return undefined;
+  }
+
+  const commit = fs.readFileSync(commitPath, "utf8").trim();
+  return commit || undefined;
+}
+
 export function configureNanoClawGroup(options: ConfigureNanoClawOptions): ConfigureNanoClawResult {
   const repoDir = fs.realpathSync(options.repoDir ?? process.cwd());
   const config = resolveConfig();
@@ -305,6 +316,8 @@ export function configureNanoClawGroup(options: ConfigureNanoClawOptions): Confi
   if (webhookPublicUrl) {
     runtimeEnv.MULTIBAAS_WEBHOOK_PUBLIC_URL = webhookPublicUrl;
   }
+  runtimeEnv.MULTIBAAS_RUNTIME_COMMIT = process.env.MULTIBAAS_RUNTIME_COMMIT ?? readDeployCommit(repoDir) ?? "unknown";
+  runtimeEnv.MULTIBAAS_RUNTIME_DEPLOYED_AT = process.env.MULTIBAAS_RUNTIME_DEPLOYED_AT ?? new Date().toISOString();
 
   containerConfig.mcpServers[SERVER_NAME] = {
     command: "node",

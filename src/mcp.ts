@@ -41,6 +41,7 @@ import { formatTokenInvestigation, investigateToken } from "./investigation-serv
 import { formatMutationConfirmationRequired, isMutationConfirmationRequired } from "./mcp-safety.js";
 import { formatConfiguredBackends, formatMultichainInspection, inspectTargetsAcrossBackends } from "./multichain-service.js";
 import { getAddressBalanceForTokenTarget, getHolderConcentrationForTokenTarget } from "./query-service.js";
+import { getRuntimeStatus } from "./runtime-status.js";
 import {
   getErc20Metadata,
   resolveContractReadiness,
@@ -98,6 +99,13 @@ async function arbitrumGovernanceIncidentMonitorToolContent(input: { limit?: num
     }],
   };
 }
+
+server.tool("get_runtime_status", {}, async () => ({
+  content: [{
+    type: "text",
+    text: JSON.stringify(getRuntimeStatus(), null, 2),
+  }],
+}));
 
 server.tool("list_preloaded_interfaces", {}, async () => ({
   content: [{

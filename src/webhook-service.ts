@@ -2,7 +2,7 @@ import http from "node:http";
 
 import type { NanoClawNotificationTarget } from "./nanoclaw-host.js";
 import { sendNanoClawNotification } from "./nanoclaw-host.js";
-import { resolveConfig } from "./config.js";
+import { listConfiguredBackends, resolveConfig } from "./config.js";
 import { evaluateEventMonitors, formatEventMonitorAlerts } from "./event-monitor-service.js";
 import { ensureEventWebhook, verifyWebhookSignature } from "./multibaas.js";
 import { loadState, saveState, type LocalState } from "./state.js";
@@ -37,6 +37,37 @@ export interface WebhookServerOptions {
   secret?: string;
 }
 
+function configuredWebhookSecrets(primaryState: LocalState, explicitSecret?: string): string[] {
+  const secrets = new Set<string>();
+  if (explicitSecret) {
+    secrets.add(explicitSecret);
+  }
+  if (primaryState.webhook?.secret) {
+    secrets.add(primaryState.webhook.secret);
+  }
+  if (process.env.MULTIBAAS_WEBHOOK_SECRET) {
+    secrets.add(process.env.MULTIBAAS_WEBHOOK_SECRET);
+  }
+  for (const value of (process.env.MULTIBAAS_WEBHOOK_SECRETS ?? "").split(",")) {
+    const trimmed = value.trim();
+    if (trimmed) {
+      secrets.add(trimmed);
+    }
+  }
+
+  for (const backend of listConfiguredBackends()) {
+    try {
+      const state = loadState(backend.stateDir);
+      if (state.webhook?.secret) {
+        secrets.add(state.webhook.secret);
+      }
+    } catch {
+      // Ignore unreadable optional profile state; explicit/default secrets still apply.
+    }
+  }
+
+  return [...secrets];
+}
 export async function ensureBalanceWebhook(url: string, label = DEFAULT_WEBHOOK_LABEL): Promise<WebhookEnsureResult> {
   const config = resolveConfig();
   const state = loadState(config.stateDir);
@@ -61,9 +92,9 @@ export async function ensureBalanceWebhook(url: string, label = DEFAULT_WEBHOOK_
 export async function startWebhookServer(options: WebhookServerOptions): Promise<http.Server> {
   const config = resolveConfig();
   const state = loadState(config.stateDir);
-  const secret = options.secret ?? state.webhook?.secret ?? process.env.MULTIBAAS_WEBHOOK_SECRET;
+  const secrets = configuredWebhookSecrets(state, options.secret);
 
-  if (!secret) {
+  if (secrets.length === 0) {
     throw new Error(
       "Missing webhook secret. Run `npm run dev -- webhook ensure --url ...` first, or pass --secret / MULTIBAAS_WEBHOOK_SECRET.",
     );
@@ -88,7 +119,7 @@ export async function startWebhookServer(options: WebhookServerOptions): Promise
     const timestampValue = Array.isArray(timestamp) ? timestamp[0] : timestamp;
     const signatureValue = Array.isArray(signature) ? signature[0] : signature;
 
-    if (!verifyWebhookSignature(body, timestampValue, signatureValue, secret)) {
+    if (!secrets.some((secret) => verifyWebhookSignature(body, timestampValue, signatureValue, secret))) {
       response.writeHead(401, { "Content-Type": "application/json" });
       response.end(JSON.stringify({ error: "Invalid signature" }));
       return;

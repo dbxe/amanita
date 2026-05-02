@@ -53,7 +53,7 @@ function readBackendProfileConfig(): BackendProfileConfig {
     return JSON.parse(envJson) as BackendProfileConfig;
   }
 
-  const configPath = path.resolve(process.cwd(), ".multibaas", "backends.local.json");
+  const configPath = path.resolve(process.cwd(), process.env.MULTIBAAS_BACKENDS_FILE ?? ".multibaas/backends.local.json");
   if (!fs.existsSync(configPath)) {
     return {};
   }
