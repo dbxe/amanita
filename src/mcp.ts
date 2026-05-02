@@ -4,6 +4,11 @@ import { z } from "zod";
 
 import { ARBITRUM_DAO_FOCUS_VALUES, formatArbitrumDaoInspection, inspectArbitrumDao } from "./arbitrum-dao-service.js";
 import {
+  ARBITRUM_GOVERNANCE_INCIDENT_FOCUS_VALUES,
+  analyzeArbitrumGovernanceIncident,
+  formatArbitrumGovernanceIncidentAnalysis,
+} from "./arbitrum-governance-incident-service.js";
+import {
   ensureContractInterfaceLink,
   formatContractInterfaceInspection,
   formatPreloadedInterfaceStatuses,
@@ -68,6 +73,25 @@ server.tool(
     content: [{
       type: "text",
       text: formatArbitrumDaoInspection(await inspectArbitrumDao(focus)),
+    }],
+  }),
+);
+
+server.tool(
+  "analyze_arbitrum_governance_incident",
+  {
+    focus: z.enum(ARBITRUM_GOVERNANCE_INCIDENT_FOCUS_VALUES).optional(),
+    limit: z.number().int().min(1).max(20).optional(),
+  },
+  async ({ focus, limit }) => ({
+    content: [{
+      type: "text",
+      text: formatArbitrumGovernanceIncidentAnalysis(
+        await analyzeArbitrumGovernanceIncident({
+          focus,
+          limit,
+        }),
+      ),
     }],
   }),
 );

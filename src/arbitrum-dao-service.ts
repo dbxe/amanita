@@ -135,6 +135,10 @@ const SUPPLEMENTAL_TARGETS = [
   },
 ] as const;
 
+export function getArbitrumDaoActiveTargets(): readonly ArbitrumDaoTargetDefinition[] {
+  return ACTIVE_TARGETS;
+}
+
 export function parseArbitrumDaoFocus(value: string | undefined): ArbitrumDaoFocus {
   if (!value) {
     return "overview";

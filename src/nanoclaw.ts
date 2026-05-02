@@ -75,6 +75,7 @@ export function containerInstructions(): string {
     "- Use `list_configured_backends` when you need to understand which MultiBaas deployments are available to you.",
     "- Use `inspect_targets_across_backends` when the user asks for multichain context, bridge-side comparison, or the status of explicit contracts across more than one configured backend.",
     "- For broad Arbitrum DAO questions, use `inspect_arbitrum_dao` first. It already knows the bounded target set, the current sync posture, and which DAO questions are grounded now versus still premature.",
+    "- For the KelpDAO / rsETH frozen-ETH governance incident demo, use `analyze_arbitrum_governance_incident` rather than composing raw event-query JSON yourself.",
     "- If the user names a specific non-default chain, or names a multichain entity like Arbitrum DAO while asking about a raw address, do not default to a single-backend address investigation. Use `inspect_targets_across_backends` against the relevant backend profiles first.",
     "- If the user mentions both Ethereum and Arbitrum, or asks for governance health across those chains, start with `inspect_targets_across_backends` or `list_configured_backends` before any single-backend tool.",
     "- For broad Arbitrum DAO or cross-chain governance questions, start from the configured backend set and the explicit contract targets you can already inspect. Do not invent or guess additional addresses just to make the story feel complete.",

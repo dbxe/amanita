@@ -206,6 +206,178 @@ export function buildTokenControlTimelineEventViewSpec(target: ContractTargetRef
   };
 }
 
+function commonTimelineSelect(): EventViewFieldSpec[] {
+  return [
+    { alias: "contract_address", fieldType: "contract_address" },
+    { alias: "contract_label", fieldType: "contract_label" },
+    { alias: "event_signature", fieldType: "event_signature" },
+    { alias: "block_number", fieldType: "block_number" },
+    { alias: "triggered_at", fieldType: "triggered_at" },
+    { alias: "tx_hash", fieldType: "tx_hash" },
+  ];
+}
+
+export function buildArbitrumGovernorProposalCreatedEventViewSpec(target: ContractTargetReference): EventViewSpec {
+  const filter = [contractTargetFilter(target)];
+  return {
+    events: [
+      {
+        eventName: "ProposalCreated",
+        filter,
+        select: [
+          ...commonTimelineSelect(),
+          { alias: "proposal_id", fieldType: "input", inputIndex: 0, name: "proposalId" },
+          { alias: "proposer", fieldType: "input", inputIndex: 1, name: "proposer" },
+          { alias: "targets", fieldType: "input", inputIndex: 2, name: "targets" },
+          { alias: "values", fieldType: "input", inputIndex: 3, name: "values" },
+          { alias: "signatures", fieldType: "input", inputIndex: 4, name: "signatures" },
+          { alias: "calldatas", fieldType: "input", inputIndex: 5, name: "calldatas" },
+          { alias: "vote_start", fieldType: "input", inputIndex: 6, name: "voteStart" },
+          { alias: "vote_end", fieldType: "input", inputIndex: 7, name: "voteEnd" },
+          { alias: "description", fieldType: "input", inputIndex: 8, name: "description" },
+        ],
+      },
+    ],
+    order: "DESC",
+    orderBy: "triggered_at",
+  };
+}
+
+export function buildArbitrumGovernorLifecycleEventViewSpec(target: ContractTargetReference): EventViewSpec {
+  const filter = [contractTargetFilter(target)];
+  return {
+    events: [
+      {
+        eventName: "ProposalQueued",
+        filter,
+        select: [
+          ...commonTimelineSelect(),
+          { alias: "proposal_id", fieldType: "input", inputIndex: 0, name: "proposalId" },
+          { alias: "eta", fieldType: "input", inputIndex: 1, name: "eta" },
+        ],
+      },
+      {
+        eventName: "ProposalExecuted",
+        filter,
+        select: [
+          ...commonTimelineSelect(),
+          { alias: "proposal_id", fieldType: "input", inputIndex: 0, name: "proposalId" },
+        ],
+      },
+      {
+        eventName: "ProposalCanceled",
+        filter,
+        select: [
+          ...commonTimelineSelect(),
+          { alias: "proposal_id", fieldType: "input", inputIndex: 0, name: "proposalId" },
+        ],
+      },
+    ],
+    order: "DESC",
+    orderBy: "triggered_at",
+  };
+}
+
+export function buildArbitrumGovernorVoteActivityEventViewSpec(target: ContractTargetReference): EventViewSpec {
+  const filter = [contractTargetFilter(target)];
+  const voteSelect: EventViewFieldSpec[] = [
+    ...commonTimelineSelect(),
+    { alias: "voter", fieldType: "input", inputIndex: 0, name: "voter" },
+    { alias: "proposal_id", fieldType: "input", inputIndex: 1, name: "proposalId" },
+    { alias: "support", fieldType: "input", inputIndex: 2, name: "support" },
+    { alias: "weight", fieldType: "input", inputIndex: 3, name: "weight" },
+    { alias: "reason", fieldType: "input", inputIndex: 4, name: "reason" },
+  ];
+
+  return {
+    events: [
+      {
+        eventName: "VoteCast",
+        filter,
+        select: voteSelect,
+      },
+      {
+        eventName: "VoteCastWithParams",
+        filter,
+        select: voteSelect,
+      },
+    ],
+    order: "DESC",
+    orderBy: "triggered_at",
+  };
+}
+
+export function buildArbitrumTimelockOperationEventViewSpec(target: ContractTargetReference): EventViewSpec {
+  const filter = [contractTargetFilter(target)];
+  return {
+    events: [
+      {
+        eventName: "CallScheduled",
+        filter,
+        select: [
+          ...commonTimelineSelect(),
+          { alias: "operation_id", fieldType: "input", inputIndex: 0, name: "id" },
+          { alias: "index", fieldType: "input", inputIndex: 1, name: "index" },
+          { alias: "target", fieldType: "input", inputIndex: 2, name: "target" },
+          { alias: "value", fieldType: "input", inputIndex: 3, name: "value" },
+          { alias: "data", fieldType: "input", inputIndex: 4, name: "data" },
+          { alias: "predecessor", fieldType: "input", inputIndex: 5, name: "predecessor" },
+          { alias: "delay", fieldType: "input", inputIndex: 6, name: "delay" },
+        ],
+      },
+      {
+        eventName: "CallExecuted",
+        filter,
+        select: [
+          ...commonTimelineSelect(),
+          { alias: "operation_id", fieldType: "input", inputIndex: 0, name: "id" },
+          { alias: "index", fieldType: "input", inputIndex: 1, name: "index" },
+          { alias: "target", fieldType: "input", inputIndex: 2, name: "target" },
+          { alias: "value", fieldType: "input", inputIndex: 3, name: "value" },
+          { alias: "data", fieldType: "input", inputIndex: 4, name: "data" },
+        ],
+      },
+      {
+        eventName: "Cancelled",
+        filter,
+        select: [
+          ...commonTimelineSelect(),
+          { alias: "operation_id", fieldType: "input", inputIndex: 0, name: "id" },
+        ],
+      },
+    ],
+    order: "DESC",
+    orderBy: "triggered_at",
+  };
+}
+
+export function buildArbitrumUpgradeExecutorActivityEventViewSpec(target: ContractTargetReference): EventViewSpec {
+  const filter = [contractTargetFilter(target)];
+  const select: EventViewFieldSpec[] = [
+    ...commonTimelineSelect(),
+    { alias: "target", fieldType: "input", inputIndex: 0, name: "target" },
+    { alias: "value", fieldType: "input", inputIndex: 1, name: "value" },
+    { alias: "data", fieldType: "input", inputIndex: 2, name: "data" },
+  ];
+
+  return {
+    events: [
+      {
+        eventName: "UpgradeExecuted",
+        filter,
+        select,
+      },
+      {
+        eventName: "TargetCallExecuted",
+        filter,
+        select,
+      },
+    ],
+    order: "DESC",
+    orderBy: "triggered_at",
+  };
+}
+
 export function buildStablecoinIssuerActivityEventViewSpec(target: ContractTargetReference): EventViewSpec {
   const filter = [contractTargetFilter(target)];
   const commonSelect: EventViewFieldSpec[] = [

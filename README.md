@@ -155,6 +155,7 @@ npm run dev -- query investigate --contract 0xd26fde38F244Dcbb13e8017347Ac37804d
 npm run dev -- query multichain-inspect --targets source@mainnet-remote:0xd26fde38F244Dcbb13e8017347Ac37804d926Bb5,destination@arbitrum-one-remote:0xd26fde38F244Dcbb13e8017347Ac37804d926Bb5
 npm run dev -- query event-capabilities --contract 0xd26fde38F244Dcbb13e8017347Ac37804d926Bb5
 npm run dev -- query event-investigation --contract 0xd26fde38F244Dcbb13e8017347Ac37804d926Bb5 --lead holder_distribution --limit 10
+npm run dev -- query arbitrum-governance-incident --focus proposal-status --limit 5
 ```
 
 Local watch state stays under `.agent-state/`.
@@ -294,6 +295,7 @@ Representative tools:
 - `inspect_contract_interfaces`
 - `ensure_contract_interface`
 - `resolve_contract_target`
+- `analyze_arbitrum_governance_incident`
 - `inspect_event_capabilities`
 - `run_event_investigation`
 - `get_token_control_events`

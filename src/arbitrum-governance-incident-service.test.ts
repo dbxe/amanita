@@ -1,0 +1,108 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+
+import {
+  bytesValueToHex,
+  calldataSelector,
+  formatArbitrumGovernanceIncidentAnalysis,
+  matchIncidentMarkers,
+  parseArbitrumGovernanceIncidentFocus,
+  type ArbitrumGovernanceIncidentAnalysis,
+} from "./arbitrum-governance-incident-service.js";
+
+test("parseArbitrumGovernanceIncidentFocus defaults and validates values", () => {
+  assert.equal(parseArbitrumGovernanceIncidentFocus(undefined), "brief");
+  assert.equal(parseArbitrumGovernanceIncidentFocus("proposal-status"), "proposal-status");
+  assert.throws(
+    () => parseArbitrumGovernanceIncidentFocus("bad-focus"),
+    /Unsupported Arbitrum governance incident focus/,
+  );
+});
+
+test("bytesValueToHex decodes MultiBaas byte result shapes", () => {
+  assert.equal(bytesValueToHex("sUf0DA=="), "0xb147f40c");
+  assert.equal(
+    bytesValueToHex("[92, 71, 77, 174, 67, 254, 23, 203, 167, 24, 131, 17, 131, 105, 75, 162, 43, 254, 218, 12, 21, 179, 8, 202, 212, 73, 46, 9, 33, 78, 136, 34]"),
+    "0x5c474dae43fe17cba718831183694ba22bfeda0c15b308cad4492e09214e8822",
+  );
+});
+
+test("calldataSelector extracts a compact selector", () => {
+  assert.equal(calldataSelector("0xb147f40c000000"), "0xb147f40c");
+  assert.equal(calldataSelector("0x1234"), undefined);
+  assert.equal(calldataSelector("0x000000000000"), undefined);
+});
+
+test("matchIncidentMarkers finds Kelp rsETH incident language", () => {
+  assert.deepEqual(
+    matchIncidentMarkers("Release the frozen ETH for KelpDAO rsETH recovery at 0x0000000000000000000000000000000000000DA0"),
+    ["Kelp", "rsETH", "frozen ETH", "0x0000000000000000000000000000000000000DA0"],
+  );
+});
+
+test("formatArbitrumGovernanceIncidentAnalysis renders proposal-status evidence boundary", () => {
+  const result: ArbitrumGovernanceIncidentAnalysis = {
+    evidenceBoundaries: ["Do not confuse public proposal context with onchain ProposalCreated evidence."],
+    focus: "proposal-status",
+    limit: 2,
+    proposalStatus: {
+      matches: [],
+      recent: [
+        {
+          matchedMarkers: [],
+          proposalId: "112177996398925212273579485756315626637025938627124330171390356044681347897430",
+          targetLabels: [],
+          title: "# [Constitutional] DVP Quorum & Proposal Cancellation",
+          triggeredAt: "2026-02-23 21:36:25+00",
+          txHash: "0x0e065032993b9a99a1a34bd4ac08ab5945b7058f26973c90c86c37bf4ef2295a",
+        },
+      ],
+      searchedCount: 28,
+    },
+  };
+
+  const text = formatArbitrumGovernanceIncidentAnalysis(result);
+
+  assert.match(text, /No matching Core Governor ProposalCreated event was found in 28 indexed proposal/i);
+  assert.match(text, /Next onchain signal to watch: ProposalCreated/i);
+  assert.match(text, /DVP Quorum & Proposal Cancellation/i);
+  assert.match(text, /Do not confuse public proposal context/i);
+});
+
+test("formatArbitrumGovernanceIncidentAnalysis renders control evidence", () => {
+  const result: ArbitrumGovernanceIncidentAnalysis = {
+    evidenceBoundaries: ["Decoded executor events verify control activity, not exploit reconstruction."],
+    focus: "verify-freeze",
+    l1TimelockOperations: [
+      {
+        calldataSelector: "0xb147f40c",
+        delaySeconds: "259200",
+        eventSignature: "CallScheduled(bytes32,uint256,address,uint256,bytes,bytes32,uint256)",
+        target: "0x3fffbadaf827559da092217e474760e2b2c3cedd",
+        targetLabel: "L1 Upgrade Executor",
+        triggeredAt: "2026-01-12 22:18:35+00",
+        txHash: "0xdce7",
+        valueEth: "0 ETH",
+      },
+    ],
+    l1UpgradeExecutorEvents: [
+      {
+        calldataSelector: "0x0a2e5a5b",
+        eventSignature: "UpgradeExecuted(address,uint256,bytes)",
+        target: "0x3d456fcd62f5babcf3263b72fb4ac8ff8cc5a322",
+        triggeredAt: "2026-04-21 03:26:47+00",
+        txHash: "0x0799",
+        valueEth: "0 ETH",
+      },
+    ],
+    limit: 1,
+  };
+
+  const text = formatArbitrumGovernanceIncidentAnalysis(result);
+
+  assert.match(text, /L1 Upgrade Executor evidence/i);
+  assert.match(text, /UpgradeExecuted/i);
+  assert.match(text, /selector=0x0a2e5a5b/i);
+  assert.match(text, /L1 Timelock context/i);
+  assert.match(text, /target=0x3fffbadaf827559da092217e474760e2b2c3cedd \(L1 Upgrade Executor\)/i);
+});
