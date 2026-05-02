@@ -1,26 +1,31 @@
 # NanoClaw live integration tests
 
-This runbook is the reusable registry for **live NanoClaw + amanita + MultiBaas** tests. Keep it concrete and executable: each test should say what to prepare, what prompt to send, what to verify, and what host-side capabilities the coding agent needs.
+This runbook tracks **live NanoClaw + amanita + MultiBaas** validation for the current DAO pivot.
 
-Run these tests **sequentially**. Do not overlap live NanoClaw chat requests.
+The tests are split into two categories on purpose:
 
-If you overlap CLI probes, NanoClaw can supersede the earlier client and the result is not trustworthy.
+1. **Operator / health checks**
+2. **DAO intelligence probes**
 
-## What a coding agent needs to be able to do
+That distinction matters. Operator prompts are build-stage tools for stabilizing the live path. They are not the finished product story. DAO intelligence probes are the emerging story and should be treated as exploratory while sync coverage and backend reliability are still evolving.
 
-For these tests to be useful, the coding agent needs host-side access to:
+Run live tests **sequentially**. Do not overlap NanoClaw chat requests.
+
+## Required host-side abilities
+
+For these tests to be meaningful, the coding agent needs host-side access to:
 
 1. rebuild this repo and rerun `nanoclaw configure`
-2. restart NanoClaw or stop the exact affected session container
-3. inspect MultiBaas state from the host using this repo's existing config surfaces
-4. inspect NanoClaw logs and session DB state when a live turn stalls or loops
-5. run Hardhat fixture scripts such as the unlinked ERC-20 deploy/mint flow
+2. run `nanoclaw preflight`
+3. run `nanoclaw reset-group` or stop the exact affected session container
+4. inspect MultiBaas state from the host with this repo's config surfaces
+5. inspect NanoClaw logs and session DB state when a run stalls or loops
 
-Those capabilities are required for live validation. They do **not** mean moving MultiBaas secrets into the NanoClaw container. For NanoClaw-backed auth, keep secrets in OneCLI as documented in `docs/nanoclaw.md`.
+Those abilities do not imply moving MultiBaas secrets into the container. Keep OneCLI as the NanoClaw auth path.
 
-## Standard preflight
+## Standard operator preflight
 
-Before any live NanoClaw retest:
+Before any live retest:
 
 ```bash
 cd ~/git/dbxe/amanita
@@ -33,547 +38,267 @@ npm run dev -- nanoclaw configure \
   --nanoclaw-dir ~/git/dbxe/nanoclaw \
   --group-folder dm-with-<name> \
   --write-allowlist
-SERVICE_LABEL=$(launchctl list | awk '/com\.nanoclaw-v2-/{print $3; exit}')
-launchctl kickstart -k "gui/$(id -u)/$SERVICE_LABEL"
+npm run dev -- nanoclaw preflight \
+  --nanoclaw-dir ~/git/dbxe/nanoclaw \
+  --group-folder cli-with-<name>
 ```
 
-If you need to clear a single stale live session instead of restarting all of NanoClaw:
+If the group is stale or poisoned:
+
+```bash
+cd ~/git/dbxe/amanita
+npm run dev -- nanoclaw reset-group \
+  --nanoclaw-dir ~/git/dbxe/nanoclaw \
+  --group-folder cli-with-<name>
+```
+
+If you only need to clear a single active live session:
 
 ```bash
 docker ps --format 'table {{.Names}}\t{{.Status}}'
 docker stop <exact-container-name>
 ```
 
-If the next message still resumes stale state, clear the exact session as well:
-
-```bash
-sqlite3 ~/git/dbxe/nanoclaw/data/v2.db \
-  "delete from pending_questions where session_id = '<session-id>';
-   delete from sessions where id = '<session-id>';"
-
-mv ~/git/dbxe/nanoclaw/data/v2-sessions/<agent-group-id>/<session-id> \
-   ~/git/dbxe/nanoclaw/data/v2-sessions/<agent-group-id>/<session-id>.bak-$(date +%Y%m%dT%H%M%S)
-```
-
-Use exact session cleanup when a restarted NanoClaw host still routes the next probe into preserved continuation or pending-question state.
-
-CLI success does **not** prove Discord or DM success. Those channels may resume an older session with preserved continuation or pending-question state, so rerun the exact affected channel before calling a live issue fixed.
+CLI success does **not** prove Discord or DM success. Those channels may resume older session state, so rerun the exact affected channel before calling a live issue fixed.
 
 ## How to judge a live pass
 
-Judge a live NanoClaw run by capability correctness, not exact wording.
-
-Prompts should be phrased like normal user requests. Do not bake internal tool names or implementation steps into the live prompt unless you are explicitly testing whether the agent can explain or expose those internals.
+Judge the run by capability correctness, not exact wording.
 
 A pass means:
 
-- the model used the mounted tool surface successfully
-- the answer is grounded in the right target and the right numbers
-- missing-target cases ask for the missing token target instead of guessing
-- onboarding/waiting cases surface an explicit waiting state instead of inventing success
+- the mounted tool surface was used successfully
+- the answer is grounded in the intended target and backend context
+- uncertainty from `needs-link` or `syncing` is preserved clearly
+- operator-health state is not confused with DAO-level conclusions
 
-Do not fail a run just because the phrasing changed. Do fail it if the answer:
+Fail the run if the answer:
 
-- invents values
-- cites external sources instead of the tool path
-- asks for a saved query name on an explicit contract-targeted request
-- only succeeds because the prompt told it exactly which internal tool to call
-- resumes stale session state and answers from the wrong context
+- invents values or identities
+- treats missing auth as a product conclusion
+- reports a whole contract set as unlinked when the issue is only one backend or one still-syncing target
+- uses stale session context
 
-## After CLI passes, how to reconfirm on Discord or DM
+## Category 1: Operator / health checks
 
-Use CLI as the development lane, then do this before asking the user to recheck the same behavior in Discord or DM:
+These should be the first live tests run after preflight.
 
-1. if mounted harness code changed, run `npm test` so `dist/` is current
-2. if `src/nanoclaw.ts` or generated `container.json` behavior changed, rerun `nanoclaw configure` for the target group
-3. stop the exact target-channel container so the next inbound message gets a fresh container and fresh MCP/session state
-4. resend the same prompt in the target channel
+### 1. Liveness
 
-Concrete reset:
+**Goal:** confirm the target group is alive and responding after preflight.
+
+**Prompt**
 
 ```bash
-docker ps --format 'table {{.Names}}\t{{.Status}}'
-docker stop <exact-container-name>
+cd ~/git/dbxe/nanoclaw
+pnpm run chat -- "hello"
 ```
 
-For this repo's normal developer flow, CLI validation can happen first, but Discord reconfirm should usually include an exact-container reset for `dm-with-<name>` so a stale long-lived session does not mask the new behavior.
+**Expected live behavior**
+
+- responds normally
+- does not show missing MCP-tool behavior
+
+### 2. Backend registry and secret coverage awareness
+
+**Goal:** confirm the runtime can speak concretely about the currently configured backend set.
+
+**Prompt**
+
+```bash
+cd ~/git/dbxe/nanoclaw
+pnpm run chat -- "What backend profiles are available for the current Arbitrum DAO setup, and do any of them still look misconfigured?"
+```
+
+**Expected live behavior**
+
+- distinguishes configured backends rather than collapsing them into one
+- keeps any auth or coverage caveats operational
+- does not confuse secret coverage problems with DAO conclusions
+
+**Host-side verification**
+
+```bash
+cd ~/git/dbxe/amanita
+npm run dev -- backend list
+npm run dev -- nanoclaw preflight \
+  --nanoclaw-dir ~/git/dbxe/nanoclaw \
+  --group-folder cli-with-<name>
+```
+
+### 3. Linked vs syncing vs needs-link split
+
+**Goal:** confirm narrow readiness questions return the correct per-target state.
+
+**Prompt**
+
+```bash
+cd ~/git/dbxe/nanoclaw
+pnpm run chat -- "For the current Arbitrum DAO contract set, which targets are ready, which are still syncing, and which still need linking?"
+```
+
+**Expected live behavior**
+
+- reports a backend-aware split instead of one blanket status
+- preserves uncertainty if some targets are still syncing
+- does not report a false `completely unlinked` state
+
+**Host-side verification**
+
+```bash
+cd ~/git/dbxe/amanita
+npm run dev -- query multichain-inspect --targets l1@mainnet-remote:0xE6841D92B0C345144506576eC13ECf5103aC7f49,l1exec@mainnet-remote:0x3ffFbAdAF827559da092217e474760E2b2c3CeDd,coregov@arbitrum-one-remote:0xf07DeD9dC292157749B6Fd268E37DF6EA38395B9,treasurygov@arbitrum-one-remote:0x789fC99093B09aD01C34DC7251D0C89ce743e5a4,coretimelock@arbitrum-one-remote:0x34d45e99f7D8c45ed05B5cA72D54bbD1fb3F98f0,treasurytimelock@arbitrum-one-remote:0xbFc1FECa8B09A5c5D3EFfE7429eBE24b9c09EF58,upgradeexec@arbitrum-one-remote:0xCF57572261c7c2BCF21ffD220ea7d1a27D40A827,treasury@arbitrum-one-remote:0xF3FC178157fb3c87548bAA86F9d24BA38E649B58
+```
+
+### 4. Narrow role identification
+
+**Goal:** confirm the agent can identify a specific contract role without drifting into broader conclusions.
+
+**Prompt**
+
+```bash
+cd ~/git/dbxe/nanoclaw
+pnpm run chat -- "What is 0x34d45e99f7D8c45ed05B5cA72D54bbD1fb3F98f0 in the Arbitrum DAO setup, and how sure are you given current sync state?"
+```
+
+**Expected live behavior**
+
+- identifies the target as the L2 core timelock if the linked surface supports that conclusion
+- preserves any sync caveat clearly
+- stays narrow instead of pretending to summarize governance health
+
+**Host-side verification**
+
+```bash
+cd ~/git/dbxe/amanita
+MULTIBAAS_PROFILE=arbitrum-one-remote npm run dev -- contract inspect --contract 0x34d45e99f7D8c45ed05B5cA72D54bbD1fb3F98f0
+```
+
+## Category 2: DAO intelligence probes
+
+These are exploratory. A good answer is grounded and honest about sync limits. A bad answer sounds finished when the underlying system is still stabilizing.
+
+### 5. Governance-health probe
+
+**Goal:** test the current broad DAO framing without overselling maturity.
+
+**Prompt**
+
+```bash
+cd ~/git/dbxe/nanoclaw
+pnpm run chat -- "Give me a governance health read on Arbitrum DAO across Ethereum and Arbitrum. Keep sync gaps explicit."
+```
+
+**Expected live behavior**
+
+- grounds the answer in actual contract and backend state
+- separates established facts from still-syncing areas
+- does not convert operator-health facts into final product claims
+
+### 6. Treasury / timelock / executor probe
+
+**Goal:** test whether the agent can relate treasury, timelock, and executor roles without hiding uncertainty.
+
+**Prompt**
+
+```bash
+cd ~/git/dbxe/nanoclaw
+pnpm run chat -- "Walk me through the treasury, timelock, and upgrade-executor parts of Arbitrum DAO. Which pieces are already grounded and which still need sync to answer well?"
+```
+
+**Expected live behavior**
+
+- identifies the major role surfaces
+- flags where the answer is still partial because a target or backend is syncing
+- does not claim finished treasury-consequence intelligence if that path is not ready
+
+### 7. Proposal and consequence probe
+
+**Goal:** test whether the story stays exploratory when asked about proposal outcomes.
+
+**Prompt**
+
+```bash
+cd ~/git/dbxe/nanoclaw
+pnpm run chat -- "Which Arbitrum DAO proposals look most consequential so far, especially anything tied to treasury movement or execution authority?"
+```
+
+**Expected live behavior**
+
+- answers only from grounded current evidence
+- says when the story is still incomplete because history is still syncing
+- avoids inventing fully analyzed proposal consequences
+
+### 8. Cross-chain DAO-context probe
+
+**Goal:** confirm the agent keeps Ethereum and Arbitrum roles distinct.
+
+**Prompt**
+
+```bash
+cd ~/git/dbxe/nanoclaw
+pnpm run chat -- "How does governance authority split between Ethereum mainnet and Arbitrum One in the current Arbitrum DAO setup?"
+```
+
+**Expected live behavior**
+
+- keeps the cross-backend split explicit
+- distinguishes L1 and L2 control surfaces
+- preserves any readiness gaps rather than flattening them
+
+## Pass criteria
+
+### Operator health
+
+A pass means:
+
+- no false missing-credentials behavior
+- no false `completely unlinked` answer
+- correct backend/profile split
+- `preflight` plus `reset-group` is enough to recover common stale-state failures
+
+### DAO intelligence probes
+
+A pass means:
+
+- the answer is grounded
+- syncing uncertainty is preserved clearly
+- operator-health state is not confused with product conclusions
+- failures are described as part of an evolving story, not silently treated as done
 
 ## Handoff checklist
 
-Do not hand off a NanoClaw change as "working" without writing down:
+Do not hand off a live NanoClaw result as "working" without recording:
 
-1. the exact group folder and channel that were rerun
+1. the exact group folder and channel rerun
 2. the exact prompt or prompts used
-3. whether the test used a full NanoClaw restart or an exact-container reset
-4. which live channels were **not** rerun yet
-5. whether exact-session cleanup was required to get a fresh result
+3. whether the retest used plain preflight, exact-container stop, or `reset-group`
+4. which channels were not rerun yet
+5. whether the result was an operator-health pass or an exploratory DAO probe
 
-## How to extend this file
+## Troubleshooting checks
 
-Add new tests as one section per scenario with:
+If a live result looks wrong:
 
-- **Goal**
-- **Preconditions**
-- **Prompt**
-- **Expected live behavior**
-- **Host-side verification**
-- **Notes / known failure modes**
-
-Prefer additive growth:
-
-- keep stable happy-path regressions near the top
-- put mutable fixture-driven tests later
-- record exact addresses and aliases when they are part of the scenario
-
-## Current live regression set
-
-### 1. Linked ERC-20 by address
-
-**Goal:** the model recognizes an already linked/indexed ERC-20 by address and returns holders without asking for a saved query name.
-
-**Preconditions**
-
-- `helloworld` is linked in MultiBaas at `0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59`
-- run the standard preflight above
-
-**Prompt**
-
-```bash
-cd ~/git/dbxe/nanoclaw
-pnpm run chat -- "Who are the 7 biggest holders of 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59?"
-```
-
-**Expected live behavior**
-
-- returns a holder list for that contract
-- does not ask for a saved query name
-- does not claim the MCP server is missing
-
-**Host-side verification**
-
-```bash
-cd ~/git/dbxe/amanita
-npm run dev -- query top-holders --contract 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59 --limit 7
-```
-
-### 2. Linked ERC-20 by alias
-
-**Goal:** the model resolves a known linked alias directly.
-
-**Prompt**
-
-```bash
-cd ~/git/dbxe/nanoclaw
-pnpm run chat -- "Who are the 7 biggest holders of helloworld?"
-```
-
-**Expected live behavior**
-
-- resolves `helloworld` to `0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59`
-- returns the same holder set as test 1
-
-### 3. Linked ERC-20 by contract name
-
-**Goal:** the model can resolve a token by linked contract name, not only alias.
-
-**Prompt**
-
-```bash
-cd ~/git/dbxe/nanoclaw
-pnpm run chat -- "Who are the 7 biggest holders of Hello World Token?"
-```
-
-**Expected live behavior**
-
-- resolves to the same `helloworld` contract
-- returns the same holder set as test 1
-
-### 4. Unknown token name asks for address
-
-**Goal:** unresolved names should prompt for a contract address instead of guessing.
-
-**Prompt**
-
-```bash
-cd ~/git/dbxe/nanoclaw
-pnpm run chat -- "Who owns most of mysterytoken?"
-```
-
-**Expected live behavior**
-
-- asks for the token contract address
-- does not invent a result
-
-### 5. Unlinked ERC-20 onboarding by address
-
-**Goal:** when given an ERC-20 address that is not yet linked, the system should alias/link it and then return or persist a syncing result depending on index readiness.
-
-**Fixture preparation**
-
-Deploy and mint a fresh unlinked ERC-20 fixture:
-
-```bash
-cd ~/git/dbxe/amanita/hardhat
-npm run deploy-unlinked
-npm run mint-unlinked
-```
-
-Use the emitted address from the deploy/mint scripts in the prompt below.
-
-**Prompt**
-
-```bash
-cd ~/git/dbxe/nanoclaw
-pnpm run chat -- "Who are the 10 biggest holders of <unlinked-contract-address>?"
-```
-
-**Expected live behavior**
-
-- if indexing is still catching up, returns a syncing/waiting response
-- once indexing is ready, returns the holder list
-- does not ask for a saved query name
-
-**Host-side verification**
-
-Inspect the address registration from the host:
-
-```bash
-cd ~/git/dbxe/amanita
-node --input-type=module - <<'EOF'
-import { resolveConfig } from './dist/config.js';
-import { getAddressRegistration } from './dist/multibaas.js';
-const config = resolveConfig();
-const result = await getAddressRegistration(config, '<unlinked-contract-address>');
-console.log(JSON.stringify(result, null, 2));
-EOF
-```
-
-### 6. Investigation by explicit token address
-
-**Goal:** the model can perform a broader, grounded token investigation through the typed MCP capability surface instead of falling back to free-form summary text.
-
-**Preconditions**
-
-- `helloworld` is linked in MultiBaas at `0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59`
-- run the standard preflight above
-- clear the active CLI session first if you already used the same group for earlier prompts
-
-**Prompt**
-
-```bash
-cd ~/git/dbxe/nanoclaw
-pnpm run chat -- "Give me a quick investigation of 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59. What stands out?"
-```
-
-**Expected live behavior**
-
-- returns token metadata grounded in tool results
-- returns readiness state
-- returns top-holder concentration and top holders
-- does not cite external sources
-- does not invent values that are not derivable from metadata plus analytical reads
-
-**Host-side verification**
-
-```bash
-cd ~/git/dbxe/amanita
-npm run dev -- query investigate --contract 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59 --limit 5
-```
-
-**Notes / known failure modes**
-
-- if the prompt lands in a stale CLI session, the reply may blend earlier context instead of running a fresh tool sequence
-- for clean regression checks, clear the CLI session and rerun this probe from a fresh session
-
-You should see an alias and an `erc20interface` link after onboarding.
-
-You can also inspect persisted holder-query task state:
-
-```bash
-cd ~/git/dbxe/amanita
-npm run dev -- task list
-```
-
-## Phase 02 live coverage
-
-These cases have now been rerun successfully on the CLI path and should remain in the maintained regression set. They reflect the current product direction toward typed capability composition.
-
-### A. Explicit-token metadata read
-
-**Goal:** the model answers ERC-20 metadata questions through typed tool use rather than inference.
-
-**Prompt**
-
-```bash
-cd ~/git/dbxe/nanoclaw
-pnpm run chat -- "How many decimals does 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59 use?"
-```
-
-**Expected live behavior**
-
-- returns a concrete decimals value from a tool-backed metadata read
-- does not answer by inference from holder balances
-
-**Validation note**
-
-- confirmed on CLI with a fresh NanoClaw session
-
-### B. Explicit-token balance lookup
-
-**Prompt**
-
-```bash
-cd ~/git/dbxe/nanoclaw
-pnpm run chat -- "How much of 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59 does 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172 hold?"
-```
-
-**Expected live behavior**
-
-- returns the balance for that address and token
-- does not ask for a saved query name
-- does not guess a different token target
-
-**Validation note**
-
-- confirmed on CLI with a fresh NanoClaw session
-
-### C. Explicit-token concentration lookup
-
-**Prompt**
-
-```bash
-cd ~/git/dbxe/nanoclaw
-pnpm run chat -- "How concentrated is ownership of 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59 among the top 5 holders?"
-```
-
-**Expected live behavior**
-
-- returns concentration for the explicit token target
-- does not infer a default token
-
-**Validation note**
-
-- confirmed on CLI with a fresh NanoClaw session
-- evaluate the numeric result, not only the prose summary; the underlying runtime output for this fixture is `15.60% (1560 bps)`
-
-### D. Explicit-token watch creation
-
-**Prompt**
-
-```bash
-cd ~/git/dbxe/nanoclaw
-pnpm run chat -- "Let me know if 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172's balance of 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59 changes."
-```
-
-**Expected live behavior**
-
-- creates or resumes a watch for that explicit token target
-- `List watches` shows the watch afterward
-
-**Validation note**
-
-- confirmed on CLI with a fresh NanoClaw session
-
-### E. No implicit token guessing for balance
-
-**Prompt**
-
-```bash
-cd ~/git/dbxe/nanoclaw
-pnpm run chat -- "How much does 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172 hold?"
-```
-
-**Expected live behavior**
-
-- asks for the token contract address
-- does not infer `helloworld`
-- does not ask for a saved query name
-
-**Validation note**
-
-- confirmed on CLI with a fresh NanoClaw session
-
-### F. No implicit token guessing for watch creation
-
-**Prompt**
-
-```bash
-cd ~/git/dbxe/nanoclaw
-pnpm run chat -- "Let me know if 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172's balance changes."
-```
-
-**Expected live behavior**
-
-- asks for the token contract address
-- does not create a watch on an implicit token source
-
-**Validation note**
-
-- confirmed on CLI with a fresh NanoClaw session
-
-### G. Event-surface inspection on a linked local ERC-20
-
-**Goal:** the model can inspect a contract's ABI/event surface and identify the supported bounded investigation leads without the user naming tools.
-
-**Prompt**
-
-```bash
-cd ~/git/dbxe/nanoclaw
-pnpm run chat -- "Give me a quick investigation of 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59. What stands out about holder distribution?"
-```
-
-**Expected live behavior**
-
-- identifies the contract as Hello World Token
-- returns grounded holder-distribution analysis
-- does not cite external sources
-- does not ask for a saved query name
-
-**Host-side verification**
-
-```bash
-cd ~/git/dbxe/amanita
-MULTIBAAS_PROFILE=development npm run dev -- query investigate --contract 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59 --limit 20
-```
-
-**Validation note**
-
-- confirmed on CLI with a fresh NanoClaw session
-
-**Known failure mode**
-
-- a broader prompt like "What kinds of investigations are possible?" is still prone to overgeneralize unsupported leads in NanoClaw prose even though the host-side `query event-capabilities` output is correct. Treat that as an open instruction/response-shaping issue, not a closed regression.
-
-### H. Mainnet JPYC issuer and control-history investigation
-
-**Goal:** the model can use contract lookup, linked ABI surface, and event-backed investigations to answer a real mainnet stablecoin question.
-
-**Preconditions**
-
-- NanoClaw group configured against `MULTIBAAS_PROFILE=mainnet-remote`
-- JPYC proxy `0xE7C3D8C9a439feDe00D2600032D5dB0Be71C3c29` linked to `fiattokenv1`
-
-**Prompt**
-
-```bash
-cd ~/git/dbxe/nanoclaw
-pnpm run chat -- "What can you tell me about 0xE7C3D8C9a439feDe00D2600032D5dB0Be71C3c29? I care most about issuer activity and any meaningful control or upgrade history."
-```
-
-**Expected live behavior**
-
-- identifies the contract as JPYC / FiatTokenV1 behind a proxy
-- returns recent mint/burn activity with concrete actors and amounts
-- returns meaningful control / upgrade events
-- does not rely on Etherscan prose instead of the tool path
-
-**Host-side verification**
-
-```bash
-cd ~/git/dbxe/amanita
-MULTIBAAS_PROFILE=mainnet-remote npm run dev -- query event-capabilities --contract 0xE7C3D8C9a439feDe00D2600032D5dB0Be71C3c29
-MULTIBAAS_PROFILE=mainnet-remote npm run dev -- query event-investigation --contract 0xE7C3D8C9a439feDe00D2600032D5dB0Be71C3c29 --lead stablecoin_issuer_activity --limit 10
-MULTIBAAS_PROFILE=mainnet-remote npm run dev -- query event-investigation --contract 0xE7C3D8C9a439feDe00D2600032D5dB0Be71C3c29 --lead token_control_timeline --limit 10
-```
-
-**Validation note**
-
-- confirmed on CLI with a fresh NanoClaw session
-
-### I. Mainnet Uniswap v3 waiting-state and lead discovery
-
-**Goal:** the model chooses the event-capability path for a live protocol pool and reports a correct syncing state instead of inventing recent activity.
-
-**Preconditions**
-
-- NanoClaw group configured against `MULTIBAAS_PROFILE=mainnet-remote`
-- Uniswap V3 USDC/WETH 0.05% pool `0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640` linked from a bounded recent starting block
-
-**Prompt**
-
-```bash
-cd ~/git/dbxe/nanoclaw
-pnpm run chat -- "What stands out about the recent event activity of 0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640? If it's still syncing, tell me what analysis you'll be able to do once it's ready."
-```
-
-**Expected live behavior**
-
-- identifies the address as the Uniswap V3 USDC/WETH pool
-- reports `syncing` instead of inventing recent activity
-- names the bounded investigations that will be available once ready, such as recent activity and net liquidity
-
-**Host-side verification**
-
-```bash
-cd ~/git/dbxe/amanita
-MULTIBAAS_PROFILE=mainnet-remote npm run dev -- query event-capabilities --contract 0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640
-MULTIBAAS_PROFILE=mainnet-remote npm run dev -- query event-investigation --contract 0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640 --lead uniswap_v3_recent_activity --limit 5
-```
-
-**Validation note**
-
-- confirmed on CLI with a fresh NanoClaw session for the syncing/waiting-state path
-- full recent-activity investigation remains pending until the bounded mainnet sync completes
-
-### J. Mainnet Aave v3 waiting-state and lead discovery
-
-**Goal:** the model chooses the event-capability path for a live lending pool and reports the correct waiting state plus supported investigations.
-
-**Preconditions**
-
-- NanoClaw group configured against `MULTIBAAS_PROFILE=mainnet-remote`
-- Aave V3 Pool `0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2` linked from a bounded recent starting block
-
-**Prompt**
-
-```bash
-cd ~/git/dbxe/nanoclaw
-pnpm run chat -- "Take a look at 0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2. I'm interested in borrower flow and liquidator behavior. If it's still syncing, tell me what you'll be able to analyze once it's ready."
-```
-
-**Expected live behavior**
-
-- identifies the address as the Aave V3 Pool
-- reports `syncing` instead of inventing borrower/liquidation results
-- names the supported bounded investigations: net borrowers, top liquidators, recent activity
-
-**Host-side verification**
-
-```bash
-cd ~/git/dbxe/amanita
-MULTIBAAS_PROFILE=mainnet-remote npm run dev -- query event-capabilities --contract 0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2
-MULTIBAAS_PROFILE=mainnet-remote npm run dev -- query event-investigation --contract 0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2 --lead aave_v3_recent_activity --limit 5
-```
-
-**Validation note**
-
-- confirmed on CLI with a fresh NanoClaw session for the syncing/waiting-state path
-- full borrower/liquidator investigation remains pending until the bounded mainnet sync completes
-
-## Useful troubleshooting checks
-
-If a live NanoClaw result looks wrong:
-
-1. inspect the live group config:
+1. inspect the target group config:
 
 ```bash
 cat ~/git/dbxe/nanoclaw/groups/cli-with-<name>/container.json
 ```
 
-2. inspect live NanoClaw logs:
+2. inspect NanoClaw logs:
 
 ```bash
 tail -n 120 ~/git/dbxe/nanoclaw/logs/nanoclaw.log
 tail -n 120 ~/git/dbxe/nanoclaw/logs/nanoclaw.error.log
 ```
 
-3. inspect session DB state for pending inbound rows or stale continuations:
+3. inspect session DB state:
 
-```bash
+```text
 ~/git/dbxe/nanoclaw/data/v2-sessions/<agent-group-id>/<session-id>/inbound.db
 ~/git/dbxe/nanoclaw/data/v2-sessions/<agent-group-id>/<session-id>/outbound.db
 ```
 
-4. confirm MultiBaas state from the host with the repo-local CLI or `dist/multibaas.js` helpers
-
-5. if CLI works but Discord or DM repeats an older question or tool prompt, treat that as a stale-session/channel-specific failure. Inspect the target session's `messages_out` and `session_state`, then stop the exact container for that channel before rerunning the same prompt there.
+4. confirm MultiBaas state from the host with repo-local CLI commands
+5. if the same stale context persists, use `nanoclaw reset-group`

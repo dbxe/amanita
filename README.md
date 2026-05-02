@@ -1,47 +1,73 @@
-# MultiBaas protocol intelligence runtime
+# MultiBaas-backed Web3 intelligence runtime
 
-This repo is moving toward an **agentic MultiBaas tool runtime**: a system where the model answers protocol questions by composing typed tools and execution services, not by extending a growing library of prompt-specific workflows.
+This repo is a **generic Web3 intelligence system** built on top of MultiBaas. Its long-term direction is a typed, composable runtime where an agent answers protocol questions by combining reusable capabilities instead of relying on a growing shell of prompt-specific workflows.
+
+The **current demo focus is Arbitrum DAO**. That story is still early. Live sync coverage, backend correctness, and contract-role reliability are still being hardened, so the current priority is to make the DAO path reliable enough to learn what the strongest story actually is.
+
+Do not read today's operator prompts and backend-health checks as the finished DAO demo. They are build-stage validation tools that help stabilize the runtime while the DAO intelligence story is still being discovered.
 
 ## Documentation map
 
 - `README.md` — quickstart and current repo posture
+- `docs/arbitrum-dao-demo.md` — DAO pivot framing: what is being validated now vs what the story should become
 - `docs/architecture.md` — repo shape, module boundaries, and design direction
-- `docs/nanoclaw.md` — NanoClaw setup, auth wiring, restart, and test runbook
-- `docs/phase-01.md` — original Phase 01 plan and partially completed implementation record
-- `docs/phase-02.md` — current next-phase plan focused on agentic tool composition
-- `AGENTS.md` — coding-agent conventions for working in this repo
+- `docs/nanoclaw.md` — NanoClaw setup, auth wiring, preflight, reset, and stale-session recovery
+- `docs/nanoclaw-live-tests.md` — live validation matrix split into operator health checks and exploratory DAO probes
+- `docs/phase-01.md` — original Phase 01 plan and partial implementation record
+- `docs/phase-02.md` — current capability-first direction with DAO-first packaging
+- `AGENTS.md` — repo conventions for coding agents
+
+## Current posture
+
+Two things are true at once:
+
+- the runtime is still **generic**
+- the repo is currently being packaged around **Arbitrum DAO**
+
+That packaging choice is deliberate. Token, stablecoin, pool, event-sourced, and multibackend investigations are still part of the substrate, but one strong live story is better than several fragmented ones. Right now the strongest candidate story is DAO intelligence, so the repo is prioritizing the Arbitrum DAO path while keeping the underlying runtime naming-neutral and reusable.
 
 ## North star
 
 The product direction is:
 
-- expose a reusable, typed MultiBaas-backed capability layer
-- let the model decompose questions into tool calls
-- keep readiness, waiting states, and execution trustworthiness explicit
-- avoid hidden token/query defaults and avoid regex-driven workflow growth
+- reusable, typed MultiBaas-backed capabilities
+- explicit readiness, waiting, and execution state
+- model-driven composition of lower-level tools
+- less reliance over time on workflow-specific natural-language routing
 
-The repo still contains some MVP-era operational surfaces, but the main compatibility router and planning shell have been removed. When making changes, prefer the Phase 02 direction in [`docs/phase-02.md`](docs/phase-02.md) over reintroducing workflow-specific routing.
+The repo still contains some compatibility-era surfaces, but the main runtime direction is capability-first. Prefer the framing in [`docs/phase-02.md`](docs/phase-02.md) over adding new workflow-specific routing.
 
-## Current implemented compatibility surface
+## Repo-health acceptance
 
-- query top holders, concentration, balances, and watches dynamically for linked/indexed ERC-20 contracts
-- execute an explicitly named saved MultiBaas event query when you provide `--query`
-- resolve known token aliases for top-holder requests and ask for clarification when the contract/interface is ambiguous
-- look up one address balance
-- save a whale watch in local state
-- persist a task record for balance-monitor requests
-- receive signed MultiBaas-style webhook payloads and reevaluate watches
-- expose the same capabilities through a stdio MCP server for NanoClaw
+Treat repo health in two layers.
 
-These surfaces are useful for validation and backward compatibility, but they should not be treated as the final architecture.
+### A. Operator health
+
+A fresh operator should be able to:
+
+- configure NanoClaw for a target group
+- run `nanoclaw preflight`
+- verify mounted runtime build and backend registry presence
+- verify OneCLI `/api/v0/*` secret coverage for each configured backend
+- recover stale state with `nanoclaw reset-group`
+- ask narrow sync, link, backend, and role-identification questions and get grounded answers
+
+### B. Product-intelligence readiness
+
+A fresh operator should also understand that:
+
+- the Arbitrum DAO story is still being shaped
+- some contracts may still be syncing
+- today's stable result set is narrower than the intended final DAO story
+- operator-health prompts are not the intended end-state user experience
 
 ## Prerequisites
 
 1. Node 22+
 2. A populated `hardhat/deployment-config.<network>.ts`
-3. The sample token deployed and linked from `hardhat/`
+3. For repo-local fixture work, the sample token deployed and linked from `hardhat/`
 
-If you need to set up the fixture from scratch:
+If you need the local fixture from scratch:
 
 ```bash
 cd hardhat
@@ -56,15 +82,15 @@ npm run mint
 npm install
 ```
 
-`src/config.ts` will read MultiBaas settings from either:
+`src/config.ts` resolves MultiBaas settings from either:
 
-- `MULTIBAAS_BASE_URL` and `MULTIBAAS_API_KEY`, or
-- `.multibaas/backends.local.json` selected through `MULTIBAAS_PROFILE` (or that file's `defaultProfile`), or
+- `MULTIBAAS_BASE_URL` and `MULTIBAAS_API_KEY`
+- `.multibaas/backends.local.json` selected through `MULTIBAAS_PROFILE` or that file's `defaultProfile`
 - `hardhat/deployment-config.<network>.ts`
 
 The local backend-profile file is gitignored. Use `.multibaas/backends.example.json` as the shape reference.
 
-Backend switching should now be low-friction:
+Useful backend commands:
 
 ```bash
 # show all configured backends
@@ -83,65 +109,106 @@ MULTIBAAS_PROFILE=mainnet-remote npm run dev -- contract list-interfaces
 Important MultiBaas convention:
 
 - the deployment selects the chain
-- the API path still remains `/api/v0/chains/ethereum/...` for EVM deployments, including non-mainnet deployments such as Arbitrum One
+- for EVM deployments, the API path still remains `/api/v0/chains/ethereum/...`
 
-Do not treat the literal path segment `chains/ethereum` as proof that a backend is Ethereum mainnet. Chain identity comes from the backend profile / deployment, not from that URL fragment.
+Do not treat that URL fragment as proof that a backend is Ethereum mainnet. Chain identity comes from the backend profile and deployment metadata, not from the path segment.
 
-When the runtime runs **inside NanoClaw**, authenticated MultiBaas calls should use **OneCLI path-scoped secret injection** rather than a raw API key in `container.json`. The runtime will send a placeholder bearer token when no direct key is configured so OneCLI can rewrite it on `/api/v0/*` requests.
+## Generic runtime capabilities
 
-## Minimal product loop
+The runtime remains broader than the current DAO packaging. Current typed capability surfaces include:
+
+- contract/interface inspection and bounded onboarding
+- token metadata, balance, concentration, and top-holder reads
+- event-surface inspection and bounded event-backed investigations
+- multibackend target inspection
+- local watches, task persistence, and webhook delivery
+- the same operations exposed through CLI and stdio MCP
+
+Representative CLI entrypoints:
 
 ```bash
-# top holders for a linked ERC-20 contract
-npm run dev -- query top-holders --contract 0xd26fde38F244Dcbb13e8017347Ac37804d926Bb5 --limit 5
-
-# top-holder concentration for a linked ERC-20 contract
-npm run dev -- query concentration --contract 0xd26fde38F244Dcbb13e8017347Ac37804d926Bb5 --limit 5
-
-# one address balance for a token contract
 npm run dev -- query balance --contract 0xd26fde38F244Dcbb13e8017347Ac37804d926Bb5 --address 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172
-
-# control-history events for a token / proxy / governed contract
 npm run dev -- query controls --contract 0xd26fde38F244Dcbb13e8017347Ac37804d926Bb5 --limit 10
-
-# grounded token investigation
 npm run dev -- query investigate --contract 0xd26fde38F244Dcbb13e8017347Ac37804d926Bb5 --limit 5
-
-# inspect explicit targets across multiple configured backends
 npm run dev -- query multichain-inspect --targets source@mainnet-remote:0xd26fde38F244Dcbb13e8017347Ac37804d926Bb5,destination@arbitrum-one-remote:0xd26fde38F244Dcbb13e8017347Ac37804d926Bb5
-
-# inspect ABI/event capabilities and supported investigation leads
 npm run dev -- query event-capabilities --contract 0xd26fde38F244Dcbb13e8017347Ac37804d926Bb5
-
-# run a bounded event-backed investigation lead
 npm run dev -- query event-investigation --contract 0xd26fde38F244Dcbb13e8017347Ac37804d926Bb5 --lead holder_distribution --limit 10
-
-# inspect and preload the finite interface library
-npm run dev -- contract list-interfaces
-npm run dev -- contract lookup --contract 0xd26fde38F244Dcbb13e8017347Ac37804d926Bb5
-npm run dev -- contract import-lookup --contract 0xd26fde38F244Dcbb13e8017347Ac37804d926Bb5 --candidate 0
-npm run dev -- contract preload-interfaces --labels erc20interface,fiattokenv2interface
-npm run dev -- contract inspect --contract 0xd26fde38F244Dcbb13e8017347Ac37804d926Bb5
-
-# save a watch for a token contract
-npm run dev -- watch add --contract 0xd26fde38F244Dcbb13e8017347Ac37804d926Bb5 --address 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172 --label whale
-
-# inspect watches
-npm run dev -- watch list
-
-# inspect persisted tasks
-npm run dev -- task list
-
-# reevaluate pending holder-query tasks
-npm run dev -- task evaluate
-
-# reevaluate all watches against the latest tracked balance snapshot
-npm run dev -- watch evaluate
 ```
 
-For a legacy saved-query path, pass `--query <saved-query-name>` explicitly.
+Local watch state stays under `.agent-state/`.
 
-Local watch state is stored under `.agent-state/`.
+## Current demo focus: Arbitrum DAO
+
+The current live demo packaging is Arbitrum DAO, but the story is still in discovery because:
+
+- sync coverage across the DAO contract set is still being established
+- backend/profile correctness is still part of the day-to-day validation loop
+- role identification and cross-backend consistency still need repeated live verification
+
+The current build-stage goal is not to pretend the DAO intelligence story is finished. The goal is to stabilize the live DAO path enough to discover which intelligence questions produce the strongest demo.
+
+See [`docs/arbitrum-dao-demo.md`](docs/arbitrum-dao-demo.md) for the DAO-specific framing.
+
+## Question tracks
+
+### Operator / build-stage questions
+
+These are first-class validation tools, but they are not the end-state product story.
+
+- "What backends are configured right now?"
+- "Which backend profiles are present and do they have OneCLI `/api/v0/*` secret coverage?"
+- "For this DAO contract set, which targets are `ready`, `syncing`, or `needs-link`?"
+- "Is this address really the treasury governor, core timelock, or upgrade executor?"
+- "How does this contract look across Ethereum mainnet and Arbitrum backends?"
+
+Representative commands and flows:
+
+```bash
+npm run dev -- backend list
+npm run dev -- query multichain-inspect --targets l1@mainnet-remote:0xE6841D92B0C345144506576eC13ECf5103aC7f49,l2@arbitrum-one-remote:0x34d45e99f7D8c45ed05B5cA72D54bbD1fb3F98f0
+npm run dev -- contract inspect --contract 0xE6841D92B0C345144506576eC13ECf5103aC7f49
+npm run dev -- query controls --contract 0xE6841D92B0C345144506576eC13ECf5103aC7f49 --limit 10
+```
+
+### Emerging DAO intelligence questions
+
+These are the questions the repo is trying to earn, not claim prematurely. Treat them as exploratory and still evolving.
+
+- "How is Arbitrum DAO governance structured across Ethereum and Arbitrum?"
+- "Which timelock or executor paths matter most right now?"
+- "Which proposals had treasury consequences?"
+- "Where does upgrade power live in practice?"
+- "What governance or treasury risks are visible, and which parts are still blocked on sync?"
+
+The correct live behavior here is:
+
+- stay grounded in current tool results
+- preserve syncing uncertainty explicitly
+- avoid turning operator-health facts into finished product conclusions
+
+## NanoClaw operator loop
+
+For NanoClaw-backed work, the standard operator loop is:
+
+1. build and configure the mounted runtime
+2. run `nanoclaw preflight`
+3. verify backend registry presence, active session/container state, and OneCLI secret coverage
+4. if a session is stale or poisoned, run `nanoclaw reset-group`
+5. run narrow health checks first
+6. only then run broader DAO intelligence probes
+
+`nanoclaw preflight` is an **operator health check**, not a product feature.
+
+Its purpose is to verify:
+
+- mounted runtime build presence
+- backend registry or selected base URL presence
+- active session and container state
+- OneCLI `/api/v0/*` secret coverage for each configured backend
+
+`nanoclaw reset-group` is also an operator tool. It is for stale-session recovery and poisoned-state cleanup, not part of the product story.
+
+See [`docs/nanoclaw.md`](docs/nanoclaw.md) for the operational runbook and [`docs/nanoclaw-live-tests.md`](docs/nanoclaw-live-tests.md) for the live validation matrix.
 
 ## Webhooks
 
@@ -151,7 +218,7 @@ Run the local webhook receiver:
 npm run dev -- webhook serve --secret <webhook-secret> --port 8787
 ```
 
-To have webhook-triggered alerts delivered back through a NanoClaw session, add the NanoClaw target flags:
+To have webhook-triggered alerts delivered back through a NanoClaw session:
 
 ```bash
 npm run dev -- webhook serve \
@@ -161,45 +228,33 @@ npm run dev -- webhook serve \
   --group-folder dm-with-<name>
 ```
 
-When you have a reachable callback URL, register or update the shared MultiBaas webhook:
+Register or update the shared MultiBaas webhook when you have a reachable callback URL:
 
 ```bash
 npm run dev -- webhook ensure --url https://your-host.example/webhooks/multibaas
 ```
 
-For the local dev stack, match the callback URL to where MultiBaas is actually running:
+For local development:
 
 - if MultiBaas is running on the host, use `http://127.0.0.1:8787/webhooks/multibaas`
 - if MultiBaas is running in a container that can reach the host via Docker DNS, use `http://host.docker.internal:8787/webhooks/multibaas`
 
-If a webhook was previously failing, MultiBaas may continue to back off retries for a few minutes even after the URL is fixed. Check `/api/v0/webhooks` and wait until `nextAttempt` clears before judging the callback path broken.
-
-The webhook handler validates `X-MultiBaas-Signature` and `X-MultiBaas-Timestamp`, refreshes the tracked balance snapshot for each watch source, and appends alerts to `.agent-state/alerts.jsonl`.
-
-When you evaluate a watch that was created inside a NanoClaw group, point the host-side receiver at that group's state directory instead of the repo root:
-
-```bash
-MULTIBAAS_AGENT_STATE_DIR=~/git/dbxe/nanoclaw/groups/cli-with-<name>/.agent-state \
-  npm run dev -- webhook serve --secret <webhook-secret> --port 8787
-```
+The webhook handler validates `X-MultiBaas-Signature` and `X-MultiBaas-Timestamp`, refreshes tracked watch state, and appends alerts to `.agent-state/alerts.jsonl`.
 
 ## MCP server
 
-The same live operations are also exposed over stdio MCP:
+The same operations are exposed over stdio MCP:
 
 ```bash
 npm run mcp
 ```
 
-Tools exposed:
+Representative tools:
 
 - `list_preloaded_interfaces`
-- `lookup_contract_candidates`
-- `import_contract_lookup_candidate`
 - `inspect_contract_interfaces`
 - `ensure_contract_interface`
 - `resolve_contract_target`
-- `get_token_metadata`
 - `inspect_event_capabilities`
 - `run_event_investigation`
 - `get_token_control_events`
@@ -209,33 +264,16 @@ Tools exposed:
 - `get_address_balance`
 - `create_balance_watch`
 - `list_balance_watches`
-- `list_tasks`
 - `evaluate_tasks`
-- `evaluate_balance_watches`
 - `ensure_event_webhook`
 
-Preferred Phase 02 path:
+The preferred direction is still:
 
-- `list_preloaded_interfaces`, `inspect_contract_interfaces`, and `ensure_contract_interface` for the preloaded interface-library path
-- `lookup_contract_candidates` and `import_contract_lookup_candidate` for live-address onboarding when MultiBaas should pull a verified ABI candidate before linking
-- `resolve_contract_target` for token resolution and readiness inspection
-- `get_token_metadata` for ERC-20 metadata such as name, symbol, decimals, and total supply
-- `inspect_event_capabilities` to discover which bounded event-backed investigations fit the currently linked or looked-up ABI surface
-- `run_event_investigation` to execute a bounded event-backed investigation lead once the contract is ready
-- `get_token_control_events` for event-sourced control-surface history such as blacklist, pause, role, ownership, and upgrade events
-- `investigate_token` for grounded token analysis that combines readiness, metadata, concentration, and top-holder context
-- `get_top_holders`, `get_holder_concentration`, `get_address_balance`, and `create_balance_watch` for typed analytical and monitoring actions
-- those typed tools can work from either `contractAddress` or `tokenName`, so the model does not need a natural-language compatibility router for common ERC-20 questions
+- preloaded interface matching
+- explicit contract-targeted reads and views
+- bounded event-view compilation
 
-For broader protocol suites, the near-term repo posture is:
-
-- preload a finite but useful interface library
-- link live contracts against those known definitions
-- compile bounded event-view specs into MultiBaas event queries
-
-not:
-
-- ask the model to hand-author raw backend payloads by default
+not unconstrained model-authored backend payloads.
 
 ## NanoClaw bridge
 
@@ -253,37 +291,9 @@ What that does:
 - adds a read-only mount for this repo into the NanoClaw container
 - registers the `multibaas-runtime` MCP server in the target group's `container.json`
 - rewrites a host-local MultiBaas base URL like `localhost` to `host.docker.internal` for container access
-- sets a stable in-container state directory for balance watches
+- sets a stable in-container state directory for watches
 - optionally adds this repo to NanoClaw's mount allowlist
 
-NanoClaw itself still needs to be installed and initialized separately (`pnpm install`, credentials, group/session setup, daemon running).
+When the runtime runs inside NanoClaw, authenticated MultiBaas calls should use **OneCLI path-scoped secret injection** rather than a raw API key in `container.json`. The runtime sends a placeholder bearer token when no direct key is configured so OneCLI can rewrite it on `/api/v0/*` requests.
 
-For the working local NanoClaw install pattern, model pinning, OneCLI path-scoped secrets, restart flow, and deterministic test path, see [`docs/nanoclaw.md`](docs/nanoclaw.md).
-
-You can also queue a manual notification into NanoClaw's normal outbound delivery path:
-
-```bash
-npm run dev -- nanoclaw notify \
-  --nanoclaw-dir ~/git/dbxe/nanoclaw \
-  --group-folder dm-with-<name> \
-  --text "test alert"
-```
-
-## Next layer
-
-The current capability-first CLI path is working through NanoClaw:
-
-```bash
-cd ~/git/dbxe/nanoclaw
-pnpm run chat -- "how many decimals does 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59 have?"
-pnpm run chat -- "Show me the recent control events for token 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59"
-pnpm run chat -- "Investigate token 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59"
-pnpm run chat -- "What is the balance of 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172 for token 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59?"
-pnpm run chat -- "Give me the top 5 holders for token 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59"
-pnpm run chat -- "Alert me if the balance of 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172 moves for token 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59"
-pnpm run chat -- "List watches"
-```
-
-The remaining implemented operational loop is the **event-driven alert loop**: trigger a watched balance change, receive the MultiBaas webhook, and surface the resulting alert back through the runtime.
-
-For the HelloWorld fixture, the deterministic replay path is to submit `transfer(address,uint256)` through the MultiBaas contract-method API using the whale address as `from`/`signer` with `signAndSubmit: true`. The initial deployer balance is exhausted by `hardhat/scripts/mint.ts`, so replaying from the deployer will revert with insufficient balance.
+For the working NanoClaw install pattern, auth model, preflight/reset flow, and stale-session recovery, use [`docs/nanoclaw.md`](docs/nanoclaw.md).

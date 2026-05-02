@@ -1,8 +1,18 @@
 # NanoClaw integration
 
-This is the repo-local runbook for wiring the harness into NanoClaw and exercising it in a repeatable way.
+This runbook is intentionally operational. It covers how to mount the runtime into NanoClaw, verify that the live environment is healthy, and recover stale or poisoned state. It is not the place to define the DAO product story.
 
-## Install notes that mattered here
+Use this doc for:
+
+- configure
+- preflight
+- OneCLI secret coverage
+- restart and stale-session recovery
+- debugging `missing backend`, `needs-link`, and stuck-session failures
+
+For broader live prompt coverage, use [`docs/nanoclaw-live-tests.md`](docs/nanoclaw-live-tests.md). For the DAO story framing, use [`docs/arbitrum-dao-demo.md`](docs/arbitrum-dao-demo.md).
+
+## Working local install notes
 
 Use the canonical local fork and branch:
 
@@ -11,7 +21,7 @@ cd ~/git/dbxe/nanoclaw
 git checkout openagents
 ```
 
-The working local install here used the standard NanoClaw service/container setup with:
+The working local install used the standard NanoClaw service/container setup with:
 
 - the `discord` channel adapter checked into the fork
 - the `opencode` provider checked into the fork
@@ -21,124 +31,13 @@ The working local install here used the standard NanoClaw service/container setu
 
 Why this mattered:
 
-- the local llama-swap endpoint is reachable from the container via `host.docker.internal`
-- the agent is using an OpenAI-compatible `/v1/chat/completions` path, not the Anthropic `/v1/messages` path
-- Discord support is part of the forked source of truth instead of a local dirty diff
+- the local model endpoint is reachable from the container via `host.docker.internal`
+- the provider is speaking an OpenAI-compatible `/v1/chat/completions` path
+- Discord support is part of the forked source of truth instead of a local patch
 
-## Restarting NanoClaw
+## Configure a group
 
-Do not hardcode the launchd label suffix. Discover the active label first:
-
-```bash
-SERVICE_LABEL=$(launchctl list | awk '/com\.nanoclaw-v2-/{print $3; exit}')
-launchctl kickstart -k "gui/$(id -u)/$SERVICE_LABEL"
-```
-
-If NanoClaw keeps showing background traffic when nobody is chatting, first check for a stuck pending inbound message in the session DB. In the setup here, the live loop was caused by a `messages_in.status = 'pending'` row in:
-
-```text
-~/git/dbxe/nanoclaw/data/v2-sessions/<agent-group-id>/<session-id>/inbound.db
-```
-
-The matching provider continuation is stored per session in:
-
-```text
-~/git/dbxe/nanoclaw/data/v2-sessions/<agent-group-id>/<session-id>/outbound.db
-```
-
-under `session_state.key = continuation:claude`. It is not stored in the global `data/v2.db`.
-
-Practical recovery order:
-
-1. stop the noisy session container
-2. inspect `inbound.db` for `pending` rows
-3. mark the stuck inbound row completed or failed if needed
-4. clear the per-session continuation row only if the session still resumes into bad state
-
-If Discord or DM keeps re-sending the same choice card every ~15-20 seconds, check the central NanoClaw DB for repeated `pending_questions` rows:
-
-```text
-~/git/dbxe/nanoclaw/data/v2.db
-```
-
-In the setup here, the repeated "Query name needed" loop was not the harness task model retrying. It was NanoClaw's interactive question flow repeatedly creating `pending_questions` entries for the same session. Clicking **Never mind** stopped the live loop because it wrote a matching `question_response` back into the session inbox.
-
-If you have changed `src/mcp.ts` or `src/nanoclaw.ts`, rerun `nanoclaw configure` for the affected group and restart NanoClaw before retesting. Existing session containers can keep older instructions or tool schemas alive long enough to reproduce outdated prompts.
-
-## MCP server health
-
-If a live NanoClaw reply says tools named in `container.json` are unavailable, do not assume the problem is prompt wording or model behavior.
-
-Check MCP server startup first:
-
-```bash
-cd ~/git/dbxe/amanita
-node dist/mcp.js
-```
-
-If that process throws during startup, fix the MCP server before doing more live testing. In this repo, a duplicate `server.tool(...)` registration was enough to make the mounted MCP server unavailable even though:
-
-- `container.json` looked correct
-- the extra MCP server was listed in NanoClaw startup logs
-- the model instructions explicitly referenced the missing tools
-
-Practical rule:
-
-1. verify `dist/mcp.js` starts cleanly
-2. only then trust NanoClaw live failures as model/tool-selection failures
-
-## When to rerun `nanoclaw configure` vs restart
-
-For live NanoClaw validation, treat the runtime as **sticky**:
-
-- NanoClaw session containers are long-lived
-- the agent-runner reads `container.json` **once at startup**
-- active sessions can keep continuation state and pending interactive questions across turns
-
-That means a repo change is not automatically the same thing as a fresh live NanoClaw test.
-
-Use this rule:
-
-| Change type | Rerun `nanoclaw configure` | Restart NanoClaw / affected session | Notes |
-| --- | --- | --- | --- |
-| `src/nanoclaw.ts` or anything that changes generated `groups/<folder>/container.json` | Yes | Yes | This includes MCP instructions, env vars, mounts, server definitions, or group config shape. |
-| MCP/business-logic files used by the mounted runtime (`src/mcp.ts`, `src/token-target-service.ts`, `src/query-service.ts`, `src/holder-query-service.ts`, `src/watch-service.ts`, `src/webhook-service.ts`, `src/holder-tasks.ts`, `src/onboarding.ts`, `src/multibaas.ts`) | No | Yes for live NanoClaw retests | The repo is mounted into the container, but active session state can still make the next Discord/DM test non-fresh. Restart before trusting the result. |
-| Docs-only or test-only changes | No | No | Unless you are explicitly testing the live NanoClaw UX text. |
-| Pure local harness tests (`npm test`, `npm run build`, local CLI entrypoints) | No | No | These do not depend on NanoClaw session containers. |
-
-Practical default for channel-facing tests:
-
-1. if `container.json` generation changed, rerun `nanoclaw configure` for the target group
-2. restart NanoClaw or stop the affected session container
-3. retest with a fresh message
-
-If you skip step 2 after business-logic changes, the live Discord/DM result is **suspect**, because you may still be exercising stale session state rather than the code you just changed.
-
-Restarting NanoClaw is sometimes still not enough. If the same CLI or channel group keeps resuming stale continuation state, remove the specific active session as well.
-
-Example CLI reset flow:
-
-```bash
-docker ps --format 'table {{.Names}}\t{{.Status}}'
-docker stop <exact-container-name>
-
-sqlite3 ~/git/dbxe/nanoclaw/data/v2.db \
-  "delete from pending_questions where session_id = '<session-id>';
-   delete from sessions where id = '<session-id>';"
-
-mv ~/git/dbxe/nanoclaw/data/v2-sessions/<agent-group-id>/<session-id> \
-   ~/git/dbxe/nanoclaw/data/v2-sessions/<agent-group-id>/<session-id>.bak-$(date +%Y%m%dT%H%M%S)
-```
-
-Use that when:
-
-- the next CLI/DM/Discord message keeps landing in the same bad session
-- stale pending-question state or continuation state is masking the code you just changed
-- restarting NanoClaw alone did not produce a genuinely fresh live run
-
-## Wiring this repo into a NanoClaw group
-
-Use the harness helper to update the target group's `container.json`:
+Use the repo helper to update a NanoClaw group's `container.json`:
 
 ```bash
 cd ~/git/dbxe/amanita
@@ -148,7 +47,7 @@ npm run dev -- nanoclaw configure \
   --write-allowlist
 ```
 
-Run the same command for any DM or Discord group you want the harness mounted into.
+Run the same command for any DM or Discord group that should mount this runtime.
 
 This writes:
 
@@ -157,15 +56,13 @@ This writes:
 - an in-container state directory for watches
 - a container-safe MultiBaas base URL
 
-The NanoClaw container runs the harness MCP through the built artifact:
+The mounted MCP path is:
 
 ```text
 /workspace/extra/multibaas-runtime/dist/mcp.js
 ```
 
-So for live NanoClaw tests, make sure the repo build is current before `nanoclaw configure` and restart. `npm test` already does this because it rebuilds `dist/`.
-
-For the maintained list of concrete live NanoClaw integration cases, see `docs/nanoclaw-live-tests.md`.
+If `src/mcp.ts` or `src/nanoclaw.ts` changed, rebuild and rerun `nanoclaw configure` before trusting live results.
 
 ## Auth model
 
@@ -176,33 +73,26 @@ Use OneCLI path-scoped secret injection instead:
 - model-provider traffic scoped to `/v1/*`
 - MultiBaas traffic scoped to `/api/v0/*`
 
-This matters because both services may be reached through `host.docker.internal`, so host matching alone is not enough.
+The runtime is compatible with this by sending a placeholder bearer token when no direct MultiBaas key is configured.
 
-The harness is compatible with this model by sending a placeholder bearer token when no direct MultiBaas key is configured.
+Treat this as a hard boundary:
 
-Treat this as a hard boundary for NanoClaw-backed work:
+- MultiBaas secrets belong in OneCLI
+- do not move the real API key into `container.json`
+- do not rely on mounted repo config as a replacement secret path
+- if the transport path is broken, fix the transport path instead of copying secrets into the container
 
-- MultiBaas secrets belong in **OneCLI**
-- do **not** copy the real API key into `container.json`
-- do **not** rely on mounted repo config or ad hoc env injection as a substitute secret path for the NanoClaw container
-- if the container transport/runtime path is broken, fix the transport/runtime path instead of moving secrets out of OneCLI
-
-If a prior secret install is dirty, this cleanup pattern was useful:
+Useful cleanup when a previous secret install is wrong:
 
 ```bash
 onecli secrets delete --id <secret-id>
 ```
 
-## Test path for future coding agents
+## Operator preflight
 
-Before any live NanoClaw retest, run this preflight:
+`nanoclaw preflight` is an **operator health check**. It is not part of the product story.
 
-1. if the change touched `src/nanoclaw.ts` or any generated `container.json` behavior, rerun `nanoclaw configure` for the target group
-2. if the change touched mounted runtime business logic (`src/mcp.ts`, `src/token-target-service.ts`, `src/query-service.ts`, `src/holder-query-service.ts`, `src/watch-service.ts`, `src/webhook-service.ts`, `src/holder-tasks.ts`, `src/onboarding.ts`, `src/multibaas.ts`), run the concrete rebuild + reconfigure + restart sequence below, or stop the exact affected session container before trusting the next live result
-3. verify the OneCLI secret path is still the intended auth path; do not switch to container-held secrets as a debugging shortcut
-4. only skip restart for docs-only, test-only, or repo-local validation that does not use a live NanoClaw session
-
-Use this concrete rebuild + reconfigure + restart sequence when step 1 or 2 applies:
+Run it before live retests:
 
 ```bash
 cd ~/git/dbxe/amanita
@@ -211,64 +101,231 @@ npm run dev -- nanoclaw configure \
   --nanoclaw-dir ~/git/dbxe/nanoclaw \
   --group-folder cli-with-<name> \
   --write-allowlist
-npm run dev -- nanoclaw configure \
+npm run dev -- nanoclaw preflight \
   --nanoclaw-dir ~/git/dbxe/nanoclaw \
-  --group-folder dm-with-<name> \
-  --write-allowlist
+  --group-folder cli-with-<name>
+```
+
+Its purpose is to verify:
+
+- the mounted runtime build exists
+- the target group's `container.json` exists and points at the runtime
+- the backend registry or single-base-url config is present
+- active session and container state are visible
+- OneCLI `/api/v0/*` secret coverage exists for each configured backend
+
+The preflight output reports:
+
+- group folder and agent-group ID
+- container config path
+- backend mode: `registry`, `single-base-url`, or `missing`
+- configured backend profiles
+- MCP `dist/mcp.js` path and presence
+- running containers
+- session directories
+- per-profile OneCLI API secret coverage
+- active session rows
+
+Interpretation rules:
+
+- `backend mode: missing` means the mounted group is not configured with either backend registry JSON or a direct base URL
+- missing OneCLI coverage for a configured profile means the runtime will likely fail authentication for that backend inside NanoClaw
+- missing `dist/mcp.js` means the group is mounted, but the built MCP artifact is not present where NanoClaw expects it
+
+## Minimal validation after preflight
+
+Keep the first live prompts narrow:
+
+```bash
+cd ~/git/dbxe/nanoclaw
+pnpm run chat -- "hello"
+pnpm run chat -- "What backends are available for the current Arbitrum DAO setup?"
+pnpm run chat -- "Is 0xE6841D92B0C345144506576eC13ECf5103aC7f49 linked, ready, or still syncing?"
+```
+
+These are operator checks, not the finished DAO demo.
+
+## When to rerun configure vs when to restart
+
+Treat NanoClaw as sticky:
+
+- session containers are long-lived
+- the runner reads `container.json` once at startup
+- active sessions keep continuation and pending-question state across turns
+
+Use this rule:
+
+| Change type | Rerun `nanoclaw configure` | Restart NanoClaw or affected session | Notes |
+| --- | --- | --- | --- |
+| `src/nanoclaw.ts` or anything that changes generated `container.json` | Yes | Yes | This includes env vars, mounts, MCP instructions, and server definitions. |
+| Mounted runtime business logic such as `src/mcp.ts`, `src/multibaas.ts`, `src/query-service.ts`, `src/event-view-service.ts`, `src/investigation-service.ts`, `src/multichain-service.ts` | No | Yes for live retests | The repo is mounted, but stale session state can still hide the new behavior. |
+| Docs-only or test-only changes | No | No | Unless you are explicitly retesting live prompt text. |
+
+Practical default for channel-facing retests:
+
+1. rebuild this repo
+2. rerun `nanoclaw configure` if container config generation changed
+3. run `nanoclaw preflight`
+4. restart NanoClaw or stop the exact affected session container
+5. retest from a fresh message
+
+## Restarting NanoClaw
+
+Do not hardcode the launchd label suffix. Discover it first:
+
+```bash
 SERVICE_LABEL=$(launchctl list | awk '/com\.nanoclaw-v2-/{print $3; exit}')
 launchctl kickstart -k "gui/$(id -u)/$SERVICE_LABEL"
 ```
 
-If you only need to reset a single active live session, stop the exact container shown by:
+If you only need to stop one active session container:
 
 ```bash
 docker ps --format 'table {{.Names}}\t{{.Status}}'
 docker stop <exact-container-name>
 ```
 
-If the next message still resumes stale state, remove the matching session row from `~/git/dbxe/nanoclaw/data/v2.db` and move the session directory aside as shown above.
+## Resetting a stale or poisoned group
 
-Do **not** parallelize live NanoClaw chat tests. Run one `pnpm run chat -- "..."` request at a time and wait for it to finish before starting the next one. Overlapping CLI clients can supersede each other and shared session state makes the results unreliable.
+`nanoclaw reset-group` is a recovery tool for stale or poisoned session state. It is not a product feature.
 
-Also note that `pnpm run chat` is a thin convenience client with a short silence timeout. If the live run is still working but the CLI probe exits before the full response arrives, use a longer-lived local socket probe rather than concluding the bot failed.
+Run it when:
 
-Start with the deterministic local CLI channel:
+- the same group keeps resuming bad continuation state
+- pending-question loops survive normal restarts
+- you need a clean operator baseline before retesting
+
+Command:
 
 ```bash
-cd ~/git/dbxe/nanoclaw
-pnpm run chat -- "how many decimals does 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59 have?"
-pnpm run chat -- "Investigate token 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59"
-pnpm run chat -- "What is the balance of 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172 for token 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59?"
-pnpm run chat -- "Give me the top 5 holders for token 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59"
-pnpm run chat -- "Alert me if the balance of 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172 moves for token 0x65a4C093c7652AB882FbA1aed0F0E461cb50dF59"
-pnpm run chat -- "List watches"
-pnpm run chat -- "Check watches"
+cd ~/git/dbxe/amanita
+npm run dev -- nanoclaw reset-group \
+  --nanoclaw-dir ~/git/dbxe/nanoclaw \
+  --group-folder cli-with-<name>
 ```
 
-After that works, validate the channel-facing experience through Discord or DM with the same prompts.
+What it does:
 
-For the canonical post-CLI reconfirm sequence and handoff notes, use `docs/nanoclaw-live-tests.md`.
+- stops running NanoClaw containers for that group
+- creates a backup of `data/v2.db`
+- deletes the group's session rows from the host DB
+- deletes matching `pending_questions` rows
+- archives the group's session directories under `data/v2-sessions-archive/`
 
-The short version is: CLI success does **not** prove Discord or DM success. Before asking someone to recheck the same behavior in Discord or DM, follow the post-CLI reconfirm flow there so the target channel gets a fresh container/session on the new code.
+Use it as part of the development and stabilization loop. Do not describe it as part of the DAO demo.
 
-Recommended validation order:
+## Stuck-session and repeated-question recovery
 
-1. run the preflight above so the live test starts from fresh runtime state
-2. confirm NanoClaw is alive with a ping or simple balance query
-3. confirm the harness mount exists in the target group's `container.json`
-4. confirm OneCLI secrets are scoped correctly
-5. run balance lookup
-6. run top holders
-7. create and list a watch
-8. move on to webhook and alert validation last
+If NanoClaw keeps showing background traffic when nobody is chatting, inspect the target session DBs:
 
-If the bug was reported in Discord or DM, rerun that same channel before concluding the fix is done. Do not substitute a CLI-only check for a Discord/DM regression.
+```text
+~/git/dbxe/nanoclaw/data/v2-sessions/<agent-group-id>/<session-id>/inbound.db
+~/git/dbxe/nanoclaw/data/v2-sessions/<agent-group-id>/<session-id>/outbound.db
+```
 
-## Webhook-driven notifications
+The common failure cases here were:
 
-For the final alert loop, the harness can write a normal outbound chat row into the target NanoClaw session so the existing delivery poll sends it through the channel adapter.
+- `messages_in.status = 'pending'` rows in `inbound.db`
+- preserved provider continuation state in `outbound.db`
+- repeated `pending_questions` rows in `~/git/dbxe/nanoclaw/data/v2.db`
 
-Manual notification test:
+Practical recovery order:
+
+1. stop the noisy session container
+2. inspect `pending` inbound rows
+3. use `nanoclaw reset-group` if the whole group is suspect
+4. only do more targeted DB cleanup if a narrower reset is required
+
+If Discord or DM keeps repeating the same choice card every 15-20 seconds, treat that as NanoClaw interactive-question state first, not as a runtime reasoning problem.
+
+## Debugging common operator failures
+
+### Missing backend
+
+Symptoms:
+
+- preflight reports `backend mode: missing`
+- live runs say the runtime cannot reach a backend
+
+Checks:
+
+1. rerun `nanoclaw configure` for the target group
+2. inspect the generated group config:
+
+```bash
+cat ~/git/dbxe/nanoclaw/groups/cli-with-<name>/container.json
+```
+
+3. confirm the runtime env includes either `MULTIBAAS_BACKENDS_JSON` or `MULTIBAAS_BASE_URL`
+4. rerun `nanoclaw preflight`
+
+### Missing or partial OneCLI secret coverage
+
+Symptoms:
+
+- preflight lists configured profiles but marks one or more as `missing`
+- live runs behave like missing credentials despite valid backend config
+
+Checks:
+
+1. inspect OneCLI secrets:
+
+```bash
+onecli secrets list
+```
+
+2. confirm each configured backend host has `/api/v0/*` coverage
+3. remove incorrect secrets and reinstall them with the correct path scope
+
+### `needs-link` or `syncing`
+
+Treat these as real runtime states, not immediate product failures.
+
+Checks:
+
+1. inspect the address or interface from the host-side CLI
+2. confirm the contract definition is known and the contract is linked
+3. confirm indexing has progressed enough for the requested view
+4. if the question depends on full history, preserve the waiting state explicitly
+
+### MCP server unavailable
+
+If a live reply says tools from `container.json` are unavailable, verify the MCP server starts cleanly before debugging prompts:
+
+```bash
+cd ~/git/dbxe/amanita
+node dist/mcp.js
+```
+
+If startup throws, fix the MCP server first. A broken startup path can make the whole mounted tool surface disappear even when `container.json` looks correct.
+
+## Useful operator checks
+
+Inspect live NanoClaw logs:
+
+```bash
+tail -n 120 ~/git/dbxe/nanoclaw/logs/nanoclaw.log
+tail -n 120 ~/git/dbxe/nanoclaw/logs/nanoclaw.error.log
+```
+
+Inspect the target group config:
+
+```bash
+cat ~/git/dbxe/nanoclaw/groups/cli-with-<name>/container.json
+```
+
+Confirm host-side MultiBaas state with repo-local CLI commands:
+
+```bash
+cd ~/git/dbxe/amanita
+npm run dev -- backend list
+npm run dev -- contract inspect --contract 0xE6841D92B0C345144506576eC13ECf5103aC7f49
+npm run dev -- query multichain-inspect --targets l1@mainnet-remote:0xE6841D92B0C345144506576eC13ECf5103aC7f49,l2@arbitrum-one-remote:0x34d45e99f7D8c45ed05B5cA72D54bbD1fb3F98f0
+```
+
+## Webhook and notification path
+
+Manual NanoClaw notification test:
 
 ```bash
 cd ~/git/dbxe/amanita
@@ -290,37 +347,9 @@ npm run dev -- webhook serve \
   --group-folder dm-with-<name>
 ```
 
-The CLI channel remains useful for deterministic testing, but it is not a reliable push-notification surface because delivery only appears in a live connected terminal. For proactive alerts, prefer a DM or Discord-backed NanoClaw session.
-
-When you register the local MultiBaas callback URL, use the address that matches the actual MultiBaas process location:
+When registering the callback URL, match it to where MultiBaas is actually running:
 
 - host-run local MultiBaas: `http://127.0.0.1:8787/webhooks/multibaas`
-- container-run local MultiBaas with Docker host DNS: `http://host.docker.internal:8787/webhooks/multibaas`
+- container-run local MultiBaas: `http://host.docker.internal:8787/webhooks/multibaas`
 
-If the webhook had already accumulated failed deliveries, expect retry backoff. A corrected URL may not fire immediately on the next transfer; confirm the local MultiBaas webhook record has reached `nextAttempt: null` before treating the callback path as still broken.
-
-## Deterministic whale-movement replay
-
-For the HelloWorld fixture, do not assume the deployer still holds tokens after `hardhat/scripts/mint.ts`; that script distributes the full supply. To trigger the alert loop on demand, call the linked token through the MultiBaas contract-method API and submit the transaction from the whale address instead:
-
-```bash
-curl -sS -X POST "$MULTIBAAS_BASE_URL/api/v0/chains/ethereum/addresses/helloworld/contracts/helloworld/methods/transfer" \
-  -H "Authorization: Bearer $MULTIBAAS_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "signature": "transfer(address,uint256)",
-    "args": ["0xd0E2ac1033B2a26314095BbE2e56D2974455B8B6", "1000000000000000000"],
-    "from": "0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172",
-    "signer": "0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172",
-    "signAndSubmit": true,
-    "nonceManagement": true
-  }'
-```
-
-Note:
-
-- MultiBaas selects the indexed chain at deployment setup time.
-- For EVM deployments, the API path still remains `/api/v0/chains/ethereum/...` even when the backend is serving Arbitrum or another EVM chain.
-- When NanoClaw is working across multiple backends, chain identity should come from the selected backend profile or tool result, not from that URL fragment.
-
-On success, MultiBaas returns `TransactionToSignResponse` with `submitted: true`, the tracked token balance for the whale drops, and the webhook receiver can queue the resulting alert into the DM or Discord-backed NanoClaw session.
+If a webhook had accumulated failed deliveries, expect retry backoff before treating the callback path as broken.
