@@ -583,12 +583,15 @@ function appendControlEvents(lines: string[], heading: string, events: IncidentC
 }
 
 export function formatArbitrumGovernanceIncidentAnalysis(result: ArbitrumGovernanceIncidentAnalysis): string {
+  const recommendedShape = result.focus === "brief"
+    ? "Recommended answer shape: Brief, Contracts to inspect, What can happen next, then the required event_query block. Reserve Verdict/Searched/Found/Next signal for explicit proposal-status or monitor turns."
+    : "Recommended answer shape: Verdict, Searched, Found, Next signal, and Watching when a monitor is active.";
   const lines = [
     "Evidence packet: Arbitrum frozen ETH governance incident",
     "",
     `Focus: ${result.focus}`,
     "Use this packet as source material. Do not copy it wholesale; synthesize the user-facing answer from the evidence below.",
-    "Recommended answer shape: Verdict, Searched, Found, Next signal, and Watching when a monitor is active.",
+    recommendedShape,
     "Put addresses, transaction hashes, proposal IDs, selectors, operation IDs, and webhook IDs in single backticks. Do not shorten hashes or addresses with ellipses.",
   ];
 
@@ -603,6 +606,7 @@ export function formatArbitrumGovernanceIncidentAnalysis(result: ArbitrumGoverna
       `- Security Council action froze 30,765.667501709008927568 ETH connected to the KelpDAO / rsETH exploit.`,
       `- Frozen funds address: ${formatLiteral(FROZEN_ETH_ADDRESS)}.`,
       "- Releasing those funds requires Arbitrum governance action.",
+      "- If no matching ProposalCreated event is present in the status preflight, mention that only as a forward-looking release-path note, not as the main finding.",
       "",
       "Possible onchain control path",
       "- Core Governor emits ProposalCreated on Arbitrum One.",
@@ -614,28 +618,48 @@ export function formatArbitrumGovernanceIncidentAnalysis(result: ArbitrumGoverna
 
   if (result.proposalStatus) {
     appendProposalQuerySummary(lines, result.proposalStatus);
-    lines.push(
-      "",
-      "Observed Core Governor proposal status",
-      `Source: ${formatQueryTarget(result.proposalStatus.queryTarget)}`,
-    );
-    if (result.proposalStatus.matches.length > 0) {
-      lines.push(`Verdict: found ${result.proposalStatus.matches.length} matching ProposalCreated event(s).`);
-      for (const proposal of result.proposalStatus.matches.slice(0, result.limit)) {
-        lines.push(formatProposal(proposal));
+
+    if (result.focus === "brief") {
+      lines.push(
+        "",
+        "Release path preflight",
+        `Source: ${formatQueryTarget(result.proposalStatus.queryTarget)}`,
+      );
+      if (result.proposalStatus.matches.length > 0) {
+        lines.push(`- A matching release-related ProposalCreated event is already present in the checked Core Governor stream.`);
+        for (const proposal of result.proposalStatus.matches.slice(0, result.limit)) {
+          lines.push(formatProposal(proposal));
+        }
+      } else {
+        lines.push(
+          "- A release would require a ProposalCreated event on the Core Governor; none has appeared yet in this checked stream.",
+          `- Preflight coverage: ${formatProposalSearchEffort(result.proposalStatus)} for Kelp / rsETH / frozen ETH markers.`,
+        );
       }
     } else {
       lines.push(
-        `Verdict: not onchain yet in the checked Core Governor ProposalCreated stream.`,
-        `Searched: ${formatProposalSearchEffort(result.proposalStatus)} for Kelp / rsETH / frozen ETH markers.`,
-        "Next binding signal: ProposalCreated on the Core Governor with Kelp / rsETH / frozen ETH markers.",
+        "",
+        "Observed Core Governor proposal status",
+        `Source: ${formatQueryTarget(result.proposalStatus.queryTarget)}`,
       );
-    }
+      if (result.proposalStatus.matches.length > 0) {
+        lines.push(`Verdict: found ${result.proposalStatus.matches.length} matching ProposalCreated event(s).`);
+        for (const proposal of result.proposalStatus.matches.slice(0, result.limit)) {
+          lines.push(formatProposal(proposal));
+        }
+      } else {
+        lines.push(
+          `Verdict: not onchain yet in the checked Core Governor ProposalCreated stream.`,
+          `Searched: ${formatProposalSearchEffort(result.proposalStatus)} for Kelp / rsETH / frozen ETH markers.`,
+          "Next binding signal: ProposalCreated on the Core Governor with Kelp / rsETH / frozen ETH markers.",
+        );
+      }
 
-    if (result.proposalStatus.recent.length > 0 && result.focus === "proposal-status") {
-      lines.push("", "Recent ProposalCreated events checked");
-      for (const proposal of result.proposalStatus.recent) {
-        lines.push(formatProposal(proposal));
+      if (result.proposalStatus.recent.length > 0 && result.focus === "proposal-status") {
+        lines.push("", "Recent ProposalCreated events checked");
+        for (const proposal of result.proposalStatus.recent) {
+          lines.push(formatProposal(proposal));
+        }
       }
     }
   }

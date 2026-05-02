@@ -124,6 +124,13 @@ test("formatArbitrumGovernanceIncidentAnalysis keeps brief shape distinct from s
   assert.match(text, /what happened, contracts to inspect, what can happen next/i);
   assert.match(text, /Security Council action froze 30,765/i);
   assert.match(text, /Possible onchain control path/i);
+  assert.match(text, /Release path preflight/i);
+  assert.match(text, /none has appeared yet in this checked stream/i);
+  assert.match(text, /Reserve Verdict\/Searched\/Found\/Next signal for explicit proposal-status or monitor turns/i);
+  assert.doesNotMatch(text, /Observed Core Governor proposal status/i);
+  assert.doesNotMatch(text, /Verdict: not onchain yet/i);
+  assert.doesNotMatch(text, /^Searched:/m);
+  assert.doesNotMatch(text, /Next binding signal:/i);
 });
 
 test("formatArbitrumGovernanceIncidentAnalysis renders control evidence", () => {

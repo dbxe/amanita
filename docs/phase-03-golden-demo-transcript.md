@@ -13,21 +13,19 @@ What's going on with Arbitrum governance lately? I heard the council froze some 
 **OpenAgent**
 
 ```text
-Verdict: yes. The governance-relevant incident is the KelpDAO / rsETH frozen ETH response.
+Brief: Arbitrum's Security Council froze 30,765.667501709008927568 ETH connected to the KelpDAO / rsETH exploit. The frozen funds address is `0x0000000000000000000000000000000000000DA0`.
 
-Public context:
-- Arbitrum's Security Council froze 30,765.667501709008927568 ETH connected to the KelpDAO / rsETH exploit.
-- The frozen funds address is `0x0000000000000000000000000000000000000DA0`.
-- Releasing those funds requires Arbitrum governance action.
+Releasing those funds requires Arbitrum governance action. A release would need to show up as a ProposalCreated event on the Core Governor; none has appeared yet in the checked stream, so that is the path to watch.
 
 Contracts to inspect:
 - Core Governor: `0xf07DeD9dC292157749B6Fd268E37DF6EA38395B9`
 - L2 Core Timelock: where a successful proposal is queued and executed.
 - L2 / L1 Upgrade Executors: relevant if the execution path touches protocol-control contracts.
 
-Next onchain signal:
-- ProposalCreated on the Core Governor with Kelp / rsETH / frozen ETH markers.
-- Then VoteCast / VoteCastWithParams, queueing, timelock scheduling, and execution.
+What can happen next:
+- A ProposalCreated event appears on the Core Governor with Kelp / rsETH / frozen ETH markers.
+- Delegates vote through VoteCast / VoteCastWithParams.
+- If successful, the proposal moves through queueing, timelock scheduling, and execution.
 
 ```event_query
 query: multibaas.eventQuery

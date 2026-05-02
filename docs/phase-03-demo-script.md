@@ -71,7 +71,8 @@ Expected behavior:
 
 - calls `summarize_governance_incident`
 - includes an `event_query` block showing the Core Governor `ProposalCreated` stream and decoded marker fields
-- synthesizes public context, control path, and next binding signal from the evidence packet
+- synthesizes public context, contracts to inspect, and what can happen next from the evidence packet
+- frames the no-matching-proposal result only as a forward-looking release-path note, not as a `Verdict` / `Searched` / `Found` status answer
 - avoids backend-health framing unless something blocks the answer
 
 ### Beat 2: Onchain Verification

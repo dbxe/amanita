@@ -46,6 +46,10 @@ test("containerInstructions steer NanoClaw away from saved queries for ERC-20 ho
   assert.match(instructions, /fenced `event_query` block.*cited process/i);
   assert.match(instructions, /Every final answer based on an incident tool must include the fenced `event_query` block/i);
   assert.match(instructions, /do not answer as though the specific freeze transaction itself was directly verified/i);
+  assert.match(instructions, /incident brief answers.*start with `Brief:`.*Brief, Contracts to inspect, What can happen next/i);
+  assert.match(instructions, /no-matching-proposal result.*only as one forward-looking release-path sentence/i);
+  assert.match(instructions, /Do not use the proposal-status Verdict\/Searched\/Found\/Next signal shape unless/i);
+  assert.match(instructions, /proposal-status and monitor answers.*Verdict, Searched, Found, Next signal, Watching/i);
   assert.match(instructions, /do not copy the whole tool output/i);
   assert.match(instructions, /Lead with your conclusion.*most relevant event rows.*next onchain signal/i);
   assert.match(instructions, /names a specific non-default chain.*inspect_targets_across_backends/i);
