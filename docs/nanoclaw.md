@@ -191,6 +191,113 @@ Treat "slow after recent liveness success" differently from "dead". If the agent
 
 This matters when the test path is `pnpm run chat`, because slow first token is normal in this setup. The local client now waits long enough to make that explicit. If it times out after 15 minutes, treat that as a real failure to investigate rather than a short-lived client artifact.
 
+## Slow vs stuck
+
+A recent `hello` only proves that the lane is alive. It does **not** prove that the current heavy prompt is converging.
+
+When a prompt is taking a while, use this maintainer triage:
+
+1. identify the active session
+2. check whether a reply has actually been emitted
+3. check whether the session is still alive
+4. only then decide whether to keep waiting or escalate
+
+### 1. Identify the active session
+
+The easiest path is still:
+
+```bash
+cd ~/git/dbxe/amanita
+npm run dev -- nanoclaw preflight \
+  --nanoclaw-dir ~/git/dbxe/nanoclaw \
+  --group-folder cli-with-<name>
+```
+
+Use the reported `Agent group id` and active session id in the commands below.
+
+If needed, you can also list the latest sessions directly:
+
+```bash
+cd ~/git/dbxe/nanoclaw
+sqlite3 data/v2.db \
+  "select id, agent_group_id, status, container_status, last_active from sessions order by created_at desc limit 5;"
+```
+
+### 2. Reply signal
+
+Do **not** judge by model traffic alone. First ask whether NanoClaw actually emitted a new reply:
+
+```bash
+cd ~/git/dbxe/nanoclaw
+sqlite3 data/v2-sessions/<agent-group-id>/<session-id>/outbound.db \
+  "select count(*) as reply_count, max(timestamp) as last_reply from messages_out;"
+```
+
+Interpretation:
+
+- a newer `last_reply` means the turn is producing user-visible output
+- no new reply means the turn may still be healthy, or it may be looping internally
+
+### 3. Liveness signal
+
+Then check whether the session is still alive:
+
+```bash
+cd ~/git/dbxe/nanoclaw
+stat -f '%Sm %N' -t '%Y-%m-%d %H:%M:%S' \
+  data/v2-sessions/<agent-group-id>/<session-id>/.heartbeat
+```
+
+Interpretation:
+
+- heartbeat still moving means the inner agent is still active
+- stale heartbeat means the session is actually stuck or dead
+
+### 4. Turn-status signal
+
+Check whether NanoClaw still thinks the turn is in flight:
+
+```bash
+cd ~/git/dbxe/nanoclaw
+sqlite3 data/v2-sessions/<agent-group-id>/<session-id>/outbound.db \
+  "select message_id, status, status_changed from processing_ack order by status_changed desc limit 5;"
+```
+
+Interpretation:
+
+- `processing` means the turn is still active
+- `completed` with a matching new reply is a normal finish
+- `completed` with **no** new reply is suspicious and should be treated as a failure mode worth investigating
+
+### 5. Optional loop check
+
+If heartbeat is still moving but no reply appears, take two snapshots of the latest opencode log about a minute apart:
+
+```bash
+cd ~/git/dbxe/nanoclaw
+LATEST_LOG=$(find data/v2-sessions/<agent-group-id>/<session-id>/opencode-xdg/opencode/log -type f | sort | tail -n 1)
+tail -n 40 "$LATEST_LOG"
+sleep 60
+tail -n 40 "$LATEST_LOG"
+```
+
+Keep waiting when:
+
+- the reply signal has advanced
+- the heartbeat is moving
+- the log snapshot shows new work that looks like progress toward a reply
+
+Escalate when:
+
+- there is still no reply
+- heartbeat keeps moving but the log keeps repeating the same tool family or the same reasoning pattern
+- `processing_ack` flips to `completed` but no outbound reply was emitted
+
+The practical rule is:
+
+- **slow** means the turn is still making progress toward a user-visible answer
+- **stuck** means the turn is still busy but no longer converging toward a user-visible answer
+
 ## When to rerun configure vs when to restart
 
 Treat NanoClaw as sticky:

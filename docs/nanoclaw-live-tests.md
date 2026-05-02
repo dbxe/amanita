@@ -38,6 +38,56 @@ Validation discipline:
 3. prefer patience over retries when liveness already succeeded recently
 4. only escalate to reset/restart when there is stronger evidence than slowness alone
 
+## Distinguish slow from stuck
+
+Recent liveness success does **not** prove that a heavy prompt is healthy. While a prompt is running, use these checks in order:
+
+1. **Reply signal**: did NanoClaw emit a new outbound reply?
+
+```bash
+cd ~/git/dbxe/nanoclaw
+sqlite3 data/v2-sessions/<agent-group-id>/<session-id>/outbound.db \
+  "select count(*) as reply_count, max(timestamp) as last_reply from messages_out;"
+```
+
+2. **Liveness signal**: is the heartbeat still moving?
+
+```bash
+cd ~/git/dbxe/nanoclaw
+stat -f '%Sm %N' -t '%Y-%m-%d %H:%M:%S' \
+  data/v2-sessions/<agent-group-id>/<session-id>/.heartbeat
+```
+
+3. **Turn-status signal**: does NanoClaw still think the turn is active?
+
+```bash
+cd ~/git/dbxe/nanoclaw
+sqlite3 data/v2-sessions/<agent-group-id>/<session-id>/outbound.db \
+  "select message_id, status, status_changed from processing_ack order by status_changed desc limit 5;"
+```
+
+4. **Loop signal**: if there is still no reply but heartbeat is moving, compare two snapshots of the latest opencode log about a minute apart:
+
+```bash
+cd ~/git/dbxe/nanoclaw
+LATEST_LOG=$(find data/v2-sessions/<agent-group-id>/<session-id>/opencode-xdg/opencode/log -type f | sort | tail -n 1)
+tail -n 40 "$LATEST_LOG"
+sleep 60
+tail -n 40 "$LATEST_LOG"
+```
+
+Keep waiting when:
+
+- a newer outbound reply appears
+- heartbeat is moving
+- the second snapshot looks like new work rather than the same repeated loop
+
+Escalate when:
+
+- there is still no reply
+- heartbeat moves but the same tool pattern or reasoning pattern repeats
+- `processing_ack` says `completed` but no new outbound reply exists
+
 ## `pnpm run chat` maintainer path
 
 `pnpm run chat` is the canonical **local maintainer** test command.
