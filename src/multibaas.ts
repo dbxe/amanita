@@ -691,7 +691,10 @@ export async function getAddressRegistration(config: RuntimeConfig, addressOrAli
   const addressesApi = createAddressesApi(config);
   const data = await withCurlFallback(
     async () => {
-      const response = await addressesApi.getAddress(normalizedAddressOrAlias, ["contractLookup"]);
+      // Common inspection/readiness paths only need the linked address record.
+      // Avoid contractLookup here so routine reads do not depend on the heavier
+      // contract-lookup backend service.
+      const response = await addressesApi.getAddress(normalizedAddressOrAlias);
       return response.data;
     },
     () =>
@@ -701,9 +704,7 @@ export async function getAddressRegistration(config: RuntimeConfig, addressOrAli
           alias?: string;
           contracts?: Array<{ label: string; name?: string; version?: string }>;
         };
-      }>(config, `/chains/ethereum/addresses/${encodeURIComponent(normalizedAddressOrAlias)}`, {
-        params: { include: "contractLookup" },
-      }),
+      }>(config, `/chains/ethereum/addresses/${encodeURIComponent(normalizedAddressOrAlias)}`),
   );
   return {
     address: normalizeAddress(data.result?.address ?? normalizedAddressOrAlias),
