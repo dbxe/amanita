@@ -223,12 +223,17 @@ function targetById(result: ArbitrumDaoInspectionResult, id: ArbitrumDaoTargetDe
   return target;
 }
 
-function answerabilityLabel(label: "grounded" | "partial" | "premature"): string {
+type AnswerabilityStatus = "grounded" | "partial" | "premature" | "blocked";
+
+function answerabilityLabel(label: AnswerabilityStatus): string {
   if (label === "grounded") {
     return "grounded now";
   }
   if (label === "partial") {
     return "partially grounded";
+  }
+  if (label === "blocked") {
+    return "temporarily blocked";
   }
   return "premature";
 }
@@ -267,7 +272,22 @@ function buildOverviewLines(result: ArbitrumDaoInspectionResult): string[] {
   return lines;
 }
 
-function buildFocusAssessment(result: ArbitrumDaoInspectionResult): { grounded: string[]; next: string[]; premature: string[]; status: "grounded" | "partial" | "premature" } {
+function buildFocusAssessment(result: ArbitrumDaoInspectionResult): { grounded: string[]; next: string[]; premature: string[]; status: AnswerabilityStatus } {
+  const successfulInspections = result.targets.filter((target) => target.readinessState);
+  if (successfulInspections.length === 0) {
+    return {
+      grounded: [],
+      next: [
+        "Retry a narrow readiness check for one explicit target before making DAO-level claims.",
+        "Use single-contract inspection against the named backend to separate backend indexing pressure from actual DAO readiness.",
+      ],
+      premature: [
+        "DAO-level conclusions are temporarily blocked because no active target inspection completed.",
+      ],
+      status: "blocked",
+    };
+  }
+
   const coreGovernor = targetById(result, "core_governor");
   const treasuryGovernor = targetById(result, "treasury_governor");
   const l2CoreTimelock = targetById(result, "l2_core_timelock");
@@ -373,29 +393,51 @@ export async function inspectArbitrumDao(focus: ArbitrumDaoFocus = "overview"): 
   const backends = listConfiguredBackends();
   const backendMap = new Map(backends.map((backend) => [backend.profileName, backend]));
   const configMap = new Map<string, RuntimeConfig>();
+  const targetGroups = new Map<string, ArbitrumDaoTargetDefinition[]>();
 
   for (const target of ACTIVE_TARGETS) {
     if (!configMap.has(target.profileName)) {
       configMap.set(target.profileName, resolveConfigForProfile(target.profileName));
     }
+    targetGroups.set(target.profileName, [...(targetGroups.get(target.profileName) ?? []), target]);
   }
 
-  const targets = await Promise.all(
-    ACTIVE_TARGETS.map(async (target) => {
-      const config = configMap.get(target.profileName);
-      const configuredBackend = backendMap.get(target.profileName);
+  const targetsById = new Map<string, ArbitrumDaoTargetInspection>();
+  await Promise.all(
+    [...targetGroups.entries()].map(async ([profileName, groupedTargets]) => {
+      const config = configMap.get(profileName);
+      const configuredBackend = backendMap.get(profileName);
       if (!config || !configuredBackend) {
-        throw new Error(`Missing configured backend profile ${target.profileName} for Arbitrum DAO inspection.`);
+        throw new Error(`Missing configured backend profile ${profileName} for Arbitrum DAO inspection.`);
       }
-      return await inspectDaoTargetWithTimeout(target, config, configuredBackend);
+
+      for (const target of groupedTargets) {
+        targetsById.set(target.id, await inspectDaoTargetWithTimeout(target, config, configuredBackend));
+      }
     }),
   );
 
   return {
     backends,
     focus,
-    targets,
+    targets: ACTIVE_TARGETS.map((target) => {
+      const inspection = targetsById.get(target.id);
+      if (!inspection) {
+        throw new Error(`Missing Arbitrum DAO inspection result for ${target.id}`);
+      }
+      return inspection;
+    }),
   };
+}
+
+function formatInspectionError(error: string): string {
+  if (/timed out/i.test(error)) {
+    return "inspection did not complete; retry a narrow target check before making historical claims";
+  }
+  if (/request failed \(500\)|internal error/i.test(error)) {
+    return "backend request failed while indexing or status reads were under pressure; retry a narrow target check";
+  }
+  return error;
 }
 
 export function formatArbitrumDaoInspection(result: ArbitrumDaoInspectionResult): string {
@@ -410,7 +452,7 @@ export function formatArbitrumDaoInspection(result: ArbitrumDaoInspectionResult)
 
   for (const target of result.targets) {
     const status = target.inspectionError
-      ? `error (${target.inspectionError})`
+      ? `inspection incomplete (${formatInspectionError(target.inspectionError)})`
       : target.readinessState ?? "unknown";
     lines.push(
       `- [${status}] ${target.definition.roleLabel} (${target.definition.chainLabel})`,
@@ -425,6 +467,14 @@ export function formatArbitrumDaoInspection(result: ArbitrumDaoInspectionResult)
     }
     if (target.eventLeadIds.length > 0) {
       lines.push(`  event leads now: ${target.eventLeadIds.join(", ")}`);
+    }
+  }
+
+  const incompleteTargets = result.targets.filter((target) => target.inspectionError);
+  if (incompleteTargets.length > 0) {
+    lines.push("", "Inspection caveats");
+    for (const target of incompleteTargets) {
+      lines.push(`- ${target.definition.roleLabel}: ${formatInspectionError(target.inspectionError!)}`);
     }
   }
 

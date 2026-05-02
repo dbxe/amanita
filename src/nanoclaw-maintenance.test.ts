@@ -99,6 +99,7 @@ test("inspectNanoClawGroup reports backend registry and session state", (t) => {
                 defaultProfile: "mainnet-remote",
                 profiles: {
                   "arbitrum-one-remote": { baseUrl: "https://arb.example.multibaas.com" },
+                  development: { baseUrl: "http://host.docker.internal:8080", inactive: true },
                   "mainnet-remote": { baseUrl: "https://mainnet.example.multibaas.com" },
                 },
               }),
@@ -132,7 +133,7 @@ test("inspectNanoClawGroup reports backend registry and session state", (t) => {
     });
 
     assert.equal(result.backendMode, "registry");
-    assert.deepEqual(result.configuredProfiles, ["arbitrum-one-remote", "mainnet-remote"]);
+    assert.deepEqual(result.configuredProfiles, ["arbitrum-one-remote", "development", "mainnet-remote"]);
     assert.equal(result.profileName, "mainnet-remote");
     assert.equal(result.mcpDistExists, true);
     assert.deepEqual(result.runningContainers, ["nanoclaw-v2-cli-with-test-abc123"]);
@@ -142,7 +143,7 @@ test("inspectNanoClawGroup reports backend registry and session state", (t) => {
       { profileName: "arbitrum-one-remote", hasApiSecret: true },
       { profileName: "mainnet-remote", hasApiSecret: false },
     ]);
-    assert.match(formatNanoClawPreflight(result), /Configured profiles: arbitrum-one-remote, mainnet-remote/);
+    assert.match(formatNanoClawPreflight(result), /Configured profiles: arbitrum-one-remote, development, mainnet-remote/);
     assert.match(formatNanoClawPreflight(result), /OneCLI API secret coverage/);
     assert.match(formatNanoClawPreflight(result), /arbitrum-one-remote: present/);
     assert.match(formatNanoClawPreflight(result), /mainnet-remote: missing/);

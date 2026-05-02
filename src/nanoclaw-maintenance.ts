@@ -153,13 +153,13 @@ function inspectBackendSecretCoverage(backendProfilesJson?: string): BackendSecr
   }
 
   const parsed = JSON.parse(backendProfilesJson) as {
-    profiles?: Record<string, { baseUrl?: string }>;
+    profiles?: Record<string, { baseUrl?: string; inactive?: boolean }>;
   };
   const profiles = parsed.profiles ?? {};
   const secrets = listOneCliSecrets();
 
   return Object.entries(profiles)
-    .filter(([, profile]) => profile.baseUrl)
+    .filter(([, profile]) => profile.baseUrl && !profile.inactive)
     .map(([profileName, profile]) => {
       const host = new URL(profile.baseUrl!).host;
       const hasApiSecret = secrets.some((secret) =>

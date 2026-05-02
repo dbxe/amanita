@@ -6,6 +6,14 @@ import { formatConfiguredBackends, formatMultichainInspection } from "./multicha
 test("formatConfiguredBackends renders configured backend summaries", () => {
   const text = formatConfiguredBackends([
     {
+      hardhatNetwork: "development",
+      hasApiKey: false,
+      inactive: true,
+      note: "Legacy local fallback; not part of the remote Arbitrum DAO demo.",
+      profileName: "development",
+      stateDir: "/tmp/.agent-state/development",
+    },
+    {
       baseUrl: "https://mainnet.example.multibaas.com",
       chainId: 1,
       chainName: "Ethereum Mainnet",
@@ -26,6 +34,9 @@ test("formatConfiguredBackends renders configured backend summaries", () => {
   ]);
 
   assert.match(text, /mainnet-remote/);
+  assert.match(text, /development/);
+  assert.match(text, /status=inactive/);
+  assert.match(text, /apiKey=not required while inactive/);
   assert.match(text, /Ethereum Mainnet \(1\)/);
   assert.match(text, /arbitrum-one-remote/);
   assert.match(text, /Arbitrum One \(42161\)/);

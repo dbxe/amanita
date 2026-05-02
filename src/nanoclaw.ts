@@ -196,14 +196,21 @@ function containerBackendProfilesJson(): string | undefined {
     return undefined;
   }
 
+  const remoteProfiles = Object.entries(configured.profiles).filter(([profileName]) => profileName !== "development");
+  if (remoteProfiles.length === 0) {
+    return undefined;
+  }
+
   const sanitizedProfiles = Object.fromEntries(
-    Object.entries(configured.profiles).map(([profileName, profile]) => {
+    remoteProfiles.map(([profileName, profile]) => {
       const baseUrl = profile.baseUrl ? deriveContainerBaseUrl(profile.baseUrl) : undefined;
       return [profileName, {
         baseUrl,
         chainId: profile.chainId,
         chainName: profile.chainName,
         hardhatNetwork: profile.hardhatNetwork,
+        inactive: profile.inactive,
+        note: profile.note,
         stateDir: `/workspace/agent/.agent-state/${profileName}`,
       }];
     }),

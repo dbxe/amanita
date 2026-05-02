@@ -147,10 +147,7 @@ test("configureNanoClawGroup writes a relative mount and workspace/extra MCP pat
     assert.ok(containerConfig.mcpServers["multibaas-runtime"].env?.MULTIBAAS_BACKENDS_JSON);
     const backendJson = JSON.parse(containerConfig.mcpServers["multibaas-runtime"].env?.MULTIBAAS_BACKENDS_JSON ?? "{}");
     assert.equal(backendJson.defaultProfile, "mainnet-remote");
-    assert.equal(
-      backendJson.profiles.development.baseUrl,
-      "http://host.docker.internal:8080",
-    );
+    assert.equal(backendJson.profiles.development, undefined);
     assert.equal(
       backendJson.profiles["mainnet-remote"].stateDir,
       "/workspace/agent/.agent-state/mainnet-remote",

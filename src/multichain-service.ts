@@ -164,10 +164,12 @@ export function formatConfiguredBackends(backends: ConfiguredBackendSummary[]): 
     ...backends.map((backend) =>
       [
         `- ${backend.profileName}`,
+        `  status=${backend.inactive ? "inactive" : "active"}`,
+        ...(backend.note ? [`  note=${backend.note}`] : []),
         `  network=${backend.hardhatNetwork}`,
         ...(backend.chainName ? [`  chain=${backend.chainName}${backend.chainId !== undefined ? ` (${backend.chainId})` : ""}`] : []),
-        `  baseUrl=${backend.baseUrl ?? "missing"}`,
-        `  apiKey=${backend.hasApiKey ? "configured" : "missing"}`,
+        `  baseUrl=${backend.baseUrl ?? (backend.inactive ? "not configured" : "missing")}`,
+        `  apiKey=${backend.hasApiKey ? "configured" : backend.inactive ? "not required while inactive" : "missing"}`,
         `  stateDir=${backend.stateDir}`,
       ].join("\n"),
     ),

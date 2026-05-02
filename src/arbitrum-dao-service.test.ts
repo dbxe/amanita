@@ -168,3 +168,20 @@ test("formatArbitrumDaoInspection gives a bounded delegate answer", () => {
   assert.match(text, /native L2 ARB token is not in the active demo target set/i);
   assert.match(text, /Add the native ARB token on Arbitrum One back into the active target set/i);
 });
+
+test("formatArbitrumDaoInspection treats total inspection failure as temporarily blocked", () => {
+  const result = fixtureResult("overview");
+  result.targets = result.targets.map((target) => ({
+    ...target,
+    inspectionError: "inspection timed out after 20000ms",
+    readinessState: undefined,
+  }));
+
+  const text = formatArbitrumDaoInspection(result);
+
+  assert.match(text, /Answerability: temporarily blocked/i);
+  assert.match(text, /DAO-level conclusions are temporarily blocked/i);
+  assert.match(text, /Retry a narrow readiness check/i);
+  assert.match(text, /inspection did not complete/i);
+  assert.doesNotMatch(text, /timed out after/i);
+});

@@ -16,6 +16,8 @@ interface BackendProfile {
   chainId?: number;
   chainName?: string;
   hardhatNetwork?: string;
+  inactive?: boolean;
+  note?: string;
   stateDir?: string;
 }
 
@@ -30,6 +32,8 @@ export interface ConfiguredBackendSummary {
   chainName?: string;
   hardhatNetwork: string;
   hasApiKey: boolean;
+  inactive?: boolean;
+  note?: string;
   profileName: string;
   stateDir: string;
 }
@@ -153,6 +157,8 @@ export function listConfiguredBackends(): ConfiguredBackendSummary[] {
       chainName: profile?.chainName,
       hardhatNetwork,
       hasApiKey: Boolean(profile?.apiKey ?? fallback.apiKey),
+      inactive: profile?.inactive,
+      note: profile?.note,
       profileName,
       stateDir,
     };
