@@ -145,7 +145,7 @@ server.tool(
 
 server.tool(
   "get_arbitrum_frozen_eth_proposal_status",
-  "Mandatory for status-only demo prompts like: has the frozen-ETH release proposal reached onchain governance yet? Call this before answering even if a previous turn already checked proposal status. Do not send a standalone progress-only message before calling this tool. This checks the Arbitrum One Core Governor ProposalCreated stream for Kelp / rsETH / frozen-ETH markers. Use the result as an evidence packet, answer the status in your own words, and copy the fenced event_query block exactly. Do not set up, promise, or imply a monitor when the user only asks for current status. If the same prompt also says let me know, notify me, alert me, watch, or monitor, call create_arbitrum_frozen_eth_release_monitor instead.",
+  "Mandatory for status-only demo prompts like: has the frozen-ETH release proposal reached onchain governance yet, landed onchain, or landed on chain? Call this before answering even if a previous turn already checked proposal status. Do not send a standalone progress-only message before calling this tool. This checks the Arbitrum One Core Governor ProposalCreated stream for Kelp / rsETH / frozen-ETH markers as a current-status preflight. Use the result as an evidence packet, answer the status in your own words, and copy the fenced event_query block exactly. Do not set up, promise, or imply a monitor when the user only asks for current status. If the same prompt also says let me know, notify me, alert me, watch, or monitor, call create_arbitrum_frozen_eth_release_monitor instead.",
   {
     limit: z.number().int().min(1).max(20).optional(),
   },
@@ -163,7 +163,7 @@ server.tool(
 
 server.tool(
   "create_arbitrum_frozen_eth_release_monitor",
-  "Mandatory for explicit monitor requests like: let me know, notify me, alert me, watch for, or monitor when the Arbitrum frozen-ETH release proposal reaches onchain governance. Also mandatory for combined prompts like: has the frozen-ETH release proposal reached onchain governance yet; if not, let me know when it does. This tool performs the current status check first, then uses the configured or already-active MultiBaas event.emitted webhook and persists the Core Governor ProposalCreated monitor with agent-side incident filters. Do not use NanoClaw schedule_task for this incident monitor. Do not invent or provide a webhook URL. After this succeeds, answer that the webhook-backed monitor is active, include the event_query trace block, and describe the exact stream, filters, webhook id, and follow-up analysis.",
+  "Mandatory for explicit monitor requests like: let me know, notify me, alert me, watch for, or monitor when the Arbitrum frozen-ETH release proposal reaches onchain governance or lands onchain. Also mandatory for combined prompts like: has the frozen-ETH release proposal reached onchain governance yet; if not, let me know when it does. This tool performs a ProposalCreated current-status preflight first, then uses the configured or already-active MultiBaas event.emitted webhook and persists the Core Governor ProposalCreated monitor with agent-side incident filters. Do not use NanoClaw schedule_task for this incident monitor. Do not invent or provide a webhook URL. After this succeeds, answer that the webhook-backed monitor is active, include the event_query trace block and the monitor_activation proof block, and describe the exact stream, filters, webhook id, and follow-up analysis.",
   {
     limit: z.number().int().min(1).max(20).optional(),
   },

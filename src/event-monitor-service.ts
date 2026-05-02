@@ -303,11 +303,27 @@ export function formatArbitrumFrozenEthReleaseMonitorRegistration(
     ? `found ${proposalStatus.matches.length} matching ProposalCreated event(s)`
     : `no matching release ProposalCreated event in ${proposalStatus?.searchedCount ?? 0} scanned Core Governor event(s)`;
   const followUp = result.monitor.followUpAnalysis.join("; ");
+  const watching = `${result.monitor.profileName} (${result.monitor.network}) ${result.monitor.contractLabel} ${result.monitor.contractAddress} / ${result.monitor.eventName}`;
 
   const lines = [
     "Evidence packet: Arbitrum frozen-ETH release event monitor",
     "",
     "Use this packet as source material. Do not copy it wholesale; synthesize the user-facing acknowledgement from the evidence below.",
+    "If you say the monitor is active or set up, your final answer must include the monitor_activation block below.",
+    "",
+    "Required monitor activation proof",
+    "```monitor_activation",
+    "status: active",
+    "webhook_status: registered",
+    `webhook_id: ${result.webhook.id}`,
+    `webhook_label: ${result.webhook.label}`,
+    `webhook_url: ${result.webhook.url}`,
+    "webhook_path: MultiBaas event.emitted -> local event monitor filter -> NanoClaw notification",
+    `watching: ${watching}`,
+    `matching: ${result.monitor.matchText.join(", ")}`,
+    `current_verdict: ${currentVerdict}`,
+    `follow_up_after_trigger: ${followUp}`,
+    "```",
     "",
     formatArbitrumGovernanceIncidentMonitorSetup(result.analysis),
     "",
@@ -320,7 +336,7 @@ export function formatArbitrumFrozenEthReleaseMonitorRegistration(
     "",
     "Monitor registered",
     `- Current verdict: ${currentVerdict}.`,
-    `- Watching: ${result.monitor.profileName} (${result.monitor.network}) ${result.monitor.contractLabel} ${result.monitor.contractAddress} / ${result.monitor.eventName}.`,
+    `- Watching: ${watching}.`,
     `- Matching: ${result.monitor.matchText.join(", ")}.`,
     `- Follow-up after trigger: ${followUp}.`,
   ];

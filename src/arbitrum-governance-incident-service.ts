@@ -502,6 +502,7 @@ function formatProposalSearchEffort(status: IncidentProposalStatus): string {
 function appendProposalQuerySummary(lines: string[], proposalStatus: IncidentProposalStatus): void {
   appendEventQueryBlock(lines, [
     "query: multibaas.eventQuery",
+    "purpose: current onchain status preflight for the frozen-ETH release proposal",
     `stream: ${formatQueryTarget(proposalStatus.queryTarget)} / ProposalCreated`,
     "order: newest first",
     "fields: proposal metadata + execution payload + description",
@@ -684,6 +685,7 @@ export function formatArbitrumGovernanceIncidentMonitorSetup(result: ArbitrumGov
     "Status check before setting the monitor",
     "```event_query",
     "query: multibaas.eventQuery",
+    "purpose: current onchain status preflight before webhook monitor registration",
     `stream: ${formatQueryTarget(result.monitorPlan)} / ProposalCreated`,
     "order: newest first",
     "fields: proposal metadata + execution payload + description",

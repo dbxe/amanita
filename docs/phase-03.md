@@ -127,6 +127,7 @@ The agent should:
 - distinguish forum/public proposal existence from onchain governance existence
 - if no match is found, say the next binding signal is Core Governor `ProposalCreated`
 - create the MultiBaas webhook-backed monitor only after reporting the current status
+- include the `monitor_activation` proof block with webhook status/id/path before claiming the monitor is active
 - state the exact follow-up analysis it will run when triggered
 
 This can be a strong answer even when the proposal is not yet onchain:
@@ -338,7 +339,7 @@ Before recording:
 - `nanoclaw preflight` shows only remote profiles
 - live prompt 1 returns incident brief without backend-health framing
 - live prompt 2 surfaces live `UpgradeExecuted` evidence or a clear onchain evidence boundary
-- live prompt 3 distinguishes public proposal from onchain `ProposalCreated`, then creates the MultiBaas webhook-backed monitor and describes the follow-up analysis
+- live prompt 3 distinguishes public proposal from onchain `ProposalCreated`, then creates the MultiBaas webhook-backed monitor, includes the `monitor_activation` proof block, and describes the follow-up analysis
 
 ## Video close
 

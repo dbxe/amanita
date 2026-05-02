@@ -16,7 +16,7 @@ Goal: pass a live NanoClaw demo where the agent uses the prescriptive Arbitrum g
 6. The answer must lead with the current verdict, then show decoded events and the next onchain signal.
 7. A status-only proposal question must not set up or promise a monitor.
 8. The merged status-plus-monitor beat must first report the current onchain status, then create the webhook-backed monitor.
-9. The monitor answer must describe the exact event stream, agent-side filters, webhook path, and follow-up analysis.
+9. The monitor answer must include the `monitor_activation` proof block with webhook status/id/path before saying the monitor is active.
 10. For live event-query turns, the agent should synthesize a final answer from the evidence packet rather than copying it wholesale. Do not use model-authored standalone progress acknowledgements in this demo path; visible progress should come from NanoClaw runtime behavior, not from a progress-only assistant reply.
 
 ## Host-Side Verification
@@ -98,13 +98,13 @@ pnpm run chat -- "Has the frozen-ETH release proposal reached onchain governance
 Expected behavior:
 
 - calls `create_arbitrum_frozen_eth_release_monitor` before claiming the monitor is active
-- uses the tool's built-in status check before registering the monitor
+- uses the tool's built-in `ProposalCreated` status preflight before registering the monitor
 - checks Arbitrum One Core Governor `ProposalCreated`
 - distinguishes public/forum proposal context from onchain `ProposalCreated`
 - names `ProposalCreated` as the next binding signal if no match exists
 - describes the `ProposalCreated` monitor target on the Core Governor
 - uses agent-side filters for Kelp / rsETH / frozen ETH / `30,765` / `0x0000000000000000000000000000000000000DA0`
-- states the MultiBaas webhook id/status and avoids any NanoClaw recurrence language
+- includes the `monitor_activation` block with MultiBaas webhook id/status/path and avoids any NanoClaw recurrence language
 - lists the follow-up analysis to run after trigger
 
 ## Pass Criteria
@@ -118,6 +118,7 @@ A live pass means:
 - public incident context and live event evidence stay separate
 - the current onchain status is stated as a verdict, not buried
 - the merged status-plus-monitor beat clearly separates "not onchain yet" from "webhook monitor is now active"
+- the merged status-plus-monitor beat includes both the `event_query` status preflight and the `monitor_activation` proof block
 - the monitor setup uses the MultiBaas webhook path, then clearly describes what is watched and what the agent will inspect next
 
 Fail the run if the agent:

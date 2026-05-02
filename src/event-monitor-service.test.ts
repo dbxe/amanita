@@ -164,6 +164,12 @@ test("formatArbitrumFrozenEthReleaseMonitorRegistration describes the webhook pa
   });
 
   assert.match(text, /Webhook status: registered/i);
+  assert.match(text, /```monitor_activation/i);
+  assert.match(text, /status: active/i);
+  assert.match(text, /webhook_status: registered/i);
+  assert.match(text, /webhook_id: 7/i);
+  assert.match(text, /watching: arbitrum-one-remote \(Arbitrum One\) Core Governor/i);
+  assert.match(text, /follow_up_after_trigger: inspect proposal ID, proposer, targets, values, calldata, and description/i);
   assert.match(text, /MultiBaas event\.emitted webhook -> local event monitor filter -> NanoClaw notification/i);
   assert.match(text, /Monitor registered/i);
   assert.match(text, /Current verdict: no matching release ProposalCreated event in 28 scanned Core Governor event/i);

@@ -79,6 +79,7 @@ test("formatArbitrumGovernanceIncidentAnalysis renders proposal-status evidence 
 
   assert.match(text, /```event_query/i);
   assert.match(text, /query: multibaas\.eventQuery/i);
+  assert.match(text, /purpose: current onchain status preflight/i);
   assert.doesNotMatch(text, /tool: analyze_arbitrum_governance_incident/i);
   assert.match(text, /fields: proposal metadata \+ execution payload \+ description/i);
   assert.match(text, /match: Kelp \| rsETH \| frozen ETH/i);
@@ -179,6 +180,7 @@ test("formatArbitrumGovernanceIncidentMonitorSetup renders actionable monitor de
   assert.match(text, /Current verdict: no matching release ProposalCreated event found after scanning 28 indexed ProposalCreated event/i);
   assert.match(text, /```event_query/i);
   assert.match(text, /stream: arbitrum-one-remote.*Core Governor.*ProposalCreated/i);
+  assert.match(text, /purpose: current onchain status preflight before webhook monitor registration/i);
   assert.doesNotMatch(text, /tool: analyze_arbitrum_governance_incident/i);
   assert.match(text, /match: Kelp, rsETH, frozen ETH/i);
   assert.match(text, /window: blocks 198000000 -> 293809109/i);
