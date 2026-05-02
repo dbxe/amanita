@@ -585,6 +585,12 @@ export function formatArbitrumGovernanceIncidentAnalysis(result: ArbitrumGoverna
   if (result.monitorPlan) {
     lines.push(
       "",
+      "Agent scheduling instruction",
+      "- If the user explicitly asked to be notified, alerted, watched, or monitored, call NanoClaw `schedule_task` after reading this packet and before the final user-facing acknowledgement.",
+      "- Suggested schedule: first run about five minutes from now using a naive local ISO timestamp with no `Z` suffix, then recurrence `0 */6 * * *` unless the user requested a different cadence.",
+      "- Scheduled task prompt: check the Arbitrum frozen-ETH release proposal status with `get_arbitrum_frozen_eth_proposal_status`; notify the user only if a matching Core Governor ProposalCreated event exists, then inspect proposal ID, proposer, targets, values, calldata, and description.",
+      "- Final answer must say the scheduled monitor is set only after `schedule_task` succeeds.",
+      "",
       "Monitor evidence",
       `- Network: ${result.monitorPlan.profileName} (${result.monitorPlan.network})`,
       `- Contract: ${result.monitorPlan.targetLabel} ${result.monitorPlan.targetAddress}`,
@@ -623,6 +629,7 @@ export function formatArbitrumGovernanceIncidentMonitorSetup(result: ArbitrumGov
     "Evidence packet: Arbitrum frozen-ETH release monitor",
     "",
     "Use this packet as source material. Do not copy it wholesale; synthesize the user-facing acknowledgement from the evidence below.",
+    "If the user asked to be notified, call NanoClaw `schedule_task` after reading this packet and before the final acknowledgement. Say the monitor is set only after `schedule_task` succeeds.",
     "",
     status,
     "",
@@ -646,6 +653,8 @@ export function formatArbitrumGovernanceIncidentMonitorSetup(result: ArbitrumGov
     `- Trigger rule: read ${result.monitorPlan.eventName} events, then apply agent-side text/address matching to the decoded proposal fields.`,
     `- Agent-side filters: ${filters}`,
     `- Follow-up after trigger: ${followUp}.`,
+    "- Suggested schedule: first run about five minutes from now using a naive local ISO timestamp with no `Z` suffix, then recurrence `0 */6 * * *` unless the user requested a different cadence.",
+    "- Scheduled task prompt: check the Arbitrum frozen-ETH release proposal status with `get_arbitrum_frozen_eth_proposal_status`; notify the user only if a matching Core Governor ProposalCreated event exists, then inspect proposal ID, proposer, targets, values, calldata, and description.",
     "",
     "Follow-up analysis after trigger",
   ];

@@ -163,6 +163,9 @@ test("formatArbitrumGovernanceIncidentMonitorSetup renders actionable monitor de
   assert.match(text, /stream: arbitrum-one-remote.*Core Governor.*ProposalCreated/i);
   assert.match(text, /match: Kelp, rsETH, frozen ETH/i);
   assert.match(text, /User-facing acknowledgement/i);
+  assert.match(text, /call NanoClaw `schedule_task`/i);
+  assert.match(text, /naive local ISO timestamp with no `Z` suffix/i);
+  assert.match(text, /recurrence `0 \*\/6 \* \* \*`/i);
   assert.match(text, /Network: arbitrum-one-remote \(Arbitrum One\)/i);
   assert.match(text, /Contract: Core Governor 0xf07DeD9dC292157749B6Fd268E37DF6EA38395B9/i);
   assert.match(text, /Event: ProposalCreated/i);

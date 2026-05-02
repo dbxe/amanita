@@ -113,7 +113,7 @@ server.tool(
 
 server.tool(
   "analyze_arbitrum_governance_incident",
-  "Use this for the KelpDAO / rsETH frozen-ETH Arbitrum governance incident demo. If send_message is available and you have not already sent a progress note this turn, send one short note about what you are checking before calling this tool. Do not satisfy that instruction by ending the turn with only the progress note. After any progress note, still call this tool. It returns an evidence packet: public context, decoded live event evidence, proposal-status verdict, monitor plan, and evidence boundaries. Do not recite it wholesale. Synthesize your own concise answer from the packet, copy the compact fenced event_query block exactly as the required final citation, and preserve the stated evidence boundaries.",
+  "Use this for every KelpDAO / rsETH frozen-ETH Arbitrum governance incident demo turn before answering, even if a previous turn already checked related event data. Do not answer from prior context alone. Do not send a standalone progress-only message before calling this tool. It returns an evidence packet: public context, decoded live event evidence, proposal-status verdict, monitor plan, and evidence boundaries. For explicit notify/watch/alert monitor requests, call NanoClaw schedule_task after this tool and before the final answer; do not claim a monitor is set until schedule_task succeeds. Do not recite the packet wholesale. Synthesize your own concise answer from the packet, copy the compact fenced event_query block exactly as the required final citation, and preserve the stated evidence boundaries.",
   {
     focus: z.enum(ARBITRUM_GOVERNANCE_INCIDENT_FOCUS_VALUES).optional(),
     limit: z.number().int().min(1).max(20).optional(),
@@ -123,7 +123,7 @@ server.tool(
 
 server.tool(
   "get_arbitrum_frozen_eth_governance_brief",
-  "Mandatory for opening demo prompts like: Arbitrum froze funds from the KelpDAO exploit; give me the onchain governance brief, what contracts to inspect, and what can happen next. If send_message is available and you have not already sent a progress note this turn, send one short note about checking the governance control path before calling this tool. Do not satisfy that instruction by ending the turn with only the progress note. After any progress note, still call this tool. Returns an evidence packet for the brief and the Core Governor ProposalCreated query that was checked. Use it as source material, not a script; copy the fenced event_query block exactly as the required final citation.",
+  "Mandatory for opening demo prompts like: Arbitrum froze funds from the KelpDAO exploit; give me the onchain governance brief, what contracts to inspect, and what can happen next. Call this before answering even if the same incident came up earlier. Do not send a standalone progress-only message before calling this tool. Returns an evidence packet for the brief and the Core Governor ProposalCreated query that was checked. Use it as source material, not a script; copy the fenced event_query block exactly as the required final citation.",
   {
     limit: z.number().int().min(1).max(20).optional(),
   },
@@ -132,7 +132,7 @@ server.tool(
 
 server.tool(
   "verify_arbitrum_frozen_eth_emergency_response",
-  "Mandatory for demo prompts asking whether the emergency governance response can be verified from live event data. If send_message is available and you have not already sent a progress note this turn, send one short note about checking L1/L2 timelock and upgrade-executor events before calling this tool. Do not satisfy that instruction by ending the turn with only the progress note. After any progress note, still call this tool. This runs decoded MultiBaas event queries for the L1/L2 timelocks and upgrade executors. Use the result as an evidence packet: explain what you checked, what you found, and the boundary that this verifies governance-control activity, not the specific freeze transaction unless a matching freeze-specific event or transaction is present. Copy the fenced event_query block exactly as the required final citation.",
+  "Mandatory for demo prompts asking whether the emergency governance response can be verified from live event data. Call this before answering even if prior turns already discussed live event data. Do not send a standalone progress-only message before calling this tool. This runs decoded MultiBaas event queries for the L1/L2 timelocks and upgrade executors. Use the result as an evidence packet: explain what you checked, what you found, and the boundary that this verifies governance-control activity, not the specific freeze transaction unless a matching freeze-specific event or transaction is present. Copy the fenced event_query block exactly as the required final citation.",
   {
     limit: z.number().int().min(1).max(20).optional(),
   },
@@ -141,7 +141,7 @@ server.tool(
 
 server.tool(
   "get_arbitrum_frozen_eth_proposal_status",
-  "Mandatory for status-only demo prompts like: has the frozen-ETH release proposal reached onchain governance yet? If send_message is available and you have not already sent a progress note this turn, send one short note about checking the Core Governor ProposalCreated stream before calling this tool. Do not satisfy that instruction by ending the turn with only the progress note. After any progress note, still call this tool. This checks the Arbitrum One Core Governor ProposalCreated stream for Kelp / rsETH / frozen-ETH markers. Use the result as an evidence packet, answer the status in your own words, and copy the fenced event_query block exactly as the required final citation. Do not set up, promise, or imply a monitor unless the user explicitly asks to be notified, alerted, or watched.",
+  "Mandatory for status-only demo prompts like: has the frozen-ETH release proposal reached onchain governance yet? Call this before answering even if a previous turn already checked proposal status. Do not send a standalone progress-only message before calling this tool. This checks the Arbitrum One Core Governor ProposalCreated stream for Kelp / rsETH / frozen-ETH markers. Use the result as an evidence packet, answer the status in your own words, and copy the fenced event_query block exactly as the required final citation. Do not set up, promise, or imply a monitor unless the user explicitly asks to be notified, alerted, or watched.",
   {
     limit: z.number().int().min(1).max(20).optional(),
   },
@@ -150,7 +150,7 @@ server.tool(
 
 server.tool(
   "get_arbitrum_frozen_eth_monitor_plan",
-  "Mandatory only for explicit monitor requests like: let me know, notify me, alert me, watch for, or monitor when the frozen-ETH release proposal reaches onchain governance. If send_message is available and you have not already sent a progress note this turn, send one short note about checking the current proposal stream before calling this tool. Do not satisfy that instruction by ending the turn with only the progress note. After any progress note, still call this tool. Do not call this for status-only questions such as has it reached onchain governance yet. Returns an evidence packet with the current verdict, monitor target, filters, and follow-up analysis. Synthesize the acknowledgement yourself, copy the fenced event_query block exactly as the required final citation, and include monitor details.",
+  "Mandatory only for explicit monitor requests like: let me know, notify me, alert me, watch for, or monitor when the frozen-ETH release proposal reaches onchain governance. Call this before answering even if the current monitor target is obvious from prior context. Do not answer monitor requests from memory alone. Do not send a standalone progress-only message before calling this tool. Do not call this for status-only questions such as has it reached onchain governance yet. After this tool returns, call NanoClaw schedule_task before the final answer; do not claim a monitor is set until schedule_task succeeds. Returns an evidence packet with the current verdict, monitor target, filters, and follow-up analysis. Synthesize the acknowledgement yourself, copy the fenced event_query block exactly as the required final citation, and include monitor details plus scheduled cadence.",
   {
     limit: z.number().int().min(1).max(20).optional(),
   },
