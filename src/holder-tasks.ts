@@ -52,6 +52,10 @@ function formatWaitingResponse(task: HolderAnalysisTaskRecord): string {
   return `I’ll follow up once it has synced.\n${reason}`;
 }
 
+function shouldAnswerWithIndexedSnapshot(task: HolderAnalysisTaskRecord): boolean {
+  return task.state === "syncing";
+}
+
 function createOrReuseTask(state: LocalState, input: Required<Pick<HolderRequestInput, "contractAddress" | "limit" | "rawText">>, queryName: string) {
   const existingTask = findHolderAnalysisTask(state.tasks, input.contractAddress, input.limit, queryName);
   return {
@@ -114,7 +118,7 @@ export async function requestTopHolders(
   const onboarding = await deps.ensureReady(contractAddress);
   const updatedTask = taskWithOnboarding(task, now, onboarding);
 
-  if (updatedTask.state !== "ready") {
+  if (updatedTask.state !== "ready" && !shouldAnswerWithIndexedSnapshot(updatedTask)) {
     const nextState: LocalState = {
       ...state,
       tasks: upsertTask(state.tasks, updatedTask),
@@ -127,7 +131,7 @@ export async function requestTopHolders(
   }
 
   const resultText = await deps.executeHolderQuery(updatedTask);
-  const answeredTask = transitionTask(updatedTask, "ready", now, {
+  const answeredTask = transitionTask(updatedTask, updatedTask.state, now, {
     lastReportedAt: now,
     resultText,
   }) as HolderAnalysisTaskRecord;

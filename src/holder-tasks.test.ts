@@ -36,9 +36,10 @@ test("requestTopHolders asks for a token address when the token name is unknown"
   }
 });
 
-test("requestTopHolders persists a syncing holder-query task and evaluatePendingHolderQueries follows up once ready", async () => {
+test("requestTopHolders returns a partial indexed holder snapshot while syncing and follows up once ready", async () => {
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "amanita-holder-task-"));
   let ensureReadyCalls = 0;
+  let executeCalls = 0;
 
   try {
     const initial = await requestTopHolders(
@@ -64,7 +65,21 @@ test("requestTopHolders persists a syncing holder-query task and evaluatePending
           };
         },
         executeHolderQuery: async () => {
-          throw new Error("executeHolderQuery should not run while the contract is still syncing");
+          executeCalls += 1;
+          return [
+            "Verdict: current indexed top 5 holder snapshot; historical Transfer sync is still in progress, so rankings may move.",
+            "",
+            "Top 5 holders",
+            "",
+            "| Rank | Holder | Raw balance |",
+            "| ---: | --- | ---: |",
+            "| 1 | `0xabc` | 100 |",
+            "",
+            "```event_query",
+            "query: multibaas.eventQuery",
+            "status: syncing historical events; partial indexed snapshot",
+            "```",
+          ].join("\n");
         },
       },
       "helloworld_balance",
@@ -76,7 +91,9 @@ test("requestTopHolders persists a syncing holder-query task and evaluatePending
       initial.task?.viewSpec.queryName,
       "contract:0xd26fde38f244dcbb13e8017347ac37804d926bb5",
     );
-    assert.match(initial.responseText, /follow up once it has synced/i);
+    assert.equal(executeCalls, 1);
+    assert.match(initial.responseText, /partial indexed/i);
+    assert.match(initial.responseText, /```event_query/i);
 
     const evaluation = await evaluatePendingHolderQueries(
       stateDir,

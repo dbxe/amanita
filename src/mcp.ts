@@ -494,7 +494,7 @@ server.tool(
       contractAddress || tokenName
         ? await getTopHoldersForTokenTarget({
             contractAddress,
-            limit: limit ?? 20,
+            limit: limit ?? 10,
             tokenName,
           })
         : "Tell me the ERC-20 token contract address or a known token name so I can resolve and query the holders.";

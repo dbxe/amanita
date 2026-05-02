@@ -100,10 +100,20 @@ export interface TokenMetadata {
   totalSupply?: string;
 }
 
+export interface EventIndexingStatus {
+  isProcessingPastLogs: boolean;
+  latestBlockNumber?: number;
+  startBlockNumber?: number;
+  updatedAt?: string;
+}
+
 const QUERY_PAGE_LIMIT = 100;
 const EVENT_EMITTED_WEBHOOK_SUBSCRIPTION = "event.emitted";
 const CURL_MAX_BUFFER = 10 * 1024 * 1024;
 const CONTRACT_BALANCE_SOURCE_PREFIX = "contract:";
+const TOKEN_IDENTIFIER_ALIASES: Record<string, string[]> = {
+  arb: ["arbtokenethereum", "l1arbitrumtoken", "l1bridgedarb", "arbitrumtoken", "l2arbtoken"],
+};
 
 function buildConfiguration(config: RuntimeConfig): Configuration {
   return new Configuration({
@@ -342,12 +352,27 @@ function toBigIntString(value: unknown): string {
   throw new Error(`Unsupported balance value: ${String(value)}`);
 }
 
+function parseOptionalNumber(value: unknown): number | undefined {
+  const parsed =
+    typeof value === "number"
+      ? value
+      : typeof value === "string"
+        ? Number.parseInt(value, 10)
+        : Number.NaN;
+  return Number.isInteger(parsed) && parsed >= 0 ? parsed : undefined;
+}
+
 export function normalizeAddress(value: string): string {
   return value.trim().toLowerCase();
 }
 
 export function normalizeTokenIdentifier(value: string): string {
   return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "");
+}
+
+function tokenIdentifierCandidates(value: string): Set<string> {
+  const normalized = normalizeTokenIdentifier(value);
+  return new Set([normalized, ...(TOKEN_IDENTIFIER_ALIASES[normalized] ?? [])].filter(Boolean));
 }
 
 function isAddress(value: string): boolean {
@@ -384,33 +409,33 @@ export function findKnownAddressByTokenName(
   knownAddresses: KnownAddress[],
   contractCatalog: ContractCatalogEntry[] = [],
 ): KnownAddress | undefined {
-  const normalizedTokenName = normalizeTokenIdentifier(tokenName);
-  if (!normalizedTokenName) {
+  const tokenCandidates = tokenIdentifierCandidates(tokenName);
+  if (tokenCandidates.size === 0) {
     return undefined;
   }
 
-  const aliasMatch = knownAddresses.find((entry) => normalizeTokenIdentifier(entry.alias) === normalizedTokenName);
+  const aliasMatch = knownAddresses.find((entry) => tokenCandidates.has(normalizeTokenIdentifier(entry.alias)));
   if (aliasMatch) {
     return aliasMatch;
   }
 
   for (const contract of contractCatalog) {
-    if (normalizeTokenIdentifier(contract.contractName ?? "") !== normalizedTokenName) {
+    if (!tokenCandidates.has(normalizeTokenIdentifier(contract.contractName ?? ""))) {
       continue;
     }
-    const instance = contract.instances?.find((candidate) => candidate.alias?.trim() && candidate.address?.trim());
-    if (!instance?.alias) {
+    const instance = contract.instances?.find((candidate) => candidate.address?.trim());
+    if (!instance?.address) {
       continue;
     }
     return {
       address: normalizeAddress(instance.address),
-      alias: instance.alias,
+      alias: instance.alias?.trim() || contract.label,
       contractName: contract.contractName,
     };
   }
 
   return knownAddresses.find(
-    (entry) => entry.contractName && normalizeTokenIdentifier(entry.contractName) === normalizedTokenName,
+    (entry) => entry.contractName && tokenCandidates.has(normalizeTokenIdentifier(entry.contractName)),
   );
 }
 
@@ -950,7 +975,7 @@ export async function getEventIndexingStatus(
   config: RuntimeConfig,
   addressOrAlias: string,
   contract: string,
-): Promise<{ isProcessingPastLogs: boolean }> {
+): Promise<EventIndexingStatus> {
   const contractsApi = createContractsApi(config);
   const response = await withCurlFallback(
     async () => {
@@ -961,6 +986,9 @@ export async function getEventIndexingStatus(
       requestJsonViaCurl<{
         result?: {
           isProcessingPastLogs?: boolean;
+          latestBlockNumber?: number | string;
+          startBlockNumber?: number | string;
+          updatedAt?: string;
         };
       }>(
         config,
@@ -969,6 +997,9 @@ export async function getEventIndexingStatus(
   );
   return {
     isProcessingPastLogs: response.result?.isProcessingPastLogs ?? false,
+    latestBlockNumber: parseOptionalNumber(response.result?.latestBlockNumber),
+    startBlockNumber: parseOptionalNumber(response.result?.startBlockNumber),
+    updatedAt: response.result?.updatedAt?.trim() || undefined,
   };
 }
 

@@ -1,4 +1,4 @@
-import { resolveConfig } from "./config.js";
+import { resolveConfig, type RuntimeConfig } from "./config.js";
 import {
   createContractBalanceSource,
   executeBalanceSourceQuery,
@@ -9,6 +9,7 @@ import {
   fetchBalanceSnapshot,
   getAddressBalance,
   getContractTargetFromBalanceSource,
+  normalizeTokenIdentifier,
   resolveBalanceSource,
   selectTopPositiveHolders,
   type BalanceRow,
@@ -159,6 +160,75 @@ export function formatTopHolders(result: TopHoldersResult): string {
   result.holders.forEach((row, index) => {
     lines.push(`${String(index + 1).padStart(2, " ")}. ${row.address}  ${row.rawBalance}`);
   });
+  return lines.join("\n");
+}
+
+function formatHolderQueryTarget(result: TopHoldersResult, config: RuntimeConfig): string {
+  const network = config.hardhatNetwork === "ethereum-mainnet" ? "Ethereum mainnet" : config.hardhatNetwork;
+  const label = result.contractAddress ? `Token \`${result.contractAddress}\`` : `Source ${result.queryName}`;
+  return `${config.profileName} (${network}) | ${label} / Transfer`;
+}
+
+function formatTokenLabel(label: string | undefined): string {
+  if (!label) {
+    return "ERC-20";
+  }
+  if (normalizeTokenIdentifier(label) === "arbtokenethereum") {
+    return "L1 bridged ARB";
+  }
+  return label;
+}
+
+export function formatTopHoldersEvidence(
+  result: TopHoldersResult,
+  options: {
+    contractLabel?: string;
+    status?: "partial" | "ready";
+    statusReason?: string;
+  } = {},
+): string {
+  const config = resolveConfig();
+  const status = options.status ?? "ready";
+  const lines = [
+    status === "partial"
+      ? `Verdict: current indexed top ${result.limit} holder snapshot; historical Transfer sync is still in progress, so rankings may move.`
+      : `Verdict: top ${result.limit} holders from the event-backed holder view.`,
+    "",
+    "Checked",
+    `- Network: ${config.hardhatNetwork === "ethereum-mainnet" ? "Ethereum mainnet" : config.hardhatNetwork} (\`${config.profileName}\`)`,
+    ...(result.contractAddress ? [`- Token: ${formatTokenLabel(options.contractLabel)} \`${result.contractAddress}\``] : []),
+    "- Capability: ERC-20 holder reconstruction from Transfer events",
+    ...(options.statusReason ? [`- Sync status: ${options.statusReason}`] : []),
+    "",
+    `Top ${result.limit} holders`,
+    "",
+  ];
+
+  if (result.holders.length === 0) {
+    lines.push("- No positive balances returned by the current indexed view.");
+  } else {
+    lines.push("| Rank | Holder | Raw balance |", "| ---: | --- | ---: |");
+    result.holders.forEach((row, index) => {
+      lines.push(`| ${index + 1} | \`${row.address}\` | ${row.rawBalance} |`);
+    });
+  }
+
+  lines.push(
+    "",
+    "```event_query",
+    "query: multibaas.eventQuery",
+    "purpose: reconstruct current ERC-20 holders from Transfer deltas",
+    `stream: ${formatHolderQueryTarget(result, config)}`,
+    "fields: from + to + value + block number + tx hash + timestamp",
+    "aggregation: add value to `to`; subtract value from `from`; rank positive balances descending",
+    `source: ${result.queryName}`,
+    `limit: top ${result.limit} positive balances`,
+    `status: ${status === "partial" ? "syncing historical events; partial indexed snapshot" : "ready"}`,
+    "```",
+    "",
+    "Boundary: do not infer total supply, percentages, or concentration from this holder list alone. Use holder concentration for that.",
+  );
+
   return lines.join("\n");
 }
 

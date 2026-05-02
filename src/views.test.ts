@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { normalizeBalanceRows } from "./multibaas.js";
-import { computeHolderConcentration } from "./views.js";
+import { computeHolderConcentration, formatTopHoldersEvidence } from "./views.js";
 
 test("computeHolderConcentration derives top-N share from tracked positive balances", () => {
   const rows = normalizeBalanceRows([
@@ -28,4 +28,36 @@ test("computeHolderConcentration derives top-N share from tracked positive balan
       ["0x2", "25"],
     ],
   );
+});
+
+test("formatTopHoldersEvidence includes event query trace and partial sync caveat", () => {
+  const text = formatTopHoldersEvidence(
+    {
+      contractAddress: "0xB50721BCf8d664c30412Cfbc6cf7a15145234ad1",
+      holders: [
+        {
+          address: "0x611f7bf868a6212f871e89f7e44684045ddfb09d",
+          rawBalance: "93062640170000000000000000",
+        },
+      ],
+      kind: "holder-list",
+      limit: 10,
+      queryName: "contract:0xb50721bcf8d664c30412cfbc6cf7a15145234ad1",
+    },
+    {
+      contractLabel: "arbtokenethereum",
+      status: "partial",
+      statusReason: "Contract is still syncing historical events.",
+    },
+  );
+
+  assert.match(text, /current indexed top 10 holder snapshot/i);
+  assert.match(text, /rankings may move/i);
+  assert.match(text, /Token: L1 bridged ARB `0xB50721BCf8d664c30412Cfbc6cf7a15145234ad1`/i);
+  assert.match(text, /\| 1 \| `0x611f7bf868a6212f871e89f7e44684045ddfb09d` \| 93062640170000000000000000 \|/i);
+  assert.match(text, /```event_query/i);
+  assert.match(text, /purpose: reconstruct current ERC-20 holders from Transfer deltas/i);
+  assert.match(text, /source: contract:0xb50721bcf8d664c30412cfbc6cf7a15145234ad1/i);
+  assert.match(text, /status: syncing historical events; partial indexed snapshot/i);
+  assert.match(text, /do not infer total supply, percentages, or concentration/i);
 });

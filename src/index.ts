@@ -64,7 +64,7 @@ function printUsage(): void {
   console.log(`Local MultiBaas agent loop
 
 Usage:
-  npm run dev -- query top-holders [--limit 20] [--query <saved-query>] [--contract 0x...]
+  npm run dev -- query top-holders [--limit 20] [--query <saved-query>] [--contract 0x... | --token <name>]
   npm run dev -- query concentration [--limit 5] [--query <saved-query>] [--contract 0x...]
   npm run dev -- query balance --address 0x... [--query <saved-query> | --contract 0x...]
   npm run dev -- query controls [--contract 0x... | --token <name>] [--limit 20]
@@ -165,12 +165,13 @@ async function handleQuery(args: string[]): Promise<void> {
   if (subcommand === "top-holders") {
     const limit = parsePositiveIntegerFlag(args, "--limit", 20);
     console.log(
-      contractAddress
+      contractAddress || tokenName
         ? (
             await requestTopHolders({
               contractAddress,
               limit,
-              rawText: `Give me the top ${limit} holders for token ${contractAddress}`,
+              rawText: `Give me the top ${limit} holders for token ${contractAddress ?? tokenName}`,
+              tokenName,
             })
           ).responseText
         : formatAnalyticalViewResult(await getTopHolders(limit, queryName)),

@@ -47,7 +47,12 @@ test("ensureErc20HolderQueryReady aliases and links an unseen address before wai
     },
     getEventIndexingStatus: async () => {
       actions.push("getEventIndexingStatus");
-      return { isProcessingPastLogs: true };
+      return {
+        isProcessingPastLogs: true,
+        latestBlockNumber: 24785512,
+        startBlockNumber: 0,
+        updatedAt: "2026-05-02T20:29:59.61696Z",
+      };
     },
     linkAddressContract: async (_addressOrAlias, request) => {
       actions.push(`linkAddressContract:${request.label}:${request.startingBlock}`);
@@ -69,6 +74,10 @@ test("ensureErc20HolderQueryReady aliases and links an unseen address before wai
   assert.equal(result.addressAlias, "helloworldtoken");
   assert.equal(result.contractLabel, "erc20interface");
   assert.equal(result.contractVersion, "1.0");
+  assert.equal(
+    result.waitCondition?.reason,
+    "Contract 0xd26fde38f244dcbb13e8017347ac37804d926bb5 is still syncing historical Transfer events (start block 0; latest observed head 24785512; updated 2026-05-02T20:29:59.61696Z).",
+  );
   assert.deepEqual(actions, [
     "listContracts",
     "getAddress",

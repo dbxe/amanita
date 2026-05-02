@@ -107,3 +107,18 @@ test("findKnownAddressByTokenName matches aliases and linked contract names", ()
     },
   );
 });
+
+test("findKnownAddressByTokenName resolves known token symbols to backend aliases", () => {
+  assert.deepEqual(
+    findKnownAddressByTokenName("ARB", [
+      {
+        address: "0xb50721bcf8d664c30412cfbc6cf7a15145234ad1",
+        alias: "arbtokenethereum",
+      },
+    ]),
+    {
+      address: "0xb50721bcf8d664c30412cfbc6cf7a15145234ad1",
+      alias: "arbtokenethereum",
+    },
+  );
+});

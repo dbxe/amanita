@@ -1,4 +1,4 @@
-import { normalizeAddress, normalizeTokenIdentifier, type KnownAddress } from "./multibaas.js";
+import { normalizeAddress, normalizeTokenIdentifier, type EventIndexingStatus, type KnownAddress } from "./multibaas.js";
 import type { TaskState, WaitCondition } from "./runtime-types.js";
 
 export interface AddressContractLink {
@@ -32,7 +32,7 @@ export interface Erc20HolderOnboardingDeps {
   getAddress: (addressOrAlias: string) => Promise<AddressRecord>;
   getContract: (label: string) => Promise<ContractDefinition>;
   getContractName: (addressOrAlias: string, contract: string) => Promise<string | undefined>;
-  getEventIndexingStatus: (addressOrAlias: string, contract: string) => Promise<{ isProcessingPastLogs: boolean }>;
+  getEventIndexingStatus: (addressOrAlias: string, contract: string) => Promise<EventIndexingStatus>;
   linkAddressContract: (
     addressOrAlias: string,
     request: { label: string; startingBlock: string; version?: string },
@@ -78,6 +78,18 @@ function wait(state: WaitCondition["state"], reason: string): Erc20HolderOnboard
   };
 }
 
+function formatIndexingSyncReason(address: string, status: EventIndexingStatus): string {
+  const details = [
+    status.startBlockNumber === undefined ? undefined : `start block ${status.startBlockNumber}`,
+    status.latestBlockNumber === undefined ? undefined : `latest observed head ${status.latestBlockNumber}`,
+    status.updatedAt === undefined ? undefined : `updated ${status.updatedAt}`,
+  ].filter((detail): detail is string => Boolean(detail));
+
+  return `Contract ${address} is still syncing historical Transfer events${
+    details.length > 0 ? ` (${details.join("; ")}).` : "."
+  }`;
+}
+
 function chooseAddressAlias(params: {
   address: string;
   knownAddresses: KnownAddress[];
@@ -121,7 +133,7 @@ export async function ensureErc20HolderQueryReady(
         state: status.isProcessingPastLogs ? "syncing" : "ready",
         waitCondition: status.isProcessingPastLogs
           ? {
-              reason: `Contract ${normalizedAddress} is still syncing historical events.`,
+              reason: formatIndexingSyncReason(normalizedAddress, status),
               state: "syncing",
             }
           : undefined,
@@ -168,7 +180,7 @@ export async function ensureErc20HolderQueryReady(
     state: status.isProcessingPastLogs ? "syncing" : "ready",
     waitCondition: status.isProcessingPastLogs
       ? {
-          reason: `Contract ${normalizedAddress} is still syncing historical events.`,
+          reason: formatIndexingSyncReason(normalizedAddress, status),
           state: "syncing",
         }
       : undefined,
