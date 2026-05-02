@@ -80,6 +80,7 @@ test("formatImportContractLookupCandidateResult renders import summary", () => {
 
 test("formatContractAddressInvestigationResult renders preferred candidate and import outcome", () => {
   const text = formatContractAddressInvestigationResult({
+    currentProfileName: "mainnet-remote",
     importAttempted: true,
     importedCandidate: {
       abiEventCount: 18,

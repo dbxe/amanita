@@ -27,6 +27,12 @@ import { formatTokenInvestigation, investigateToken } from "./investigation-serv
 import { formatConfiguredBackends, formatMultichainInspection, inspectTargetsAcrossBackends, type MultichainTargetInput } from "./multichain-service.js";
 import { getAddressBalanceForTokenTarget, getHolderConcentrationForTokenTarget } from "./query-service.js";
 import { sendNanoClawNotification } from "./nanoclaw-host.js";
+import {
+  formatNanoClawPreflight,
+  formatNanoClawReset,
+  inspectNanoClawGroup,
+  resetNanoClawGroupSessions,
+} from "./nanoclaw-maintenance.js";
 import { configureNanoClawGroup } from "./nanoclaw.js";
 import { createContractBalanceSource, getLatestBlockNumber } from "./multibaas.js";
 import { loadState } from "./state.js";
@@ -76,6 +82,8 @@ Usage:
   npm run dev -- webhook ensure [--url https://example.test/webhooks/multibaas] [--port ${DEFAULT_WEBHOOK_PORT}] [--path ${DEFAULT_WEBHOOK_PATH}] [--label ${DEFAULT_WEBHOOK_LABEL}]
   npm run dev -- webhook serve [--port ${DEFAULT_WEBHOOK_PORT}] [--path ${DEFAULT_WEBHOOK_PATH}] [--secret <secret>] [--nanoclaw-dir <path>] [--group-folder <folder>]
   npm run dev -- nanoclaw configure --nanoclaw-dir ~/git/dbxe/nanoclaw --group-folder cli-with-<name> [--write-allowlist]
+  npm run dev -- nanoclaw preflight --nanoclaw-dir ~/git/dbxe/nanoclaw [--group-folder cli-with-<name> | --agent-group-id ag-...]
+  npm run dev -- nanoclaw reset-group --nanoclaw-dir ~/git/dbxe/nanoclaw [--group-folder cli-with-<name> | --agent-group-id ag-...]
   npm run dev -- nanoclaw notify --nanoclaw-dir ~/git/dbxe/nanoclaw [--group-folder dm-with-<name> | --agent-group-id ag-...] --text "test alert"
 `);
 }
@@ -474,6 +482,38 @@ async function handleNanoClaw(args: string[]): Promise<void> {
     console.log(`Queued NanoClaw notification ${result.messageId}`);
     console.log(`Target session: ${result.sessionId}`);
     console.log(`Target route: ${result.channelType} ${result.platformId}`);
+    return;
+  }
+
+  if (subcommand === "preflight") {
+    const nanoclawDir = requireFlag(args, "--nanoclaw-dir");
+    const groupFolder = readFlag(args, "--group-folder");
+    const agentGroupId = readFlag(args, "--agent-group-id");
+    console.log(
+      formatNanoClawPreflight(
+        inspectNanoClawGroup({
+          agentGroupId,
+          groupFolder,
+          nanoclawDir,
+        }),
+      ),
+    );
+    return;
+  }
+
+  if (subcommand === "reset-group") {
+    const nanoclawDir = requireFlag(args, "--nanoclaw-dir");
+    const groupFolder = readFlag(args, "--group-folder");
+    const agentGroupId = readFlag(args, "--agent-group-id");
+    console.log(
+      formatNanoClawReset(
+        resetNanoClawGroupSessions({
+          agentGroupId,
+          groupFolder,
+          nanoclawDir,
+        }),
+      ),
+    );
     return;
   }
 

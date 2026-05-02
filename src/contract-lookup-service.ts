@@ -1,5 +1,6 @@
-import { resolveConfig } from "./config.js";
+import { listConfiguredBackends, resolveConfig } from "./config.js";
 import { inspectContractInterfaces, type ContractInterfaceInspection } from "./contract-interface-service.js";
+import { inspectTargetsAcrossBackends, type MultichainTargetInspection } from "./multichain-service.js";
 import {
   createContractDefinition,
   getErc20Metadata,
@@ -40,6 +41,8 @@ export interface ImportContractLookupCandidateResult {
 }
 
 export interface ContractAddressInvestigationResult {
+  currentProfileName: string;
+  crossBackendMatches?: MultichainTargetInspection[];
   importAttempted: boolean;
   importError?: string;
   importedCandidate?: ContractLookupCandidateSummary;
@@ -48,6 +51,31 @@ export interface ContractAddressInvestigationResult {
   inspection: ContractInterfaceInspection;
   lookup: ContractLookupResult;
   metadata?: Awaited<ReturnType<typeof getErc20Metadata>>;
+}
+
+async function inspectOtherBackendsForAddress(address: string): Promise<MultichainTargetInspection[]> {
+  const currentProfileName = resolveConfig().profileName;
+  const candidateProfiles = listConfiguredBackends()
+    .map((backend) => backend.profileName)
+    .filter((profileName) => profileName !== "development" && profileName !== currentProfileName);
+
+  if (candidateProfiles.length === 0) {
+    return [];
+  }
+
+  const result = await inspectTargetsAcrossBackends(
+    candidateProfiles.map((profileName) => ({
+      contractAddress: address,
+      profileName,
+    })),
+  );
+
+  return result.targets.filter((target) =>
+    target.readinessState === "ready"
+    || target.readinessState === "syncing"
+    || target.linkedContracts.length > 0
+    || Boolean(target.metadata?.name || target.metadata?.symbol),
+  );
 }
 
 function scoreLookupCandidate(candidate: ContractLookupCandidate): number {
@@ -260,6 +288,7 @@ export async function importBestContractLookupCandidateForAddress(input: {
 
 export async function investigateContractAddress(address: string): Promise<ContractAddressInvestigationResult> {
   const normalizedAddress = normalizeAddress(address);
+  const currentProfileName = resolveConfig().profileName;
   const [lookup, initialInspection] = await Promise.all([
     lookupContractCandidatesForAddress(normalizedAddress),
     inspectContractInterfaces(normalizedAddress),
@@ -291,8 +320,13 @@ export async function investigateContractAddress(address: string): Promise<Contr
   const metadata = inspection.readiness.state !== "needs-link"
     ? await getErc20Metadata(resolveConfig(), normalizedAddress).catch(() => undefined)
     : undefined;
+  const crossBackendMatches = inspection.readiness.state === "needs-link" && lookup.candidates.length === 0
+    ? await inspectOtherBackendsForAddress(normalizedAddress).catch(() => [])
+    : [];
 
   return {
+    currentProfileName,
+    crossBackendMatches,
     importAttempted,
     importError,
     importedCandidate,
@@ -358,8 +392,19 @@ export function formatContractAddressInvestigationResult(result: ContractAddress
     "Contract address investigation",
     "",
     `Address: ${result.inspection.address}`,
-    `Readiness: ${result.inspection.readiness.state}`,
   ];
+
+  if ((result.crossBackendMatches?.length ?? 0) > 0) {
+    const bestMatch = result.crossBackendMatches?.find((match) => match.readinessState === "ready")
+      ?? result.crossBackendMatches?.find((match) => match.readinessState === "syncing")
+      ?? result.crossBackendMatches?.[0];
+    if (bestMatch) {
+      lines.push(`Best known backend match: ${bestMatch.profileName} (${bestMatch.readinessState ?? "unknown"})`);
+    }
+    lines.push(`Current backend ${result.currentProfileName}: ${result.inspection.readiness.state}`);
+  } else {
+    lines.push(`Readiness: ${result.inspection.readiness.state}`);
+  }
 
   if (result.lookup.candidates.length > 0) {
     lines.push("", "Lookup candidates");
@@ -403,6 +448,22 @@ export function formatContractAddressInvestigationResult(result: ContractAddress
     lines.push("", "Linked contracts");
     for (const linked of result.inspection.linkedContracts) {
       lines.push(`- ${linked.contractLabel}${linked.contractVersion ? ` ${linked.contractVersion}` : ""}`);
+    }
+  }
+
+  if ((result.crossBackendMatches?.length ?? 0) > 0) {
+    lines.push("", "Other configured backends");
+    for (const match of result.crossBackendMatches ?? []) {
+      lines.push(`- ${match.profileName}: readiness=${match.readinessState ?? "unknown"}`);
+      if (match.metadata?.name || match.metadata?.symbol) {
+        lines.push(`  token=${match.metadata?.name ?? "unknown"}${match.metadata?.symbol ? ` (${match.metadata.symbol})` : ""}`);
+      }
+      if (match.linkedContracts.length > 0) {
+        lines.push(`  linked=${match.linkedContracts.join(", ")}`);
+      }
+      if (match.eventLeads.length > 0) {
+        lines.push(`  eventLeads=${match.eventLeads.map((lead: { id: string }) => lead.id).join(", ")}`);
+      }
     }
   }
 

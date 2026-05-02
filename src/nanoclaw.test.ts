@@ -21,6 +21,8 @@ test("containerInstructions steer NanoClaw away from saved queries for ERC-20 ho
   assert.match(instructions, /investigate_contract_address/i);
   assert.match(instructions, /list_configured_backends/i);
   assert.match(instructions, /inspect_targets_across_backends/i);
+  assert.match(instructions, /names a specific non-default chain.*inspect_targets_across_backends/i);
+  assert.match(instructions, /mentions both Ethereum and Arbitrum.*inspect_targets_across_backends/i);
   assert.match(instructions, /resolve_contract_target/i);
   assert.match(instructions, /lookup_contract_candidates/i);
   assert.match(instructions, /import_contract_lookup_candidate/i);
@@ -34,6 +36,7 @@ test("containerInstructions steer NanoClaw away from saved queries for ERC-20 ho
   assert.match(instructions, /investigate_token/i);
   assert.match(instructions, /do not ask the user for a saved query name/i);
   assert.match(instructions, /raw address whose ABI or contract family is not already established.*investigate_contract_address/i);
+  assert.match(instructions, /question itself identifies chain context that differs from your default backend/i);
   assert.match(instructions, /do not assume a raw address is an ERC-20/i);
   assert.match(instructions, /only use ERC-20-specific tools.*after lookup or linked-interface evidence/i);
   assert.match(instructions, /if the user asks for decimals.*already known to be ERC-20-compatible.*get_token_metadata/i);
