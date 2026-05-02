@@ -38,6 +38,22 @@ Validation discipline:
 3. prefer patience over retries when liveness already succeeded recently
 4. only escalate to reset/restart when there is stronger evidence than slowness alone
 
+## `pnpm run chat` maintainer path
+
+`pnpm run chat` is the canonical **local maintainer** test command.
+
+After the NanoClaw client fix in [`scripts/chat.ts`](~/git/dbxe/nanoclaw/scripts/chat.ts), it now:
+
+- waits up to **15 minutes** for the first reply
+- prints a waiting update every **30 seconds** while the terminal is still quiet
+- exits after **15 seconds** of silence once replies have started
+
+For live testing, that means:
+
+- long first-token delays no longer masquerade as immediate local failure
+- maintainers can keep using the deterministic CLI socket path for slow prompts
+- a CLI timeout now means a real long-turn failure to investigate, not just a short-lived client
+
 ## Required host-side abilities
 
 For these tests to be meaningful, the coding agent needs host-side access to:
@@ -88,6 +104,8 @@ docker stop <exact-container-name>
 
 CLI success does **not** prove Discord or DM success. Those channels may resume older session state, so rerun the exact affected channel before calling a live issue fixed.
 
+The inverse is also true: a slow answer does **not** prove agent failure. If inference is visibly active or the channel has recently passed liveness checks, keep the single prompt running and let the CLI client wait. If `pnpm run chat` reaches its 15-minute timeout, treat that as a real failure signal.
+
 ## How to judge a live pass
 
 Judge the run by capability correctness, not exact wording.
@@ -115,6 +133,8 @@ These should be the first live tests run after preflight.
 Before expanding to broader prompts, confirm there is at least one narrow prompt class that agrees with host-side MultiBaas state on a known-good contract.
 
 After that narrow class succeeds, keep the same disciplined pacing. Do not turn a slow-but-healthy session into a noisy failure by hammering the CLI client.
+
+Keep using `pnpm run chat` for the broader prompts too. The client now survives the slow first-token path well enough to make the CLI socket the standard maintainer lane.
 
 ### 1. Liveness
 

@@ -231,6 +231,20 @@ Its purpose is to verify:
 
 `nanoclaw reset-group` is also an operator tool. It is for stale-session recovery and poisoned-state cleanup, not part of the product story.
 
+For local maintainer testing, use NanoClaw's CLI socket path through:
+
+```bash
+cd ~/git/dbxe/nanoclaw
+pnpm run chat -- "hello"
+```
+
+After the NanoClaw chat-client fix, that command is the standard maintainer lane for both narrow and broader live prompts:
+
+- it waits up to 15 minutes for the first reply
+- it prints a waiting update every 30 seconds while the terminal is still quiet
+- after liveness succeeds, send one prompt and let the agent work
+- if the agent and MultiBaas disagree, trust MultiBaas and treat the agent answer as a bug
+
 See [`docs/nanoclaw.md`](docs/nanoclaw.md) for the operational runbook and [`docs/nanoclaw-live-tests.md`](docs/nanoclaw-live-tests.md) for the live validation matrix.
 
 When a live answer looks suspicious, verify the same question against the host-side CLI that talks to MultiBaas directly. If the agent and MultiBaas disagree, treat the MultiBaas-backed result as authoritative and treat the agent behavior as a bug to fix.

@@ -10,6 +10,7 @@ Use this doc for:
 - restart and stale-session recovery
 - debugging `missing backend`, `needs-link`, and stuck-session failures
 - operator pacing during slow live inference
+- using `pnpm run chat` as the canonical local maintainer test path
 
 For broader live prompt coverage, use [`docs/nanoclaw-live-tests.md`](docs/nanoclaw-live-tests.md). For the DAO story framing, use [`docs/arbitrum-dao-demo.md`](docs/arbitrum-dao-demo.md).
 
@@ -146,6 +147,29 @@ pnpm run chat -- "Is 0xE6841D92B0C345144506576eC13ECf5103aC7f49 linked, ready, o
 
 These are operator checks, not the finished DAO demo.
 
+## CLI maintainer path
+
+`pnpm run chat` is the canonical **local maintainer test path**.
+
+After the NanoClaw client fix in [`scripts/chat.ts`](~/git/dbxe/nanoclaw/scripts/chat.ts), it is designed to survive slow live inference:
+
+- it waits up to **15 minutes** for a first reply
+- it prints a periodic waiting update every **30 seconds** while no reply has arrived yet
+- after replies start, it exits after **15 seconds** of silence
+
+That means:
+
+- slow first token is no longer enough to make the local client look dead
+- maintainers get explicit waiting feedback instead of a silent two-minute cliff
+- a CLI timeout now means a real long-turn failure, not just an overly short client lifetime
+
+Use it for both:
+
+- basic liveness
+- real local maintainer validation on known-good and exploratory live prompts
+
+DM or Discord can still be useful as secondary confirmation channels, but they are not the primary local maintainer loop.
+
 ## Patience rule
 
 Once the agent has recently passed basic liveness or narrow validation prompts, **do not assume silence means failure immediately**.
@@ -164,6 +188,8 @@ Practical rule:
 4. do not hammer the same session with rapid follow-ups while it is still processing
 
 Treat "slow after recent liveness success" differently from "dead". If the agent already answered basic checks in the same session or a fresh nearby session, be patient before escalating to reset or restart.
+
+This matters when the test path is `pnpm run chat`, because slow first token is normal in this setup. The local client now waits long enough to make that explicit. If it times out after 15 minutes, treat that as a real failure to investigate rather than a short-lived client artifact.
 
 ## When to rerun configure vs when to restart
 
