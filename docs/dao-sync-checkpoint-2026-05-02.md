@@ -147,3 +147,85 @@ This is good enough to proceed with a limited live agent probe focused on:
 - what analyses will unlock as the remaining Arbitrum history completes
 
 It is still too early to present full-history claims from the Arbitrum-side contracts as final.
+
+## Afternoon check-in
+
+Snapshot captured:
+
+- UTC: `2026-05-02T06:06:28Z`
+- JST: `2026-05-02T15:06:28+0900`
+- current mainnet head: `25,005,369`
+- current Arbitrum head: `458,516,316`
+
+### Fresh direct checks
+
+Confirmed by direct `contract inspect`:
+
+- `mainnet-remote` `0xE6841D92B0C345144506576eC13ECf5103aC7f49`
+  - linked as `arbitrumdaol1timelock`
+  - `ready`
+- `mainnet-remote` `0x3ffFbAdAF827559da092217e474760E2b2c3CeDd`
+  - linked as `arbitrumdaol1upgradeexecutor`
+  - `ready`
+- `arbitrum-one-remote` `0xf07DeD9dC292157749B6Fd268E37DF6EA38395B9`
+  - linked as `arbitrumdaocoregovernor`
+  - `ready`
+- `mainnet-remote` `0xB50721BCf8d664c30412Cfbc6cf7a15145234ad1`
+  - linked as `arbtokenethereum`
+  - `syncing`
+- `arbitrum-one-remote` `0x789fC99093B09aD01C34DC7251D0C89ce743e5a4`
+  - linked as `arbitrumdaotreasurygovernor`
+  - `syncing`
+- `arbitrum-one-remote` `0x34d45e99f7D8c45ed05B5cA72D54bbD1fb3F98f0`
+  - linked as `arbitrumdaol2coretimelock`
+  - `ready`
+- `arbitrum-one-remote` `0xbFc1FECa8B09A5c5D3EFfE7429eBE24b9c09EF58`
+  - linked as `arbitrumdaol2treasurytimelock`
+  - `ready`
+- `arbitrum-one-remote` `0xCF57572261c7c2BCF21ffD220ea7d1a27D40A827`
+  - linked as `arbitrumdaol2upgradeexecutor`
+  - `ready`
+- `arbitrum-one-remote` `0xF3FC178157fb3c87548bAA86F9d24BA38E649B58`
+  - linked as `arbitrumdaotreasury`
+  - `ready`
+
+### What changed since the morning check
+
+- The backend heads continued advancing on both chains.
+- `arbitrumdaocoregovernor` is now directly inspectable as `ready`, which is stronger than the earlier morning snapshot where it was still reported as `syncing`.
+- The two Ethereum mainnet governance-control contracts remain stable and `ready`.
+- The Arbitrum-side timelocks, upgrade executor, and treasury wallet are now directly inspectable as `ready`.
+- The remaining contracts still reporting `syncing` in this check-in are:
+  - `arbtokenethereum`
+  - `arbitrumdaotreasurygovernor`
+
+### Current probe note
+
+During the first version of this afternoon check-in, the common inspection path briefly returned backend `500`s while requesting `include=contractLookup` on routine address reads. That client path has now been corrected so routine inspection only asks MultiBaas for the linked address record. The common inspect path is healthy again.
+
+For the live demo story right now, the reliable floor is:
+
+- L1 timelock
+- L1 upgrade executor
+- L2 core governor
+- L2 core timelock
+- L2 treasury timelock
+- L2 upgrade executor
+- treasury wallet
+
+Treasury-governor and bridged-token questions should still preserve syncing uncertainty until those two targets finish historical indexing.
+
+### ETA check
+
+Based on the raw MultiBaas status payloads sampled around `2026-05-02T06:14Z`:
+
+- `arbitrumdaotreasurygovernor`
+  - `latestBlockNumber = 281,912,360`
+  - Arbitrum head at check time: `458,518,177`
+  - working estimate: should finish later on `2026-05-02` if the current catch-up rate holds
+- `arbtokenethereum`
+  - `latestBlockNumber = 21,205,667`
+  - mainnet head at check time: `25,005,408`
+  - working estimate: could still finish on `2026-05-02`, but this is less reliable because repeated spot checks showed no movement and the same `updatedAt` during this sample window
+
+This estimate is intentionally provisional. Recheck the raw `/status` payloads before treating either target as done.
