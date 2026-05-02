@@ -44,7 +44,7 @@ function monitorFromPlan(plan: IncidentMonitorPlan, now: string, existing?: Even
     followUpAnalysis: [...plan.followUpAnalysis],
     id: existing?.id ?? randomUUID(),
     kind: "arbitrum-frozen-eth-release-proposal",
-    label: existing?.label ?? "Arbitrum frozen-ETH release proposal",
+    label: existing?.label ?? "Arbitrum frozen ETH release proposal",
     lastTriggeredAt: existing?.lastTriggeredAt,
     matchText: [...plan.agentSideFilters],
     network: plan.network,
@@ -52,6 +52,14 @@ function monitorFromPlan(plan: IncidentMonitorPlan, now: string, existing?: Even
     triggeredEventKeys: existing?.triggeredEventKeys ?? [],
     updatedAt: now,
   };
+}
+
+function formatMonitorValue(value: string): string {
+  return /^0x[0-9a-fA-F]{40}$/.test(value) || /^\d+$/.test(value) ? `\`${value}\`` : value;
+}
+
+function formatMonitorValues(values: string[]): string {
+  return values.map(formatMonitorValue).join(", ");
 }
 
 function upsertEventMonitor(monitors: EventMonitor[], monitor: EventMonitor): EventMonitor[] {
@@ -303,10 +311,11 @@ export function formatArbitrumFrozenEthReleaseMonitorRegistration(
     ? `found ${proposalStatus.matches.length} matching ProposalCreated event(s)`
     : `no matching release ProposalCreated event in ${proposalStatus?.searchedCount ?? 0} scanned Core Governor event(s)`;
   const followUp = result.monitor.followUpAnalysis.join("; ");
-  const watching = `${result.monitor.profileName} (${result.monitor.network}) ${result.monitor.contractLabel} ${result.monitor.contractAddress} / ${result.monitor.eventName}`;
+  const watching = `${result.monitor.profileName} (${result.monitor.network}) ${result.monitor.contractLabel} \`${result.monitor.contractAddress}\` / ${result.monitor.eventName}`;
+  const matching = formatMonitorValues(result.monitor.matchText);
 
   const lines = [
-    "Evidence packet: Arbitrum frozen-ETH release event monitor",
+    "Evidence packet: Arbitrum frozen ETH release event monitor",
     "",
     "Use this packet as source material. Do not copy it wholesale; synthesize the user-facing acknowledgement from the evidence below.",
     "If you say the monitor is active or set up, your final answer must include the monitor_activation block below.",
@@ -320,7 +329,7 @@ export function formatArbitrumFrozenEthReleaseMonitorRegistration(
     `webhook_url: ${result.webhook.url}`,
     "webhook_path: MultiBaas event.emitted -> local event monitor filter -> NanoClaw notification",
     `watching: ${watching}`,
-    `matching: ${result.monitor.matchText.join(", ")}`,
+    `matching: ${matching}`,
     `current_verdict: ${currentVerdict}`,
     `follow_up_after_trigger: ${followUp}`,
     "```",
@@ -337,7 +346,7 @@ export function formatArbitrumFrozenEthReleaseMonitorRegistration(
     "Monitor registered",
     `- Current verdict: ${currentVerdict}.`,
     `- Watching: ${watching}.`,
-    `- Matching: ${result.monitor.matchText.join(", ")}.`,
+    `- Matching: ${matching}.`,
     `- Follow-up after trigger: ${followUp}.`,
   ];
 

@@ -117,7 +117,7 @@ server.tool(
 
 server.tool(
   "analyze_arbitrum_governance_incident",
-  "Use this for every KelpDAO / rsETH frozen-ETH Arbitrum governance incident demo turn before answering, even if a previous turn already checked related event data. Do not answer from prior context alone. Do not send a standalone progress-only message before calling this tool. It returns an evidence packet: public context, decoded live event evidence, proposal-status verdict, monitor plan, and evidence boundaries. For explicit notify/watch/alert monitor requests, including combined prompts that ask whether the proposal is onchain yet and ask to be told when it is, use create_arbitrum_frozen_eth_release_monitor so the follow-up is driven by the MultiBaas webhook path. Do not recite the packet wholesale. Synthesize your own concise answer from the packet, copy the compact fenced event_query block exactly, and preserve the stated evidence boundaries.",
+  "Use this general incident-analysis tool for every KelpDAO / rsETH frozen ETH Arbitrum governance incident turn before answering, even if a previous turn already checked related event data. Do not answer from prior context alone. Do not send a standalone progress-only message before calling this tool. It returns an evidence packet: public context, decoded live event evidence, proposal-status verdict, monitor plan, and evidence boundaries. For explicit notify/watch/alert monitor requests, including combined prompts that ask whether the proposal is onchain yet and ask to be told when it is, use monitor_governance_proposal so the follow-up is driven by the MultiBaas webhook path. Do not recite the packet wholesale. Synthesize your own concise answer from the packet, copy the compact fenced event_query block exactly, and preserve the stated evidence boundaries.",
   {
     focus: z.enum(ARBITRUM_GOVERNANCE_INCIDENT_FOCUS_VALUES).optional(),
     limit: z.number().int().min(1).max(20).optional(),
@@ -126,8 +126,8 @@ server.tool(
 );
 
 server.tool(
-  "get_arbitrum_frozen_eth_governance_brief",
-  "Mandatory for opening demo prompts like: anything weird with Arbitrum governance lately, council froze ETH, give me the onchain brief, what contracts to inspect, and what can happen next. Call this before answering even if the same incident came up earlier. Do not send a standalone progress-only message before calling this tool. Returns an evidence packet for the brief and the Core Governor ProposalCreated query that was checked. Use it as source material, not a script; copy the fenced event_query block exactly.",
+  "summarize_governance_incident",
+  "Mandatory for opening governance incident prompts like: what's going on with Arbitrum governance lately, council froze ETH, what's the brief. Call this before answering even if the same incident came up earlier. Do not send a standalone progress-only message before calling this tool. Returns an evidence packet for the brief and the Core Governor ProposalCreated query that was checked. Use it as source material, not a script; copy the fenced event_query block exactly.",
   {
     limit: z.number().int().min(1).max(20).optional(),
   },
@@ -135,8 +135,8 @@ server.tool(
 );
 
 server.tool(
-  "verify_arbitrum_frozen_eth_emergency_response",
-  "Mandatory for demo prompts asking whether the emergency governance response can be proved or verified from live onchain event data. Call this before answering even if prior turns already discussed live event data. Do not send a standalone progress-only message before calling this tool. This runs decoded MultiBaas event queries for the L1/L2 timelocks and upgrade executors. Use the result as an evidence packet: explain what you checked, what you found, and the boundary that this verifies governance-control activity, not the specific freeze transaction unless a matching freeze-specific event or transaction is present. Copy the fenced event_query block exactly.",
+  "verify_governance_control_activity",
+  "Mandatory for governance prompts asking whether event data shows a freeze transaction or whether an emergency governance response can be proved or verified from live onchain event data. Call this before answering even if prior turns already discussed live event data. Do not send a standalone progress-only message before calling this tool. This runs decoded MultiBaas event queries for the L1/L2 timelocks and upgrade executors. Use the result as an evidence packet: explain what you checked, what you found, and the boundary that this verifies governance-control activity, not the specific freeze transaction unless a matching freeze-specific event or transaction is present. Copy the fenced event_query block exactly.",
   {
     limit: z.number().int().min(1).max(20).optional(),
   },
@@ -144,8 +144,8 @@ server.tool(
 );
 
 server.tool(
-  "get_arbitrum_frozen_eth_proposal_status",
-  "Mandatory for status-only demo prompts like: has the frozen-ETH release proposal reached onchain governance yet, landed onchain, or landed on chain? Call this before answering even if a previous turn already checked proposal status. Do not send a standalone progress-only message before calling this tool. This checks the Arbitrum One Core Governor ProposalCreated stream for Kelp / rsETH / frozen-ETH markers as a current-status preflight. Use the result as an evidence packet, answer the status in your own words, and copy the fenced event_query block exactly. Do not set up, promise, or imply a monitor when the user only asks for current status. If the same prompt also says let me know, notify me, alert me, watch, or monitor, call create_arbitrum_frozen_eth_release_monitor instead.",
+  "check_governance_proposal_status",
+  "Mandatory for status-only governance proposal prompts like: has the proposal to release the frozen ETH reached onchain governance yet, landed onchain, or landed on chain? Call this before answering even if a previous turn already checked proposal status. Do not send a standalone progress-only message before calling this tool. This checks the Arbitrum One Core Governor ProposalCreated stream for Kelp / rsETH / frozen ETH markers as a current-status preflight. Use the result as an evidence packet, answer the status in your own words, and copy the fenced event_query block exactly. Do not set up, promise, or imply a monitor when the user only asks for current status. If the same prompt also says let me know, notify me, alert me, watch, or monitor, call monitor_governance_proposal instead.",
   {
     limit: z.number().int().min(1).max(20).optional(),
   },
@@ -153,8 +153,8 @@ server.tool(
 );
 
 server.tool(
-  "get_arbitrum_frozen_eth_monitor_plan",
-  "Use for dry-run or explanatory monitor-plan questions about how the frozen-ETH release proposal would be watched. Do not call this for status-only questions such as has it reached onchain governance yet. For explicit notify/watch/alert requests, call create_arbitrum_frozen_eth_release_monitor instead so the monitor is registered through the MultiBaas webhook path. Returns an evidence packet with the current verdict, monitor target, filters, and follow-up analysis. Synthesize the acknowledgement yourself and copy the fenced event_query block exactly.",
+  "plan_governance_proposal_monitor",
+  "Use for dry-run or explanatory monitor-plan questions about how a governance release proposal would be watched. Do not call this for status-only questions such as has it reached onchain governance yet. For explicit notify/watch/alert requests, call monitor_governance_proposal instead so the monitor is registered through the MultiBaas webhook path. Returns an evidence packet with the current verdict, monitor target, filters, and follow-up analysis. Synthesize the acknowledgement yourself and copy the fenced event_query block exactly.",
   {
     limit: z.number().int().min(1).max(20).optional(),
   },
@@ -162,8 +162,8 @@ server.tool(
 );
 
 server.tool(
-  "create_arbitrum_frozen_eth_release_monitor",
-  "Mandatory for explicit monitor requests like: let me know, notify me, alert me, watch for, or monitor when the Arbitrum frozen-ETH release proposal reaches onchain governance or lands onchain. Also mandatory for combined prompts like: has the frozen-ETH release proposal reached onchain governance yet; if not, let me know when it does. This tool performs a ProposalCreated current-status preflight first, then uses the configured or already-active MultiBaas event.emitted webhook and persists the Core Governor ProposalCreated monitor with agent-side incident filters. Do not use NanoClaw schedule_task for this incident monitor. Do not invent or provide a webhook URL. After this succeeds, answer that the webhook-backed monitor is active, include the event_query trace block and the monitor_activation proof block, and describe the exact stream, filters, webhook id, and follow-up analysis.",
+  "monitor_governance_proposal",
+  "Mandatory for explicit monitor requests like: let me know, notify me, alert me, watch for, or monitor when a governance release proposal reaches onchain governance or lands onchain. Also mandatory for combined prompts like: has the proposal to release the frozen ETH reached onchain governance yet; if not, let me know when it does. This tool performs a ProposalCreated current-status preflight first, then uses the configured or already-active MultiBaas event.emitted webhook and persists the Core Governor ProposalCreated monitor with agent-side incident filters. Do not use NanoClaw schedule_task for this incident monitor. Do not invent or provide a webhook URL. After this succeeds, answer that the webhook-backed monitor is active, include the event_query trace block and the monitor_activation proof block, and describe the exact stream, filters, webhook id, and follow-up analysis.",
   {
     limit: z.number().int().min(1).max(20).optional(),
   },

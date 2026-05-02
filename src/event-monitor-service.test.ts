@@ -20,7 +20,7 @@ const monitor: EventMonitor = {
   followUpAnalysis: ["inspect proposal ID, proposer, targets, values, calldata, and description"],
   id: "monitor-1",
   kind: "arbitrum-frozen-eth-release-proposal",
-  label: "Arbitrum frozen-ETH release proposal",
+  label: "Arbitrum frozen ETH release proposal",
   matchText: ["Kelp", "rsETH", "frozen ETH"],
   network: "Arbitrum One",
   profileName: "arbitrum-one-remote",

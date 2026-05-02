@@ -14,11 +14,11 @@ The demo is not about backend readiness. Backend health is an operator concern. 
 
 Blockchains expose public data, but incident response still requires stitching together proposals, votes, timelocks, upgrade executors, treasury movement, and cross-chain control surfaces.
 
-For this demo, Arbitrum DAO is the focal system and the KelpDAO / rsETH frozen-ETH response is the incident frame.
+For this demo, Arbitrum DAO is the focal system and the KelpDAO / rsETH frozen ETH response is the incident frame.
 
 The agent should answer:
 
-> As an Arbitrum delegate or protocol risk analyst, what can I verify onchain before the frozen-ETH release proposal reaches execution?
+> As an Arbitrum delegate or protocol risk analyst, what can I verify onchain before the frozen ETH release proposal reaches execution?
 
 ## Incident frame
 
@@ -59,7 +59,7 @@ Keep the recorded chat to three beats.
 Prompt:
 
 ```text
-Anything weird with Arbitrum governance lately? I heard the council froze some ETH. Give me the onchain brief: what happened, what contracts should I inspect, and what can happen next?
+What's going on with Arbitrum governance lately? I heard the council froze some ETH. What's the brief?
 ```
 
 The agent should:
@@ -95,7 +95,7 @@ What can happen next:
 Prompt:
 
 ```text
-Can you actually prove the emergency governance response from live onchain event data?
+Does the event data show the transaction freezing the ETH?
 ```
 
 The agent should:
@@ -117,7 +117,7 @@ High-value evidence:
 Prompt:
 
 ```text
-Has the frozen-ETH release proposal reached onchain governance yet? If not, let me know when it does.
+Has the proposal to release the frozen ETH already landed on chain? If not, let me know when it does.
 ```
 
 The agent should:
@@ -133,7 +133,7 @@ The agent should:
 This can be a strong answer even when the proposal is not yet onchain:
 
 ```text
-The public proposal exists, but I do not see a matching onchain Core Governor ProposalCreated event yet. I scanned the recent ProposalCreated stream for Kelp, rsETH, frozen-ETH markers, and the frozen address. The next binding signal is ProposalCreated on the Core Governor, and the webhook monitor is now watching that stream.
+The public proposal exists, but I do not see a matching onchain Core Governor ProposalCreated event yet. I scanned the recent ProposalCreated stream for Kelp, rsETH, frozen ETH markers, and the frozen address. The next binding signal is ProposalCreated on the Core Governor, and the webhook monitor is now watching that stream.
 ```
 
 The monitor should:
@@ -147,9 +147,9 @@ Monitor target:
 ```text
 Network: arbitrum-one-remote
 Contract: arbitrumdaocoregovernor
-Address: 0xf07DeD9dC292157749B6Fd268E37DF6EA38395B9
+Address: `0xf07DeD9dC292157749B6Fd268E37DF6EA38395B9`
 Event: ProposalCreated
-Agent-side filters: Kelp, rsETH, frozen ETH, DeFi United, 30765, 30,765, 0x0000000000000000000000000000000000000DA0
+Agent-side filters: Kelp, rsETH, frozen ETH, DeFi United, 30765, 30,765, `0x0000000000000000000000000000000000000DA0`
 ```
 
 When triggered, inspect:

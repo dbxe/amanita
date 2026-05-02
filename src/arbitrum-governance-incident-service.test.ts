@@ -131,11 +131,13 @@ test("formatArbitrumGovernanceIncidentAnalysis renders control evidence", () => 
   assert.match(text, /stream: arbitrum-one-remote.*L2 Core Timelock.*CallScheduled, CallExecuted, Cancelled/i);
   assert.match(text, /fields: target \+ value \+ calldata \+ operation id \+ delay \+ tx hash \+ timestamp/i);
   assert.match(text, /Primary emergency-response evidence: L1 Upgrade Executor/i);
+  assert.match(text, /Searched/i);
+  assert.match(text, /L1 Upgrade Executor: 1 event\(s\), newest at 2026-04-21 03:26:47\+00/i);
   assert.match(text, /UpgradeExecuted/i);
-  assert.match(text, /selector=0x0a2e5a5b/i);
+  assert.match(text, /selector=`0x0a2e5a5b`/i);
   assert.match(text, /L1 Timelock context/i);
   assert.match(text, /does not directly prove the KelpDAO freeze transaction/i);
-  assert.match(text, /target=0x3fffbadaf827559da092217e474760e2b2c3cedd \(L1 Upgrade Executor\)/i);
+  assert.match(text, /target=`0x3fffbadaf827559da092217e474760e2b2c3cedd` \(L1 Upgrade Executor\)/i);
 });
 
 test("formatArbitrumGovernanceIncidentMonitorSetup renders actionable monitor details", () => {
@@ -185,12 +187,12 @@ test("formatArbitrumGovernanceIncidentMonitorSetup renders actionable monitor de
   assert.match(text, /match: Kelp, rsETH, frozen ETH/i);
   assert.match(text, /window: blocks 198000000 -> 293809109/i);
   assert.match(text, /User-facing acknowledgement/i);
-  assert.match(text, /create_arbitrum_frozen_eth_release_monitor/i);
+  assert.match(text, /monitor_governance_proposal/i);
   assert.match(text, /MultiBaas event\.emitted webhook wakes the local runtime/i);
   assert.doesNotMatch(text, /call NanoClaw `schedule_task`/i);
   assert.doesNotMatch(text, /recurrence `0 \*\/6 \* \* \*`/i);
   assert.match(text, /Network: arbitrum-one-remote \(Arbitrum One\)/i);
-  assert.match(text, /Contract: Core Governor 0xf07DeD9dC292157749B6Fd268E37DF6EA38395B9/i);
+  assert.match(text, /Contract: Core Governor `0xf07DeD9dC292157749B6Fd268E37DF6EA38395B9`/i);
   assert.match(text, /Event: ProposalCreated/i);
   assert.match(text, /Agent-side filters: Kelp, rsETH, frozen ETH/i);
   assert.match(text, /Follow-up analysis after trigger/i);

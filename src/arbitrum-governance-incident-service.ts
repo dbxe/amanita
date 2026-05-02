@@ -112,6 +112,18 @@ const INCIDENT_MARKERS = [
 
 const FROZEN_ETH_ADDRESS = "0x0000000000000000000000000000000000000DA0";
 
+function isHexAddress(value: string): boolean {
+  return /^0x[0-9a-fA-F]{40}$/.test(value);
+}
+
+function formatMarker(marker: string): string {
+  return isHexAddress(marker) ? formatLiteral(marker) : marker;
+}
+
+function formatMarkers(markers: readonly string[], separator: string): string {
+  return markers.map(formatMarker).join(separator);
+}
+
 function targetReference(address: string): ContractTargetReference {
   return { kind: "address", value: address };
 }
@@ -450,26 +462,32 @@ export async function analyzeArbitrumGovernanceIncident(
   return result;
 }
 
-function shortId(value?: string, length = 24): string {
+function formatLiteral(value?: string): string {
   if (!value) {
     return "unknown";
   }
-  return value.length > length ? `${value.slice(0, length)}...` : value;
+  return `\`${value}\``;
 }
 
 function formatProposal(proposal: IncidentProposalEvent): string {
   const details = [
     proposal.triggeredAt,
     proposal.title ?? "untitled proposal",
-    `proposal=${shortId(proposal.proposalId)}`,
-    proposal.txHash ? `tx=${proposal.txHash}` : undefined,
+    `proposal=${formatLiteral(proposal.proposalId)}`,
+    proposal.txHash ? `tx=${formatLiteral(proposal.txHash)}` : undefined,
     proposal.matchedMarkers.length > 0 ? `markers=${proposal.matchedMarkers.join(", ")}` : undefined,
   ].filter(Boolean);
   return `- ${details.join(" | ")}`;
 }
 
 function formatQueryTarget(target: IncidentQueryTarget): string {
-  return `${target.profileName} (${target.network}) | ${target.targetLabel} ${target.targetAddress}`;
+  return `${target.profileName} (${target.network}) | ${target.targetLabel} ${formatLiteral(target.targetAddress)}`;
+}
+
+function formatEventCount(events: IncidentControlEvent[] | undefined): string {
+  const eventList = events ?? [];
+  const newest = eventList.find((event) => event.triggeredAt)?.triggeredAt;
+  return `${eventList.length} event(s)${newest ? `, newest at ${newest}` : ""}`;
 }
 
 function appendEventQueryBlock(lines: string[], entries: string[]): void {
@@ -502,11 +520,11 @@ function formatProposalSearchEffort(status: IncidentProposalStatus): string {
 function appendProposalQuerySummary(lines: string[], proposalStatus: IncidentProposalStatus): void {
   appendEventQueryBlock(lines, [
     "query: multibaas.eventQuery",
-    "purpose: current onchain status preflight for the frozen-ETH release proposal",
+    "purpose: current onchain status preflight for the frozen ETH release proposal",
     `stream: ${formatQueryTarget(proposalStatus.queryTarget)} / ProposalCreated`,
     "order: newest first",
     "fields: proposal metadata + execution payload + description",
-    `match: ${INCIDENT_MARKERS.join(" | ")}`,
+    `match: ${formatMarkers(INCIDENT_MARKERS, " | ")}`,
     `scanned: ${proposalStatus.searchedCount} ProposalCreated event(s)`,
     `window: ${formatProposalSearchWindow(proposalStatus)}`,
     `matches: ${proposalStatus.matches.length} incident marker match(es)`,
@@ -531,18 +549,18 @@ function appendControlQuerySummary(lines: string[]): void {
 
 function formatControlEvent(event: IncidentControlEvent): string {
   const target = event.target
-    ? `${event.target}${event.targetLabel ? ` (${event.targetLabel})` : ""}`
+    ? `${formatLiteral(event.target)}${event.targetLabel ? ` (${event.targetLabel})` : ""}`
     : "unknown target";
   const details = [
     event.triggeredAt,
     event.eventSignature,
     `target=${target}`,
-    event.operationId ? `op=${shortId(event.operationId, 14)}` : undefined,
+    event.operationId ? `op=${formatLiteral(event.operationId)}` : undefined,
     event.operationIndex ? `index=${event.operationIndex}` : undefined,
-    event.calldataSelector ? `selector=${event.calldataSelector}` : undefined,
+    event.calldataSelector ? `selector=${formatLiteral(event.calldataSelector)}` : undefined,
     event.valueEth ? `value=${event.valueEth}` : undefined,
     event.delaySeconds ? `delay=${event.delaySeconds}s` : undefined,
-    event.txHash ? `tx=${event.txHash}` : undefined,
+    event.txHash ? `tx=${formatLiteral(event.txHash)}` : undefined,
   ].filter(Boolean);
   return `- ${details.join(" | ")}`;
 }
@@ -566,10 +584,12 @@ function appendControlEvents(lines: string[], heading: string, events: IncidentC
 
 export function formatArbitrumGovernanceIncidentAnalysis(result: ArbitrumGovernanceIncidentAnalysis): string {
   const lines = [
-    "Evidence packet: Arbitrum frozen-ETH governance incident",
+    "Evidence packet: Arbitrum frozen ETH governance incident",
     "",
     `Focus: ${result.focus}`,
     "Use this packet as source material. Do not copy it wholesale; synthesize the user-facing answer from the evidence below.",
+    "Recommended answer shape: Verdict, Searched, Found, Next signal, and Watching when a monitor is active.",
+    "Put addresses, transaction hashes, proposal IDs, selectors, operation IDs, and webhook IDs in single backticks. Do not shorten hashes or addresses with ellipses.",
   ];
 
   if (result.focus === "brief") {
@@ -577,7 +597,7 @@ export function formatArbitrumGovernanceIncidentAnalysis(result: ArbitrumGoverna
       "",
       "Public context",
       `- Security Council action froze 30,765.667501709008927568 ETH connected to the KelpDAO / rsETH exploit.`,
-      `- Frozen funds address: ${FROZEN_ETH_ADDRESS}.`,
+      `- Frozen funds address: ${formatLiteral(FROZEN_ETH_ADDRESS)}.`,
       "- Releasing those funds requires Arbitrum governance action.",
       "",
       "Possible onchain control path",
@@ -603,8 +623,8 @@ export function formatArbitrumGovernanceIncidentAnalysis(result: ArbitrumGoverna
     } else {
       lines.push(
         `Verdict: not onchain yet in the checked Core Governor ProposalCreated stream.`,
-        `Searched: ${formatProposalSearchEffort(result.proposalStatus)} for Kelp / rsETH / frozen-ETH markers.`,
-        "Next binding signal: ProposalCreated on the Core Governor with Kelp / rsETH / frozen-ETH markers.",
+        `Searched: ${formatProposalSearchEffort(result.proposalStatus)} for Kelp / rsETH / frozen ETH markers.`,
+        "Next binding signal: ProposalCreated on the Core Governor with Kelp / rsETH / frozen ETH markers.",
       );
     }
 
@@ -619,6 +639,12 @@ export function formatArbitrumGovernanceIncidentAnalysis(result: ArbitrumGoverna
   if (result.focus === "verify-freeze") {
     appendControlQuerySummary(lines);
     lines.push(
+      "",
+      "Searched",
+      `- L1 Upgrade Executor: ${formatEventCount(result.l1UpgradeExecutorEvents)}.`,
+      `- L1 Timelock: ${formatEventCount(result.l1TimelockOperations)}.`,
+      `- L2 Core Timelock: ${formatEventCount(result.l2TimelockOperations)}.`,
+      `- L2 Upgrade Executor: ${formatEventCount(result.l2UpgradeExecutorEvents)}.`,
       "",
       "Observed live event data",
       "- MultiBaas returned decoded governance-control events from the configured Arbitrum DAO contracts.",
@@ -635,15 +661,15 @@ export function formatArbitrumGovernanceIncidentAnalysis(result: ArbitrumGoverna
     lines.push(
       "",
       "Agent monitor instruction",
-      "- If the user explicitly asked to be notified, alerted, watched, or monitored, create the MultiBaas-backed event monitor with `create_arbitrum_frozen_eth_release_monitor` before the final acknowledgement.",
+      "- If the user explicitly asked to be notified, alerted, watched, or monitored, create the MultiBaas-backed event monitor with `monitor_governance_proposal` before the final acknowledgement.",
       "- The create-monitor tool registers the MultiBaas event webhook; after it succeeds, say the monitor is active.",
       "",
       "Monitor evidence",
       `- Network: ${result.monitorPlan.profileName} (${result.monitorPlan.network})`,
-      `- Contract: ${result.monitorPlan.targetLabel} ${result.monitorPlan.targetAddress}`,
+      `- Contract: ${result.monitorPlan.targetLabel} ${formatLiteral(result.monitorPlan.targetAddress)}`,
       `- Event: ${result.monitorPlan.eventName}`,
       `- Direct description filtering in the webhook: ${result.monitorPlan.directDescriptionFilteringSupported ? "yes" : "no"}`,
-      `- Agent-side filters: ${result.monitorPlan.agentSideFilters.join(", ")}`,
+      `- Agent-side filters: ${formatMarkers(result.monitorPlan.agentSideFilters, ", ")}`,
       "- Payoff: wake up when the public proposal becomes a binding onchain ProposalCreated event.",
       "- Follow-up analysis:",
     );
@@ -672,13 +698,16 @@ export function formatArbitrumGovernanceIncidentMonitorSetup(result: ArbitrumGov
       ? `Current verdict: no matching release ProposalCreated event found after scanning ${formatProposalSearchEffort(proposalStatus)}.`
       : "Current verdict: no Core Governor ProposalCreated status check was returned.";
   const filters = result.monitorPlan.agentSideFilters.join(", ");
+  const formattedFilters = formatMarkers(result.monitorPlan.agentSideFilters, ", ");
   const followUp = result.monitorPlan.followUpAnalysis.join("; ");
 
   const lines = [
-    "Evidence packet: Arbitrum frozen-ETH release monitor",
+    "Evidence packet: Arbitrum frozen ETH release monitor",
     "",
     "Use this packet as source material. Do not copy it wholesale; synthesize the user-facing acknowledgement from the evidence below.",
-    "If the user asked to be notified, create the MultiBaas-backed event monitor with `create_arbitrum_frozen_eth_release_monitor` before the final acknowledgement. After it succeeds, say the monitor is active.",
+    "Recommended answer shape: Verdict, Searched, Watching, Next signal, then the required event_query and monitor_activation blocks.",
+    "Put addresses, transaction hashes, proposal IDs, selectors, operation IDs, and webhook IDs in single backticks. Do not shorten hashes or addresses with ellipses.",
+    "If the user asked to be notified, create the MultiBaas-backed event monitor with `monitor_governance_proposal` before the final acknowledgement. After it succeeds, say the monitor is active.",
     "",
     status,
     "",
@@ -689,7 +718,7 @@ export function formatArbitrumGovernanceIncidentMonitorSetup(result: ArbitrumGov
     `stream: ${formatQueryTarget(result.monitorPlan)} / ProposalCreated`,
     "order: newest first",
     "fields: proposal metadata + execution payload + description",
-    `match: ${filters}`,
+    `match: ${formattedFilters}`,
     ...(proposalStatus ? [
       `scanned: ${proposalStatus.searchedCount} ProposalCreated event(s)`,
       `window: ${formatProposalSearchWindow(proposalStatus)}`,
@@ -698,14 +727,14 @@ export function formatArbitrumGovernanceIncidentMonitorSetup(result: ArbitrumGov
     "```",
     "",
     "User-facing acknowledgement",
-    `I will watch ${result.monitorPlan.profileName} (${result.monitorPlan.network}) on ${result.monitorPlan.targetLabel} ${result.monitorPlan.targetAddress} for ${result.monitorPlan.eventName}. I will match decoded proposal fields against: ${filters}. After a match, I will ${followUp}.`,
+    `I will watch ${result.monitorPlan.profileName} (${result.monitorPlan.network}) on ${result.monitorPlan.targetLabel} ${formatLiteral(result.monitorPlan.targetAddress)} for ${result.monitorPlan.eventName}. I will match decoded proposal fields against: ${formattedFilters}. After a match, I will ${followUp}.`,
     "",
     "Monitor target",
     `- Network: ${result.monitorPlan.profileName} (${result.monitorPlan.network})`,
-    `- Contract: ${result.monitorPlan.targetLabel} ${result.monitorPlan.targetAddress}`,
+    `- Contract: ${result.monitorPlan.targetLabel} ${formatLiteral(result.monitorPlan.targetAddress)}`,
     `- Event: ${result.monitorPlan.eventName}`,
     `- Trigger rule: read ${result.monitorPlan.eventName} events, then apply agent-side text/address matching to the decoded proposal fields.`,
-    `- Agent-side filters: ${filters}`,
+    `- Agent-side filters: ${formattedFilters}`,
     `- Follow-up after trigger: ${followUp}.`,
     "- Runtime path: MultiBaas event.emitted webhook wakes the local runtime; the runtime applies this monitor's event-name, contract-address, and incident-marker filters before notifying the agent.",
     "",

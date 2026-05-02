@@ -4,12 +4,12 @@ Goal: pass a live NanoClaw demo where the agent uses the prescriptive Arbitrum g
 
 ## What Needs To Happen
 
-1. The agent must use the Arbitrum governance incident MCP surface for the KelpDAO / rsETH frozen-ETH story: either `analyze_arbitrum_governance_incident` or a dedicated alias backed by the same service.
+1. The agent must use the Arbitrum governance incident MCP surface for the KelpDAO / rsETH frozen ETH story.
 2. Each demo prompt must map to the correct typed tool path:
-   - incident brief -> `brief`
-   - emergency response verification -> `verify-freeze`
-   - release proposal status only -> `proposal-status`
-   - release proposal status plus notify/watch request -> `create_arbitrum_frozen_eth_release_monitor`
+   - incident brief -> `summarize_governance_incident`
+   - emergency response verification -> `verify_governance_control_activity`
+   - release proposal status only -> `check_governance_proposal_status`
+   - release proposal status plus notify/watch request -> `monitor_governance_proposal`
 3. The agent must call the mapped incident tool on every matching turn, even if a previous turn checked related event data.
 4. The answer must make the tool-backed query visible as a compact fenced `event_query` block: what event stream was checked, which decoded fields matter, and what filter or marker set was applied.
 5. The answer must separate public context from MultiBaas-returned event evidence.
@@ -37,7 +37,7 @@ Expected host-side state:
 
 - `arbitrum-one-remote` and `mainnet-remote` are configured.
 - `proposal-status` checks Core Governor `ProposalCreated` events on Arbitrum One.
-- If no Kelp / rsETH / frozen-ETH match exists, the answer says the next binding signal is `ProposalCreated`.
+- If no Kelp / rsETH / frozen ETH match exists, the answer says the next binding signal is `ProposalCreated`.
 - `verify-freeze` shows decoded L1 Upgrade Executor evidence and timelock/executor context without claiming exploit reconstruction.
 
 ## NanoClaw Setup
@@ -64,12 +64,12 @@ Run prompts sequentially. Do not overlap turns.
 
 ```bash
 cd ~/git/dbxe/nanoclaw
-pnpm run chat -- "Anything weird with Arbitrum governance lately? I heard the council froze some ETH. Give me the onchain brief: what happened, what contracts should I inspect, and what can happen next?"
+pnpm run chat -- "What's going on with Arbitrum governance lately? I heard the council froze some ETH. What's the brief?"
 ```
 
 Expected behavior:
 
-- calls `analyze_arbitrum_governance_incident` with `focus=brief`, or `get_arbitrum_frozen_eth_governance_brief`
+- calls `summarize_governance_incident`
 - includes an `event_query` block showing the Core Governor `ProposalCreated` stream and decoded marker fields
 - synthesizes public context, control path, and next binding signal from the evidence packet
 - avoids backend-health framing unless something blocks the answer
@@ -78,12 +78,12 @@ Expected behavior:
 
 ```bash
 cd ~/git/dbxe/nanoclaw
-pnpm run chat -- "Can you actually prove the emergency governance response from live onchain event data?"
+pnpm run chat -- "Does the event data show the transaction freezing the ETH?"
 ```
 
 Expected behavior:
 
-- calls `analyze_arbitrum_governance_incident` with `focus=verify-freeze`, or `verify_arbitrum_frozen_eth_emergency_response`
+- calls `verify_governance_control_activity`
 - includes an `event_query` block showing the L1/L2 timelock and upgrade-executor event streams
 - surfaces decoded `UpgradeExecuted(address,uint256,bytes)` evidence from `mainnet-remote`
 - states that this verifies control-plane activity, not the full exploit
@@ -92,12 +92,12 @@ Expected behavior:
 
 ```bash
 cd ~/git/dbxe/nanoclaw
-pnpm run chat -- "Has the frozen-ETH release proposal reached onchain governance yet? If not, let me know when it does."
+pnpm run chat -- "Has the proposal to release the frozen ETH already landed on chain? If not, let me know when it does."
 ```
 
 Expected behavior:
 
-- calls `create_arbitrum_frozen_eth_release_monitor` before claiming the monitor is active
+- calls `monitor_governance_proposal` before claiming the monitor is active
 - uses the tool's built-in `ProposalCreated` status preflight before registering the monitor
 - checks Arbitrum One Core Governor `ProposalCreated`
 - distinguishes public/forum proposal context from onchain `ProposalCreated`
