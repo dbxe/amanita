@@ -8,15 +8,16 @@ Goal: pass a live NanoClaw demo where the agent uses the prescriptive Arbitrum g
 2. Each demo prompt must map to the correct typed tool path:
    - incident brief -> `brief`
    - emergency response verification -> `verify-freeze`
-   - release proposal status -> `proposal-status`
-   - persistent monitor request -> `create_arbitrum_frozen_eth_release_monitor`
+   - release proposal status only -> `proposal-status`
+   - release proposal status plus notify/watch request -> `create_arbitrum_frozen_eth_release_monitor`
 3. The agent must call the mapped incident tool on every matching turn, even if a previous turn checked related event data.
 4. The answer must make the tool-backed query visible as a compact fenced `event_query` block: what event stream was checked, which decoded fields matter, and what filter or marker set was applied.
 5. The answer must separate public context from MultiBaas-returned event evidence.
 6. The answer must lead with the current verdict, then show decoded events and the next onchain signal.
-7. The release-proposal status beat must not set up or promise a monitor.
-8. The monitor answer must describe the exact event stream, agent-side filters, webhook path, and follow-up analysis.
-9. For live event-query turns, the agent should synthesize a final answer from the evidence packet rather than copying it wholesale. Do not use model-authored standalone progress acknowledgements in this demo path; visible progress should come from NanoClaw runtime behavior, not from a progress-only assistant reply.
+7. A status-only proposal question must not set up or promise a monitor.
+8. The merged status-plus-monitor beat must first report the current onchain status, then create the webhook-backed monitor.
+9. The monitor answer must describe the exact event stream, agent-side filters, webhook path, and follow-up analysis.
+10. For live event-query turns, the agent should synthesize a final answer from the evidence packet rather than copying it wholesale. Do not use model-authored standalone progress acknowledgements in this demo path; visible progress should come from NanoClaw runtime behavior, not from a progress-only assistant reply.
 
 ## Host-Side Verification
 
@@ -63,7 +64,7 @@ Run prompts sequentially. Do not overlap turns.
 
 ```bash
 cd ~/git/dbxe/nanoclaw
-pnpm run chat -- "Arbitrum froze funds from the KelpDAO exploit. Give me the onchain governance brief: what happened, what contracts should I inspect, and what can happen next?"
+pnpm run chat -- "Anything weird with Arbitrum governance lately? I heard the council froze some ETH. Give me the onchain brief: what happened, what contracts should I inspect, and what can happen next?"
 ```
 
 Expected behavior:
@@ -77,7 +78,7 @@ Expected behavior:
 
 ```bash
 cd ~/git/dbxe/nanoclaw
-pnpm run chat -- "Can you verify the emergency governance response from live event data?"
+pnpm run chat -- "Can you actually prove the emergency governance response from live onchain event data?"
 ```
 
 Expected behavior:
@@ -87,47 +88,37 @@ Expected behavior:
 - surfaces decoded `UpgradeExecuted(address,uint256,bytes)` evidence from `mainnet-remote`
 - states that this verifies control-plane activity, not the full exploit
 
-### Beat 3: Next Onchain Transition
+### Beat 3: Next Onchain Transition + Monitor
 
 ```bash
 cd ~/git/dbxe/nanoclaw
-pnpm run chat -- "Has the frozen-ETH release proposal reached onchain governance yet?"
-```
-
-Expected behavior:
-
-- calls `analyze_arbitrum_governance_incident` with `focus=proposal-status`, or `get_arbitrum_frozen_eth_proposal_status`
-- checks Arbitrum One Core Governor `ProposalCreated`
-- distinguishes public/forum proposal context from onchain `ProposalCreated`
-- names `ProposalCreated` as the next binding signal if no match exists
-- does not mention that a monitor has been set up
-
-### Beat 4: Persistent Monitor Payoff
-
-```bash
-cd ~/git/dbxe/nanoclaw
-pnpm run chat -- "Let me know when this release proposal actually reaches onchain governance."
+pnpm run chat -- "Has the frozen-ETH release proposal reached onchain governance yet? If not, let me know when it does."
 ```
 
 Expected behavior:
 
 - calls `create_arbitrum_frozen_eth_release_monitor` before claiming the monitor is active
+- uses the tool's built-in status check before registering the monitor
+- checks Arbitrum One Core Governor `ProposalCreated`
+- distinguishes public/forum proposal context from onchain `ProposalCreated`
+- names `ProposalCreated` as the next binding signal if no match exists
 - describes the `ProposalCreated` monitor target on the Core Governor
 - uses agent-side filters for Kelp / rsETH / frozen ETH / `30,765` / `0x0000000000000000000000000000000000000DA0`
+- states the MultiBaas webhook id/status and avoids any NanoClaw recurrence language
 - lists the follow-up analysis to run after trigger
 
 ## Pass Criteria
 
 A live pass means:
 
-- the agent calls the intended MCP tool for all four beats
+- the agent calls the intended MCP tool for all three beats
 - the agent includes a compact fenced `event_query` block for the live query it ran instead of making the answer feel like an ungrounded script
 - the output is event-backed and concise
 - the final answer is synthesized from the evidence packet, not a wholesale copy of the tool output
 - public incident context and live event evidence stay separate
 - the current onchain status is stated as a verdict, not buried
-- the proposal-status beat does not promise monitoring
-- the monitor beat creates the MultiBaas webhook-backed monitor, then clearly describes what is watched and what the agent will inspect next
+- the merged status-plus-monitor beat clearly separates "not onchain yet" from "webhook monitor is now active"
+- the monitor setup uses the MultiBaas webhook path, then clearly describes what is watched and what the agent will inspect next
 
 Fail the run if the agent:
 
@@ -136,5 +127,5 @@ Fail the run if the agent:
 - treats a public proposal as binding onchain evidence
 - claims exploit reconstruction from executor or timelock events
 - gives a generic DAO-readiness answer instead of the incident brief
-- says it has set up a monitor before the user asks to be notified
+- says it has set up a monitor before the user asks to be notified or watched
 - uses recurring NanoClaw scheduling instead of the MultiBaas webhook-backed monitor path

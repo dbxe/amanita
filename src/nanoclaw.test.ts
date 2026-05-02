@@ -34,6 +34,7 @@ test("containerInstructions steer NanoClaw away from saved queries for ERC-20 ho
   assert.match(instructions, /proposal-status questions.*answer only the current onchain status/i);
   assert.match(instructions, /Do not set up, promise, imply, or mention a monitor/i);
   assert.match(instructions, /notified when the release proposal reaches onchain governance.*`create_arbitrum_frozen_eth_release_monitor`/i);
+  assert.match(instructions, /Has the frozen-ETH release proposal reached onchain governance yet\? If not, let me know when it does.*`create_arbitrum_frozen_eth_release_monitor`/i);
   assert.match(instructions, /webhook id\/status/i);
   assert.match(instructions, /Do not invent or supply a webhook URL/i);
   assert.match(instructions, /Do not use NanoClaw `schedule_task` for this incident monitor/i);

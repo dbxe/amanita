@@ -56,6 +56,7 @@ test("formatArbitrumGovernanceIncidentAnalysis renders proposal-status evidence 
       },
       recent: [
         {
+          blockNumber: "293809109",
           matchedMarkers: [],
           proposalId: "112177996398925212273579485756315626637025938627124330171390356044681347897430",
           targetLabels: [],
@@ -64,6 +65,12 @@ test("formatArbitrumGovernanceIncidentAnalysis renders proposal-status evidence 
           txHash: "0x0e065032993b9a99a1a34bd4ac08ab5945b7058f26973c90c86c37bf4ef2295a",
         },
       ],
+      searchWindow: {
+        newestBlockNumber: "293809109",
+        newestTriggeredAt: "2026-02-23 21:36:25+00",
+        oldestBlockNumber: "198000000",
+        oldestTriggeredAt: "2025-07-01 00:00:00+00",
+      },
       searchedCount: 28,
     },
   };
@@ -75,8 +82,11 @@ test("formatArbitrumGovernanceIncidentAnalysis renders proposal-status evidence 
   assert.doesNotMatch(text, /tool: analyze_arbitrum_governance_incident/i);
   assert.match(text, /fields: proposal metadata \+ execution payload \+ description/i);
   assert.match(text, /match: Kelp \| rsETH \| frozen ETH/i);
+  assert.match(text, /scanned: 28 ProposalCreated event/i);
+  assert.match(text, /window: blocks 198000000 -> 293809109/i);
+  assert.match(text, /matches: 0 incident marker match/i);
   assert.match(text, /Verdict: not onchain yet/i);
-  assert.match(text, /Checked: 28 indexed ProposalCreated event/i);
+  assert.match(text, /Searched: 28 indexed ProposalCreated event.*blocks 198000000 -> 293809109/i);
   assert.match(text, /Next binding signal: ProposalCreated/i);
   assert.match(text, /arbitrum-one-remote.*Core Governor/i);
   assert.match(text, /DVP Quorum & Proposal Cancellation/i);
@@ -154,17 +164,24 @@ test("formatArbitrumGovernanceIncidentMonitorSetup renders actionable monitor de
         targetLabel: "Core Governor",
       },
       recent: [],
+      searchWindow: {
+        newestBlockNumber: "293809109",
+        newestTriggeredAt: "2026-02-23 21:36:25+00",
+        oldestBlockNumber: "198000000",
+        oldestTriggeredAt: "2025-07-01 00:00:00+00",
+      },
       searchedCount: 28,
     },
   };
 
   const text = formatArbitrumGovernanceIncidentMonitorSetup(result);
 
-  assert.match(text, /Current verdict: no matching release ProposalCreated event found in 28 checked/i);
+  assert.match(text, /Current verdict: no matching release ProposalCreated event found after scanning 28 indexed ProposalCreated event/i);
   assert.match(text, /```event_query/i);
   assert.match(text, /stream: arbitrum-one-remote.*Core Governor.*ProposalCreated/i);
   assert.doesNotMatch(text, /tool: analyze_arbitrum_governance_incident/i);
   assert.match(text, /match: Kelp, rsETH, frozen ETH/i);
+  assert.match(text, /window: blocks 198000000 -> 293809109/i);
   assert.match(text, /User-facing acknowledgement/i);
   assert.match(text, /create_arbitrum_frozen_eth_release_monitor/i);
   assert.match(text, /MultiBaas event\.emitted webhook wakes the local runtime/i);

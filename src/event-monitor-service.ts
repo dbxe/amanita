@@ -298,6 +298,12 @@ export function formatEventMonitorAlerts(
 export function formatArbitrumFrozenEthReleaseMonitorRegistration(
   result: ArbitrumFrozenEthReleaseMonitorResult,
 ): string {
+  const proposalStatus = result.analysis.proposalStatus;
+  const currentVerdict = proposalStatus && proposalStatus.matches.length > 0
+    ? `found ${proposalStatus.matches.length} matching ProposalCreated event(s)`
+    : `no matching release ProposalCreated event in ${proposalStatus?.searchedCount ?? 0} scanned Core Governor event(s)`;
+  const followUp = result.monitor.followUpAnalysis.join("; ");
+
   const lines = [
     "Evidence packet: Arbitrum frozen-ETH release event monitor",
     "",
@@ -311,6 +317,12 @@ export function formatArbitrumFrozenEthReleaseMonitorRegistration(
     "- Webhook status: registered.",
     `- Webhook: id=${result.webhook.id} label=${result.webhook.label} url=${result.webhook.url}`,
     `- Subscriptions: ${result.webhook.subscriptions.join(", ")}`,
+    "",
+    "Monitor registered",
+    `- Current verdict: ${currentVerdict}.`,
+    `- Watching: ${result.monitor.profileName} (${result.monitor.network}) ${result.monitor.contractLabel} ${result.monitor.contractAddress} / ${result.monitor.eventName}.`,
+    `- Matching: ${result.monitor.matchText.join(", ")}.`,
+    `- Follow-up after trigger: ${followUp}.`,
   ];
 
   return lines.join("\n");

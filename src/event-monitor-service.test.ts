@@ -141,6 +141,12 @@ test("formatArbitrumFrozenEthReleaseMonitorRegistration describes the webhook pa
         targetLabel: "Core Governor",
       },
       recent: [],
+      searchWindow: {
+        newestBlockNumber: "293809109",
+        newestTriggeredAt: "2026-02-23 21:36:25+00",
+        oldestBlockNumber: "198000000",
+        oldestTriggeredAt: "2025-07-01 00:00:00+00",
+      },
       searchedCount: 28,
     },
   };
@@ -159,6 +165,9 @@ test("formatArbitrumFrozenEthReleaseMonitorRegistration describes the webhook pa
 
   assert.match(text, /Webhook status: registered/i);
   assert.match(text, /MultiBaas event\.emitted webhook -> local event monitor filter -> NanoClaw notification/i);
+  assert.match(text, /Monitor registered/i);
+  assert.match(text, /Current verdict: no matching release ProposalCreated event in 28 scanned Core Governor event/i);
+  assert.match(text, /Follow-up after trigger: inspect proposal ID, proposer, targets, values, calldata, and description/i);
   assert.doesNotMatch(text, /fallback/i);
   assert.doesNotMatch(text, /recurrence/i);
   assert.doesNotMatch(text, /tool: analyze_arbitrum_governance_incident/i);

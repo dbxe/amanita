@@ -40,6 +40,13 @@ export interface IncidentProposalEvent {
   values?: string;
 }
 
+export interface IncidentProposalSearchWindow {
+  newestBlockNumber?: string;
+  newestTriggeredAt?: string;
+  oldestBlockNumber?: string;
+  oldestTriggeredAt?: string;
+}
+
 export interface IncidentControlEvent {
   blockNumber?: string;
   calldataHex?: string;
@@ -62,6 +69,7 @@ export interface IncidentProposalStatus {
   matches: IncidentProposalEvent[];
   queryTarget: IncidentQueryTarget;
   recent: IncidentProposalEvent[];
+  searchWindow?: IncidentProposalSearchWindow;
   searchedCount: number;
 }
 
@@ -197,6 +205,21 @@ function toProposalEvent(row: Record<string, unknown>): IncidentProposalEvent {
   };
 }
 
+function proposalSearchWindow(proposals: IncidentProposalEvent[]): IncidentProposalSearchWindow | undefined {
+  if (proposals.length === 0) {
+    return undefined;
+  }
+
+  const newest = proposals[0];
+  const oldest = proposals[proposals.length - 1];
+  return {
+    newestBlockNumber: newest?.blockNumber,
+    newestTriggeredAt: newest?.triggeredAt,
+    oldestBlockNumber: oldest?.blockNumber,
+    oldestTriggeredAt: oldest?.triggeredAt,
+  };
+}
+
 function parseByteArrayString(value: string): string | undefined {
   if (!value.startsWith("[") || !value.endsWith("]")) {
     return undefined;
@@ -315,6 +338,7 @@ async function getProposalStatus(limit: number): Promise<IncidentProposalStatus>
     matches: proposals.filter((proposal) => proposal.matchedMarkers.length > 0),
     queryTarget: toQueryTarget(coreGovernor),
     recent: proposals.slice(0, limit),
+    searchWindow: proposalSearchWindow(proposals),
     searchedCount: proposals.length,
   };
 }
@@ -449,7 +473,30 @@ function formatQueryTarget(target: IncidentQueryTarget): string {
 }
 
 function appendEventQueryBlock(lines: string[], entries: string[]): void {
-  lines.push("", "Required final citation (copy this block exactly)", "```event_query", ...entries, "```");
+  lines.push("", "Tool-backed query trace", "```event_query", ...entries, "```");
+}
+
+function formatRange(label: string, oldest?: string, newest?: string): string | undefined {
+  if (!oldest && !newest) {
+    return undefined;
+  }
+  if (oldest && newest && oldest !== newest) {
+    return `${label} ${oldest} -> ${newest}`;
+  }
+  return `${label} ${oldest ?? newest}`;
+}
+
+function formatProposalSearchWindow(status: IncidentProposalStatus): string {
+  const parts = [
+    formatRange("blocks", status.searchWindow?.oldestBlockNumber, status.searchWindow?.newestBlockNumber),
+    formatRange("times", status.searchWindow?.oldestTriggeredAt, status.searchWindow?.newestTriggeredAt),
+  ].filter(Boolean);
+
+  return parts.length > 0 ? parts.join("; ") : "returned event window unavailable";
+}
+
+function formatProposalSearchEffort(status: IncidentProposalStatus): string {
+  return `${status.searchedCount} indexed ProposalCreated event(s) (${formatProposalSearchWindow(status)})`;
 }
 
 function appendProposalQuerySummary(lines: string[], proposalStatus: IncidentProposalStatus): void {
@@ -459,6 +506,9 @@ function appendProposalQuerySummary(lines: string[], proposalStatus: IncidentPro
     "order: newest first",
     "fields: proposal metadata + execution payload + description",
     `match: ${INCIDENT_MARKERS.join(" | ")}`,
+    `scanned: ${proposalStatus.searchedCount} ProposalCreated event(s)`,
+    `window: ${formatProposalSearchWindow(proposalStatus)}`,
+    `matches: ${proposalStatus.matches.length} incident marker match(es)`,
   ]);
 }
 
@@ -552,7 +602,7 @@ export function formatArbitrumGovernanceIncidentAnalysis(result: ArbitrumGoverna
     } else {
       lines.push(
         `Verdict: not onchain yet in the checked Core Governor ProposalCreated stream.`,
-        `Checked: ${result.proposalStatus.searchedCount} indexed ProposalCreated event(s).`,
+        `Searched: ${formatProposalSearchEffort(result.proposalStatus)} for Kelp / rsETH / frozen-ETH markers.`,
         "Next binding signal: ProposalCreated on the Core Governor with Kelp / rsETH / frozen-ETH markers.",
       );
     }
@@ -617,7 +667,9 @@ export function formatArbitrumGovernanceIncidentMonitorSetup(result: ArbitrumGov
   const proposalStatus = result.proposalStatus;
   const status = proposalStatus && proposalStatus.matches.length > 0
     ? `Current verdict: found ${proposalStatus.matches.length} matching ProposalCreated event(s).`
-    : `Current verdict: no matching release ProposalCreated event found in ${proposalStatus?.searchedCount ?? 0} checked Core Governor event(s).`;
+    : proposalStatus
+      ? `Current verdict: no matching release ProposalCreated event found after scanning ${formatProposalSearchEffort(proposalStatus)}.`
+      : "Current verdict: no Core Governor ProposalCreated status check was returned.";
   const filters = result.monitorPlan.agentSideFilters.join(", ");
   const followUp = result.monitorPlan.followUpAnalysis.join("; ");
 
@@ -636,6 +688,11 @@ export function formatArbitrumGovernanceIncidentMonitorSetup(result: ArbitrumGov
     "order: newest first",
     "fields: proposal metadata + execution payload + description",
     `match: ${filters}`,
+    ...(proposalStatus ? [
+      `scanned: ${proposalStatus.searchedCount} ProposalCreated event(s)`,
+      `window: ${formatProposalSearchWindow(proposalStatus)}`,
+      `matches: ${proposalStatus.matches.length} incident marker match(es)`,
+    ] : []),
     "```",
     "",
     "User-facing acknowledgement",

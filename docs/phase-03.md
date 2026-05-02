@@ -52,14 +52,14 @@ Suggested MultiBaas line:
 
 ## User-facing demo arc
 
-Keep the recorded chat to four beats.
+Keep the recorded chat to three beats.
 
 ### Beat 1: Incident brief
 
 Prompt:
 
 ```text
-Arbitrum froze funds from the KelpDAO exploit. Give me the onchain governance brief: what happened, what contracts should I inspect, and what can happen next?
+Anything weird with Arbitrum governance lately? I heard the council froze some ETH. Give me the onchain brief: what happened, what contracts should I inspect, and what can happen next?
 ```
 
 The agent should:
@@ -95,7 +95,7 @@ What can happen next:
 Prompt:
 
 ```text
-Can you verify the emergency governance response from live event data?
+Can you actually prove the emergency governance response from live onchain event data?
 ```
 
 The agent should:
@@ -112,12 +112,12 @@ High-value evidence:
 - `UpgradeExecuted(address,uint256,bytes)`
 - transaction hash matching the public emergency action where present
 
-### Beat 3: Next onchain transition
+### Beat 3: Next onchain transition + monitor
 
 Prompt:
 
 ```text
-Has the frozen-ETH release proposal reached onchain governance yet?
+Has the frozen-ETH release proposal reached onchain governance yet? If not, let me know when it does.
 ```
 
 The agent should:
@@ -126,26 +126,20 @@ The agent should:
 - search proposal descriptions and metadata for Kelp / rsETH / frozen ETH / `30,765` / `0x0000000000000000000000000000000000000DA0`
 - distinguish forum/public proposal existence from onchain governance existence
 - if no match is found, say the next binding signal is Core Governor `ProposalCreated`
+- create the MultiBaas webhook-backed monitor only after reporting the current status
+- state the exact follow-up analysis it will run when triggered
 
 This can be a strong answer even when the proposal is not yet onchain:
 
 ```text
-The public proposal exists, but I do not see a matching onchain Core Governor ProposalCreated event yet. The next event to watch is ProposalCreated on the Core Governor, filtered for the frozen ETH release language and frozen address.
+The public proposal exists, but I do not see a matching onchain Core Governor ProposalCreated event yet. I scanned the recent ProposalCreated stream for Kelp, rsETH, frozen-ETH markers, and the frozen address. The next binding signal is ProposalCreated on the Core Governor, and the webhook monitor is now watching that stream.
 ```
 
-### Beat 4: Persistent monitor payoff
+The monitor should:
 
-Prompt:
-
-```text
-Let me know when this release proposal actually reaches onchain governance.
-```
-
-The agent should:
-
-- create the MultiBaas webhook-backed monitor for Arbitrum One Core Governor `ProposalCreated`
+- watch Arbitrum One Core Governor `ProposalCreated`
 - use agent-side filtering over decoded webhook events for description, calldata, targets, and incident markers
-- state the exact follow-up analysis it will run when triggered
+- use the active MultiBaas `event.emitted` webhook path, not recurring NanoClaw scheduling
 
 Monitor target:
 
@@ -323,7 +317,7 @@ Expected answer:
 - recent L1 upgrade executor events
 - no claim that these are causally related to Kelp unless event data proves it
 
-This beat is optional because it can become a data dump. The stronger recorded flow is incident brief -> verification -> next onchain signal -> monitor.
+This beat is optional because it can become a data dump. The stronger recorded flow is incident brief -> verification -> next onchain signal plus webhook monitor.
 
 ## Webhook posture
 
@@ -344,8 +338,7 @@ Before recording:
 - `nanoclaw preflight` shows only remote profiles
 - live prompt 1 returns incident brief without backend-health framing
 - live prompt 2 surfaces live `UpgradeExecuted` evidence or a clear onchain evidence boundary
-- live prompt 3 distinguishes public proposal from onchain `ProposalCreated`
-- live prompt 4 creates the MultiBaas webhook-backed monitor and describes the follow-up analysis
+- live prompt 3 distinguishes public proposal from onchain `ProposalCreated`, then creates the MultiBaas webhook-backed monitor and describes the follow-up analysis
 
 ## Video close
 
