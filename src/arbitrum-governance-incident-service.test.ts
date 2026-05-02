@@ -94,6 +94,38 @@ test("formatArbitrumGovernanceIncidentAnalysis renders proposal-status evidence 
   assert.match(text, /Do not confuse public proposal context/i);
 });
 
+test("formatArbitrumGovernanceIncidentAnalysis keeps brief shape distinct from status", () => {
+  const result: ArbitrumGovernanceIncidentAnalysis = {
+    evidenceBoundaries: [],
+    focus: "brief",
+    limit: 2,
+    proposalStatus: {
+      matches: [],
+      queryTarget: {
+        network: "Arbitrum One",
+        profileName: "arbitrum-one-remote",
+        targetAddress: "0xf07DeD9dC292157749B6Fd268E37DF6EA38395B9",
+        targetLabel: "Core Governor",
+      },
+      recent: [],
+      searchWindow: {
+        newestBlockNumber: "293809109",
+        newestTriggeredAt: "2026-02-23 21:36:25+00",
+        oldestBlockNumber: "198000000",
+        oldestTriggeredAt: "2025-07-01 00:00:00+00",
+      },
+      searchedCount: 28,
+    },
+  };
+
+  const text = formatArbitrumGovernanceIncidentAnalysis(result);
+
+  assert.match(text, /User-facing brief requirements/i);
+  assert.match(text, /what happened, contracts to inspect, what can happen next/i);
+  assert.match(text, /Security Council action froze 30,765/i);
+  assert.match(text, /Possible onchain control path/i);
+});
+
 test("formatArbitrumGovernanceIncidentAnalysis renders control evidence", () => {
   const result: ArbitrumGovernanceIncidentAnalysis = {
     evidenceBoundaries: ["Decoded executor events verify control activity, not exploit reconstruction."],
@@ -186,7 +218,8 @@ test("formatArbitrumGovernanceIncidentMonitorSetup renders actionable monitor de
   assert.doesNotMatch(text, /tool: analyze_arbitrum_governance_incident/i);
   assert.match(text, /match: Kelp, rsETH, frozen ETH/i);
   assert.match(text, /window: blocks 198000000 -> 293809109/i);
-  assert.match(text, /User-facing acknowledgement/i);
+  assert.match(text, /Monitor plan/i);
+  assert.doesNotMatch(text, /I will watch/i);
   assert.match(text, /monitor_governance_proposal/i);
   assert.match(text, /MultiBaas event\.emitted webhook wakes the local runtime/i);
   assert.doesNotMatch(text, /call NanoClaw `schedule_task`/i);

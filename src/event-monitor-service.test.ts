@@ -178,3 +178,54 @@ test("formatArbitrumFrozenEthReleaseMonitorRegistration describes the webhook pa
   assert.doesNotMatch(text, /recurrence/i);
   assert.doesNotMatch(text, /tool: analyze_arbitrum_governance_incident/i);
 });
+
+test("formatArbitrumFrozenEthReleaseMonitorRegistration makes missing webhook impossible to present as active", () => {
+  const analysis: ArbitrumGovernanceIncidentAnalysis = {
+    evidenceBoundaries: [],
+    focus: "monitor",
+    limit: 3,
+    monitorPlan: {
+      agentSideFilters: ["Kelp", "rsETH", "frozen ETH"],
+      directDescriptionFilteringSupported: false,
+      eventName: "ProposalCreated",
+      followUpAnalysis: ["inspect proposal ID, proposer, targets, values, calldata, and description"],
+      network: "Arbitrum One",
+      profileName: "arbitrum-one-remote",
+      targetAddress: monitor.contractAddress,
+      targetLabel: "Core Governor",
+    },
+    proposalStatus: {
+      matches: [],
+      queryTarget: {
+        network: "Arbitrum One",
+        profileName: "arbitrum-one-remote",
+        targetAddress: monitor.contractAddress,
+        targetLabel: "Core Governor",
+      },
+      recent: [],
+      searchWindow: {
+        newestBlockNumber: "293809109",
+        newestTriggeredAt: "2026-02-23 21:36:25+00",
+        oldestBlockNumber: "198000000",
+        oldestTriggeredAt: "2025-07-01 00:00:00+00",
+      },
+      searchedCount: 28,
+    },
+  };
+
+  const text = formatArbitrumFrozenEthReleaseMonitorRegistration({
+    activationError: "No active MultiBaas event webhook found.",
+    analysis,
+    monitor,
+  });
+
+  assert.match(text, /Monitor activation failed/i);
+  assert.match(text, /```monitor_activation/i);
+  assert.match(text, /status: failed/i);
+  assert.match(text, /webhook_status: missing/i);
+  assert.match(text, /would_watch: arbitrum-one-remote/i);
+  assert.doesNotMatch(text, /watching: arbitrum-one-remote/i);
+  assert.match(text, /Monitor not registered/i);
+  assert.match(text, /monitor was not activated/i);
+  assert.doesNotMatch(text, /Webhook status: registered/i);
+});

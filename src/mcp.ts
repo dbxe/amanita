@@ -127,7 +127,7 @@ server.tool(
 
 server.tool(
   "summarize_governance_incident",
-  "Mandatory for opening governance incident prompts like: what's going on with Arbitrum governance lately, council froze ETH, what's the brief. Call this before answering even if the same incident came up earlier. Do not send a standalone progress-only message before calling this tool. Returns an evidence packet for the brief and the Core Governor ProposalCreated query that was checked. Use it as source material, not a script; copy the fenced event_query block exactly.",
+  "Mandatory for opening governance incident prompts like: what's going on with Arbitrum governance lately, council froze ETH, what's the brief. Call this before answering even if the same incident came up earlier. Do not send a standalone progress-only message before calling this tool. Returns an evidence packet for the brief and the Core Governor ProposalCreated query that was checked. Use it as source material, not a script. The final answer must cover what happened, contracts to inspect, what can happen next, and the fenced event_query block.",
   {
     limit: z.number().int().min(1).max(20).optional(),
   },
@@ -163,7 +163,7 @@ server.tool(
 
 server.tool(
   "monitor_governance_proposal",
-  "Mandatory for explicit monitor requests like: let me know, notify me, alert me, watch for, or monitor when a governance release proposal reaches onchain governance or lands onchain. Also mandatory for combined prompts like: has the proposal to release the frozen ETH reached onchain governance yet; if not, let me know when it does. This tool performs a ProposalCreated current-status preflight first, then uses the configured or already-active MultiBaas event.emitted webhook and persists the Core Governor ProposalCreated monitor with agent-side incident filters. Do not use NanoClaw schedule_task for this incident monitor. Do not invent or provide a webhook URL. After this succeeds, answer that the webhook-backed monitor is active, include the event_query trace block and the monitor_activation proof block, and describe the exact stream, filters, webhook id, and follow-up analysis.",
+  "Mandatory for explicit monitor requests like: let me know, notify me, alert me, watch for, or monitor when a governance release proposal reaches onchain governance or lands onchain. Also mandatory for combined prompts like: has the proposal to release the frozen ETH reached onchain governance yet; if not, let me know when it does. This tool performs a ProposalCreated current-status preflight first, then uses the configured or already-active MultiBaas event.emitted webhook and persists the Core Governor ProposalCreated monitor with agent-side incident filters. Do not use NanoClaw schedule_task for this incident monitor. Do not invent or provide a webhook URL. After this succeeds, answer that the webhook-backed monitor is active, include the event_query trace block and the monitor_activation proof block, and describe the exact stream, filters, webhook id, and follow-up analysis. If this returns status: failed in monitor_activation, do not call a status-only fallback tool; say the proposal is not onchain in the preflight and the monitor was not activated because the webhook is missing.",
   {
     limit: z.number().int().min(1).max(20).optional(),
   },

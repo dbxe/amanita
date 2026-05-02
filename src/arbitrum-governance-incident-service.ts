@@ -595,6 +595,10 @@ export function formatArbitrumGovernanceIncidentAnalysis(result: ArbitrumGoverna
   if (result.focus === "brief") {
     lines.push(
       "",
+      "User-facing brief requirements",
+      "- Answer the user's brief request directly; do not collapse the answer into only proposal-status.",
+      "- Include: what happened, contracts to inspect, what can happen next, and the compact event_query block.",
+      "",
       "Public context",
       `- Security Council action froze 30,765.667501709008927568 ETH connected to the KelpDAO / rsETH exploit.`,
       `- Frozen funds address: ${formatLiteral(FROZEN_ETH_ADDRESS)}.`,
@@ -686,7 +690,10 @@ export function formatArbitrumGovernanceIncidentAnalysis(result: ArbitrumGoverna
   return lines.join("\n");
 }
 
-export function formatArbitrumGovernanceIncidentMonitorSetup(result: ArbitrumGovernanceIncidentAnalysis): string {
+export function formatArbitrumGovernanceIncidentMonitorSetup(
+  result: ArbitrumGovernanceIncidentAnalysis,
+  options: { activationFailed?: boolean } = {},
+): string {
   if (!result.monitorPlan) {
     return formatArbitrumGovernanceIncidentAnalysis(result);
   }
@@ -705,9 +712,13 @@ export function formatArbitrumGovernanceIncidentMonitorSetup(result: ArbitrumGov
     "Evidence packet: Arbitrum frozen ETH release monitor",
     "",
     "Use this packet as source material. Do not copy it wholesale; synthesize the user-facing acknowledgement from the evidence below.",
-    "Recommended answer shape: Verdict, Searched, Watching, Next signal, then the required event_query and monitor_activation blocks.",
+    options.activationFailed
+      ? "Recommended answer shape: Verdict, Searched, Monitor not activated, Next signal, then the required event_query and monitor_activation blocks."
+      : "Recommended answer shape: Verdict, Searched, Watching, Next signal, then the required event_query and monitor_activation blocks.",
     "Put addresses, transaction hashes, proposal IDs, selectors, operation IDs, and webhook IDs in single backticks. Do not shorten hashes or addresses with ellipses.",
-    "If the user asked to be notified, create the MultiBaas-backed event monitor with `monitor_governance_proposal` before the final acknowledgement. After it succeeds, say the monitor is active.",
+    options.activationFailed
+      ? "Monitor activation failed. Do not say the monitor is active, set up, registered, or watching."
+      : "If the user asked to be notified, create the MultiBaas-backed event monitor with `monitor_governance_proposal` before the final acknowledgement. After it succeeds, say the monitor is active.",
     "",
     status,
     "",
@@ -726,8 +737,8 @@ export function formatArbitrumGovernanceIncidentMonitorSetup(result: ArbitrumGov
     ] : []),
     "```",
     "",
-    "User-facing acknowledgement",
-    `I will watch ${result.monitorPlan.profileName} (${result.monitorPlan.network}) on ${result.monitorPlan.targetLabel} ${formatLiteral(result.monitorPlan.targetAddress)} for ${result.monitorPlan.eventName}. I will match decoded proposal fields against: ${formattedFilters}. After a match, I will ${followUp}.`,
+    "Monitor plan",
+    `Target ${result.monitorPlan.profileName} (${result.monitorPlan.network}) on ${result.monitorPlan.targetLabel} ${formatLiteral(result.monitorPlan.targetAddress)} for ${result.monitorPlan.eventName}. Match decoded proposal fields against: ${formattedFilters}. After a match, inspect: ${followUp}.`,
     "",
     "Monitor target",
     `- Network: ${result.monitorPlan.profileName} (${result.monitorPlan.network})`,
@@ -748,7 +759,9 @@ export function formatArbitrumGovernanceIncidentMonitorSetup(result: ArbitrumGov
   lines.push(
     "",
     "Evidence boundary",
-    "- This monitor watches for the binding onchain proposal event; it does not claim the release proposal exists until a matching ProposalCreated event is returned.",
+    options.activationFailed
+      ? "- This planned monitor would watch for the binding onchain proposal event after webhook activation; it does not claim the release proposal exists until a matching ProposalCreated event is returned."
+      : "- This monitor watches for the binding onchain proposal event; it does not claim the release proposal exists until a matching ProposalCreated event is returned.",
   );
 
   return lines.join("\n");

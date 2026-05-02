@@ -30,9 +30,10 @@ export interface EventMonitorEvaluationResult {
 }
 
 export interface ArbitrumFrozenEthReleaseMonitorResult {
+  activationError?: string;
   analysis: ArbitrumGovernanceIncidentAnalysis;
   monitor: EventMonitor;
-  webhook: StoredWebhook;
+  webhook?: StoredWebhook;
 }
 
 function monitorFromPlan(plan: IncidentMonitorPlan, now: string, existing?: EventMonitor): EventMonitor {
@@ -98,9 +99,11 @@ export async function createArbitrumFrozenEthReleaseMonitor(input: {
     : await findEventWebhook(config, webhookLabel);
 
   if (!registered) {
-    throw new Error(
-      "No active MultiBaas event webhook found. Configure MULTIBAAS_WEBHOOK_PUBLIC_URL or register an event.emitted webhook so MultiBaas can wake the agent.",
-    );
+    return {
+      activationError: "No active MultiBaas event webhook found. Configure MULTIBAAS_WEBHOOK_PUBLIC_URL or register an event.emitted webhook so MultiBaas can wake the agent.",
+      analysis,
+      monitor,
+    };
   }
 
   const registeredSecret = (registered as { secret?: unknown }).secret;
@@ -318,37 +321,43 @@ export function formatArbitrumFrozenEthReleaseMonitorRegistration(
     "Evidence packet: Arbitrum frozen ETH release event monitor",
     "",
     "Use this packet as source material. Do not copy it wholesale; synthesize the user-facing acknowledgement from the evidence below.",
-    "If you say the monitor is active or set up, your final answer must include the monitor_activation block below.",
+    result.activationError
+      ? "Monitor activation failed. Do not say the monitor is active, set up, registered, or watching. Do not use a Watching section; use Monitor not activated."
+      : "If you say the monitor is active or set up, your final answer must include the monitor_activation block below.",
     "",
     "Required monitor activation proof",
     "```monitor_activation",
-    "status: active",
-    "webhook_status: registered",
-    `webhook_id: ${result.webhook.id}`,
-    `webhook_label: ${result.webhook.label}`,
-    `webhook_url: ${result.webhook.url}`,
+    result.activationError ? "status: failed" : "status: active",
+    result.activationError ? "webhook_status: missing" : "webhook_status: registered",
+    result.webhook ? `webhook_id: ${result.webhook.id}` : "webhook_id: unavailable",
+    result.webhook ? `webhook_label: ${result.webhook.label}` : "webhook_label: unavailable",
+    result.webhook ? `webhook_url: ${result.webhook.url}` : "webhook_url: unavailable",
     "webhook_path: MultiBaas event.emitted -> local event monitor filter -> NanoClaw notification",
-    `watching: ${watching}`,
+    result.activationError ? `would_watch: ${watching}` : `watching: ${watching}`,
     `matching: ${matching}`,
     `current_verdict: ${currentVerdict}`,
     `follow_up_after_trigger: ${followUp}`,
+    ...(result.activationError ? [`error: ${result.activationError}`] : []),
     "```",
     "",
-    formatArbitrumGovernanceIncidentMonitorSetup(result.analysis),
+    formatArbitrumGovernanceIncidentMonitorSetup(result.analysis, { activationFailed: Boolean(result.activationError) }),
     "",
     "Monitor activation",
     `- Local monitor: ${result.monitor.label}`,
     `- Runtime path: MultiBaas event.emitted webhook -> local event monitor filter -> NanoClaw notification.`,
-    "- Webhook status: registered.",
-    `- Webhook: id=${result.webhook.id} label=${result.webhook.label} url=${result.webhook.url}`,
-    `- Subscriptions: ${result.webhook.subscriptions.join(", ")}`,
+    result.activationError ? "- Webhook status: missing; monitor was not activated." : "- Webhook status: registered.",
+    result.webhook
+      ? `- Webhook: id=${result.webhook.id} label=${result.webhook.label} url=${result.webhook.url}`
+      : `- Webhook: unavailable.`,
+    result.webhook ? `- Subscriptions: ${result.webhook.subscriptions.join(", ")}` : undefined,
+    result.activationError ? `- Error: ${result.activationError}` : undefined,
     "",
-    "Monitor registered",
+    result.activationError ? "Monitor not registered" : "Monitor registered",
     `- Current verdict: ${currentVerdict}.`,
-    `- Watching: ${watching}.`,
+    result.activationError ? `- Planned target: ${watching}.` : `- Watching: ${watching}.`,
     `- Matching: ${matching}.`,
     `- Follow-up after trigger: ${followUp}.`,
-  ];
+  ].filter((line): line is string => line !== undefined);
 
   return lines.join("\n");
 }
