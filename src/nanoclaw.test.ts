@@ -23,6 +23,10 @@ test("containerInstructions steer NanoClaw away from saved queries for ERC-20 ho
   assert.match(instructions, /inspect_targets_across_backends/i);
   assert.match(instructions, /names a specific non-default chain.*inspect_targets_across_backends/i);
   assert.match(instructions, /mentions both Ethereum and Arbitrum.*inspect_targets_across_backends/i);
+  assert.match(instructions, /broad Arbitrum DAO or cross-chain governance questions.*configured backend set.*explicit contract targets/i);
+  assert.match(instructions, /do not invent or guess additional addresses/i);
+  assert.match(instructions, /partially grounded by current backend coverage.*confirmed subset.*still syncing or missing/i);
+  assert.match(instructions, /repeated address investigation is not converging.*return the partial result with uncertainty/i);
   assert.match(instructions, /resolve_contract_target/i);
   assert.match(instructions, /lookup_contract_candidates/i);
   assert.match(instructions, /import_contract_lookup_candidate/i);
