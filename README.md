@@ -304,6 +304,7 @@ For live NanoClaw work, use this order:
 - [`docs/phase-03-demo-script.md`](docs/phase-03-demo-script.md) — four-beat demo and pass criteria
 - [`docs/nanoclaw-live-tests.md`](docs/nanoclaw-live-tests.md) — live validation matrix
 - [`docs/research-event-query-use-cases.md`](docs/research-event-query-use-cases.md) — broader event-query investigation space
+- [`docs/archive/`](docs/archive/) — historical phase notes and detailed research drafts
 - [`AGENTS.md`](AGENTS.md) — repo conventions for coding agents and maintainers
 
 ---

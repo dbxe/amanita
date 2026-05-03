@@ -6,7 +6,7 @@ This file is for coding agents and maintainers working inside the repo. Treat it
 - `docs/architecture.md` — repo shape, boundaries, and design direction
 - `docs/nanoclaw.md` — NanoClaw setup, auth wiring, restart, and test runbook
 - `docs/phase-03.md` — current demo story and implementation target
-- `docs/phase-02.md` — prior architecture direction that still explains the capability-first pivot
+- `docs/archive/phase-02.md` — prior architecture direction that still explains the capability-first pivot
 
 ## North star
 
