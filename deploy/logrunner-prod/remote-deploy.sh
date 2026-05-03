@@ -43,7 +43,7 @@ ensure_remote_prereqs() {
   fi
 
   run_root env DEBIAN_FRONTEND=noninteractive apt-get update -y
-  apt_install ca-certificates curl git gnupg docker.io docker-compose-v2
+  apt_install ca-certificates curl git gnupg docker.io docker-compose-v2 docker-buildx
 
   if [ "$(node_major)" -lt 22 ]; then
     curl -fsSL https://deb.nodesource.com/setup_22.x | run_root bash -
@@ -652,7 +652,7 @@ ln -sfn "$nanoclaw_env" "$nanoclaw_stage/.env"
   if [ "${INSTALL_CJK_FONTS:-false}" = "true" ]; then
     build_args+=(--build-arg INSTALL_CJK_FONTS=true)
   fi
-  docker build "${build_args[@]}" -t "$CONTAINER_IMAGE" container
+  DOCKER_BUILDKIT=1 docker build "${build_args[@]}" -t "$CONTAINER_IMAGE" container
 )
 
 nanoclaw_release="$LOGRUNNER_REMOTE_DIR/releases/nanoclaw-$nanoclaw_commit"
