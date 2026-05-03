@@ -629,6 +629,7 @@ require LOGRUNNER_WEBHOOK_PUBLIC_URL
 
 ensure_remote_prereqs
 ensure_service_user
+run_root systemctl stop logrunner-prod.service logrunner-prod-webhook.service >/dev/null 2>&1 || true
 
 mkdir -p "$LOGRUNNER_REMOTE_DIR"/{incoming,releases,shared,tmp,current}
 chmod 700 "$LOGRUNNER_REMOTE_DIR/shared"
@@ -763,6 +764,10 @@ rm -f "$nanoclaw_release/.seed-logrunner-prod.ts"
       --nanoclaw-dir "$nanoclaw_release" \
       --group-folder "${LOGRUNNER_AGENT_FOLDER:-logrunner-prod}" \
       --write-allowlist
+  run_as_user "$LOGRUNNER_SERVICE_USER" env \
+    node dist/index.js nanoclaw reset-group \
+      --nanoclaw-dir "$nanoclaw_release" \
+      --group-folder "${LOGRUNNER_AGENT_FOLDER:-logrunner-prod}"
 )
 
 unit_file="/etc/systemd/system/logrunner-prod.service"
