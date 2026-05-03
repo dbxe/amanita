@@ -22,7 +22,8 @@ redact_runtime_secrets() {
     -e 's#(https?_proxy=|HTTPS_PROXY=|HTTP_PROXY=)[^ ]+#\1REDACTED#Ig' \
     -e 's#(http://x:)[^@ ]+@#\1REDACTED@#g' \
     -e 's#(aoc_)[A-Za-z0-9._~+/-]+#\1REDACTED#g' \
-    -e 's#(api[_-]?key|token|secret|Authorization: Bearer )[A-Za-z0-9._~+/:=-]+#\1REDACTED#Ig'
+    -e 's#((api[_-]?key|token|secret)=)[^ ]+#\1REDACTED#Ig' \
+    -e 's#(Authorization: Bearer )[A-Za-z0-9._~+/:=-]+#\1REDACTED#Ig'
 }
 
 run_root() {
