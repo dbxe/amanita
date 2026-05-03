@@ -28,6 +28,18 @@ run_root() {
   fi
 }
 
+run_as_user() {
+  local user="$1"
+  shift
+  if [ "$(id -un)" = "$user" ]; then
+    "$@"
+  elif command -v runuser >/dev/null 2>&1; then
+    run_root runuser -u "$user" -- "$@"
+  else
+    run_root su -s /bin/bash "$user" -c "$(printf '%q ' "$@")"
+  fi
+}
+
 apt_install() {
   run_root env DEBIAN_FRONTEND=noninteractive apt-get install -y "$@"
 }
@@ -60,6 +72,13 @@ ensure_remote_prereqs() {
     corepack enable
     corepack prepare pnpm@latest --activate
   fi
+}
+
+ensure_service_user() {
+  if ! id "$LOGRUNNER_SERVICE_USER" >/dev/null 2>&1; then
+    run_root useradd --create-home --shell /bin/bash "$LOGRUNNER_SERVICE_USER"
+  fi
+  run_root usermod -aG docker "$LOGRUNNER_SERVICE_USER"
 }
 
 extract_url() {
@@ -268,6 +287,9 @@ fs.writeFileSync(process.env.CONTAINER_MULTIBAAS_BACKENDS_FILE, `${JSON.stringif
 NODE
 
   chmod 600 "$host_file"
+  run_root chown "$LOGRUNNER_SERVICE_USER:$LOGRUNNER_SERVICE_USER" "$host_file"
+  mkdir -p "$LOGRUNNER_REMOTE_DIR/shared/runtime-state"
+  run_root chown -R "$LOGRUNNER_SERVICE_USER:$LOGRUNNER_SERVICE_USER" "$LOGRUNNER_REMOTE_DIR/shared/runtime-state"
   MULTIBAAS_BACKENDS_FILE="$host_file"
   export MULTIBAAS_BACKENDS_FILE
 }
@@ -577,6 +599,7 @@ TS
 }
 
 LOGRUNNER_REMOTE_DIR="${LOGRUNNER_REMOTE_DIR:-/opt/logrunner-prod}"
+LOGRUNNER_SERVICE_USER="${LOGRUNNER_SERVICE_USER:-logrunner}"
 ENV_FILE="$LOGRUNNER_REMOTE_DIR/shared/logrunner.env"
 if [ -f "$ENV_FILE" ]; then
   set -a
@@ -605,12 +628,15 @@ fi
 require LOGRUNNER_WEBHOOK_PUBLIC_URL
 
 ensure_remote_prereqs
+ensure_service_user
 
 mkdir -p "$LOGRUNNER_REMOTE_DIR"/{incoming,releases,shared,tmp,current}
 chmod 700 "$LOGRUNNER_REMOTE_DIR/shared"
+run_root chown -R "$LOGRUNNER_SERVICE_USER:$LOGRUNNER_SERVICE_USER" "$LOGRUNNER_REMOTE_DIR/shared"
 ensure_onecli
 ensure_onecli_secrets
 redact_remote_logrunner_env
+run_root chown "$LOGRUNNER_SERVICE_USER:$LOGRUNNER_SERVICE_USER" "$ENV_FILE" 2>/dev/null || true
 
 DEPLOYED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
@@ -653,6 +679,10 @@ nanoclaw_commit="$(git -C "$nanoclaw_stage" rev-parse HEAD)"
 echo "$nanoclaw_commit" > "$nanoclaw_stage/.deploy-commit"
 
 mkdir -p "$LOGRUNNER_REMOTE_DIR/shared"/{nanoclaw-data,nanoclaw-groups,nanoclaw-logs}
+run_root chown -R "$LOGRUNNER_SERVICE_USER:$LOGRUNNER_SERVICE_USER" \
+  "$LOGRUNNER_REMOTE_DIR/shared/nanoclaw-data" \
+  "$LOGRUNNER_REMOTE_DIR/shared/nanoclaw-groups" \
+  "$LOGRUNNER_REMOTE_DIR/shared/nanoclaw-logs"
 rm -rf "$nanoclaw_stage/data" "$nanoclaw_stage/groups" "$nanoclaw_stage/logs"
 ln -s "$LOGRUNNER_REMOTE_DIR/shared/nanoclaw-data" "$nanoclaw_stage/data"
 ln -s "$LOGRUNNER_REMOTE_DIR/shared/nanoclaw-groups" "$nanoclaw_stage/groups"
@@ -684,6 +714,7 @@ CONTAINER_IMAGE="${CONTAINER_IMAGE:-$CONTAINER_IMAGE_BASE:latest}"
   quote_env TZ
 } > "$nanoclaw_env"
 chmod 600 "$nanoclaw_env"
+run_root chown "$LOGRUNNER_SERVICE_USER:$LOGRUNNER_SERVICE_USER" "$nanoclaw_env"
 ln -sfn "$nanoclaw_env" "$nanoclaw_stage/.env"
 
 (
@@ -705,12 +736,13 @@ ln -sfn "$nanoclaw_release" "$LOGRUNNER_REMOTE_DIR/current/nanoclaw"
 write_seed_script "$nanoclaw_release"
 (
   cd "$nanoclaw_release"
-  LOGRUNNER_AGENT_GROUP_ID="${LOGRUNNER_AGENT_GROUP_ID:-ag-logrunner-prod}" \
-  LOGRUNNER_AGENT_PROVIDER="${LOGRUNNER_AGENT_PROVIDER:-opencode}" \
-  LOGRUNNER_AGENT_FOLDER="${LOGRUNNER_AGENT_FOLDER:-logrunner-prod}" \
-  LOGRUNNER_AGENT_NAME="${LOGRUNNER_AGENT_NAME:-Logrunner Prod}" \
-  LOGRUNNER_DISCORD_PLATFORM_ID="$LOGRUNNER_DISCORD_PLATFORM_ID" \
-  pnpm exec tsx .seed-logrunner-prod.ts
+  run_as_user "$LOGRUNNER_SERVICE_USER" env \
+    LOGRUNNER_AGENT_GROUP_ID="${LOGRUNNER_AGENT_GROUP_ID:-ag-logrunner-prod}" \
+    LOGRUNNER_AGENT_PROVIDER="${LOGRUNNER_AGENT_PROVIDER:-opencode}" \
+    LOGRUNNER_AGENT_FOLDER="${LOGRUNNER_AGENT_FOLDER:-logrunner-prod}" \
+    LOGRUNNER_AGENT_NAME="${LOGRUNNER_AGENT_NAME:-Logrunner Prod}" \
+    LOGRUNNER_DISCORD_PLATFORM_ID="$LOGRUNNER_DISCORD_PLATFORM_ID" \
+    pnpm exec tsx .seed-logrunner-prod.ts
 )
 rm -f "$nanoclaw_release/.seed-logrunner-prod.ts"
 
@@ -721,10 +753,16 @@ rm -f "$nanoclaw_release/.seed-logrunner-prod.ts"
   export MULTIBAAS_RUNTIME_DEPLOYED_AT="$DEPLOYED_AT"
   if [ -n "${MULTIBAAS_PROFILE:-}" ]; then export MULTIBAAS_PROFILE; fi
   if [ -n "${MULTIBAAS_BASE_URL:-}" ]; then export MULTIBAAS_BASE_URL; fi
-  node dist/index.js nanoclaw configure \
-    --nanoclaw-dir "$nanoclaw_release" \
-    --group-folder "${LOGRUNNER_AGENT_FOLDER:-logrunner-prod}" \
-    --write-allowlist
+  run_as_user "$LOGRUNNER_SERVICE_USER" env \
+    MULTIBAAS_BACKENDS_FILE="$MULTIBAAS_BACKENDS_FILE" \
+    MULTIBAAS_RUNTIME_COMMIT="$runtime_commit" \
+    MULTIBAAS_RUNTIME_DEPLOYED_AT="$DEPLOYED_AT" \
+    MULTIBAAS_PROFILE="${MULTIBAAS_PROFILE:-}" \
+    MULTIBAAS_BASE_URL="${MULTIBAAS_BASE_URL:-}" \
+    node dist/index.js nanoclaw configure \
+      --nanoclaw-dir "$nanoclaw_release" \
+      --group-folder "${LOGRUNNER_AGENT_FOLDER:-logrunner-prod}" \
+      --write-allowlist
 )
 
 unit_file="/etc/systemd/system/logrunner-prod.service"
@@ -736,7 +774,8 @@ Wants=network-online.target docker.service
 
 [Service]
 Type=simple
-User=$(whoami)
+User=$LOGRUNNER_SERVICE_USER
+SupplementaryGroups=docker
 WorkingDirectory=$LOGRUNNER_REMOTE_DIR/current/nanoclaw
 EnvironmentFile=$nanoclaw_env
 ExecStartPre=/bin/bash -lc 'docker ps --filter "name=nanoclaw-v2-" --format "{{.Names}}" | xargs -r docker stop -t 1'
@@ -763,6 +802,7 @@ webhook_env="$LOGRUNNER_REMOTE_DIR/shared/runtime-webhook.env"
   quote_env MULTIBAAS_WEBHOOK_SECRET
 } > "$webhook_env"
 chmod 600 "$webhook_env"
+run_root chown "$LOGRUNNER_SERVICE_USER:$LOGRUNNER_SERVICE_USER" "$webhook_env"
 
 while read -r profileName; do
   [ -z "$profileName" ] && continue
@@ -784,7 +824,7 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=$(whoami)
+User=$LOGRUNNER_SERVICE_USER
 WorkingDirectory=$LOGRUNNER_REMOTE_DIR/current/runtime
 EnvironmentFile=$webhook_env
 ExecStart=/bin/bash -lc 'exec node dist/index.js webhook serve --port 8787 --nanoclaw-dir "$LOGRUNNER_REMOTE_DIR/current/nanoclaw" --group-folder "${LOGRUNNER_AGENT_FOLDER:-logrunner-prod}"'
