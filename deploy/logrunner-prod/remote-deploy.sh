@@ -546,8 +546,8 @@ if (!getMessagingGroupAgentByPair(messagingGroupId, agentGroupId)) {
     id: 'mga-logrunner-prod-discord',
     messaging_group_id: messagingGroupId,
     agent_group_id: agentGroupId,
-    engage_mode: 'pattern',
-    engage_pattern: '.',
+    engage_mode: 'mention-sticky',
+    engage_pattern: null,
     sender_scope: 'all',
     ignored_message_policy: 'drop',
     session_mode: 'shared',
@@ -560,7 +560,7 @@ if (!getMessagingGroupAgentByPair(messagingGroupId, agentGroupId)) {
     `UPDATE messaging_group_agents
        SET engage_mode = ?, engage_pattern = ?, sender_scope = ?, ignored_message_policy = ?, session_mode = ?, priority = ?
      WHERE messaging_group_id = ? AND agent_group_id = ?`,
-  ).run('pattern', '.', 'all', 'drop', 'shared', 0, messagingGroupId, agentGroupId);
+  ).run('mention-sticky', null, 'all', 'drop', 'shared', 0, messagingGroupId, agentGroupId);
   console.log(`Updated wiring ${messagingGroupId} -> ${agentGroupId}`);
 }
 
