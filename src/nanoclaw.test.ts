@@ -140,21 +140,21 @@ test("configureNanoClawGroup writes a relative mount and workspace/extra MCP pat
     profiles: {
       development: {
         baseUrl: "http://localhost:8080",
-        hardhatNetwork: "development",
+        networkName: "development",
         stateDir: ".agent-state/development",
       },
       "mainnet-remote": {
         baseUrl: "https://mainnet.example.multibaas.com",
         chainId: 1,
         chainName: "Ethereum Mainnet",
-        hardhatNetwork: "ethereum-mainnet",
+        networkName: "ethereum-mainnet",
         stateDir: ".agent-state/mainnet-remote",
       },
       "arbitrum-one-remote": {
         baseUrl: "https://arb.example.multibaas.com",
         chainId: 42161,
         chainName: "Arbitrum One",
-        hardhatNetwork: "arbitrum-one",
+        networkName: "arbitrum-one",
         stateDir: ".agent-state/arbitrum-one-remote",
       },
     },
@@ -285,7 +285,7 @@ test("configureNanoClawGroup prunes the legacy multibaas-agent server and mount"
         baseUrl: "https://mainnet.example.multibaas.com",
         chainId: 1,
         chainName: "Ethereum Mainnet",
-        hardhatNetwork: "ethereum-mainnet",
+        networkName: "ethereum-mainnet",
         stateDir: ".agent-state/mainnet-remote",
       },
     },

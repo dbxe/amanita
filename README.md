@@ -166,7 +166,6 @@ src/
   nanoclaw.ts                       NanoClaw container.json helper
   index.ts                          local CLI
 
-hardhat/                            local fixture and deployment helper
 docs/                               architecture, runbooks, demo scripts
 .agent-state/                       local task, watch, webhook, and alert state
 ```
@@ -180,7 +179,7 @@ For a more granular maintainer map, see [`AGENTS.md`](AGENTS.md).
 Requirements:
 
 - Node 22+
-- a reachable MultiBaas deployment, or the local Hardhat fixture
+- a reachable MultiBaas deployment
 - NanoClaw only if you want the chat-agent path
 
 Install and build:
@@ -195,7 +194,6 @@ Configure MultiBaas with one of:
 - `MULTIBAAS_BASE_URL` and `MULTIBAAS_API_KEY`
 - `.multibaas/backends.local.json` selected by `MULTIBAAS_PROFILE`
 - `MULTIBAAS_BACKENDS_JSON`
-- `hardhat/deployment-config.<network>.ts` for local fixture work
 
 See `.multibaas/backends.example.json` for the backend-registry shape.
 

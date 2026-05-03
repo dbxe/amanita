@@ -229,7 +229,7 @@ function containerBackendProfilesJson(): string | undefined {
         baseUrl,
         chainId: profile.chainId,
         chainName: profile.chainName,
-        hardhatNetwork: profile.hardhatNetwork,
+        networkName: profile.networkName,
         inactive: profile.inactive,
         note: profile.note,
         stateDir: `/workspace/agent/.agent-state/${profileName}`,

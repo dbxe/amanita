@@ -166,7 +166,7 @@ export function formatConfiguredBackends(backends: ConfiguredBackendSummary[]): 
         `- ${backend.profileName}`,
         `  status=${backend.inactive ? "inactive" : "active"}`,
         ...(backend.note ? [`  note=${backend.note}`] : []),
-        `  network=${backend.hardhatNetwork}`,
+        `  network=${backend.networkName}`,
         ...(backend.chainName ? [`  chain=${backend.chainName}${backend.chainId !== undefined ? ` (${backend.chainId})` : ""}`] : []),
         `  baseUrl=${backend.baseUrl ?? (backend.inactive ? "not configured" : "missing")}`,
         `  apiKey=${backend.hasApiKey ? "configured" : backend.inactive ? "not required while inactive" : "missing"}`,
@@ -190,7 +190,7 @@ export function formatMultichainInspection(result: MultichainInspectionResult): 
 
   for (const target of result.targets) {
     lines.push("", `${target.role ? `${target.role}: ` : ""}${target.profileName}`);
-    lines.push(`  network: ${target.configuredBackend.hardhatNetwork}`);
+    lines.push(`  network: ${target.configuredBackend.networkName}`);
     if (target.resolvedAddress) {
       lines.push(`  address: ${target.resolvedAddress}`);
     }

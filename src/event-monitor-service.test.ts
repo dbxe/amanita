@@ -73,12 +73,12 @@ test("evaluateEventMonitors checks configured profile state dirs", () => {
     profiles: {
       "arbitrum-one-remote": {
         baseUrl: "https://arb.example.multibaas.com",
-        hardhatNetwork: "arbitrum-one",
+        networkName: "arbitrum-one",
         stateDir: arbitrumStateDir,
       },
       "mainnet-remote": {
         baseUrl: "https://mainnet.example.multibaas.com",
-        hardhatNetwork: "ethereum-mainnet",
+        networkName: "ethereum-mainnet",
         stateDir: mainnetStateDir,
       },
     },

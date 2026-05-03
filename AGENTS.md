@@ -23,13 +23,12 @@ Do not reintroduce a workflow-specific natural-language routing layer as the mai
 
 ## Repo boundaries
 
-- `hardhat/` is the local chain fixture and deployment helper for demos. Keep runtime logic outside it.
 - The runtime lives under `src/`.
 - Local state should stay naming-neutral and default to `.agent-state/`.
 
 ## Current source map
 
-- `src/config.ts` — environment and local deployment config resolution
+- `src/config.ts` — environment and backend-profile config resolution
 - `src/multibaas.ts` — MultiBaas SDK integration and webhook signature helpers
 - `src/token-target-service.ts` — token-name / contract-address resolution into explicit analytical sources
 - `src/query-service.ts` — typed balance and concentration execution over explicit token targets
@@ -69,13 +68,13 @@ Prefer:
 
 ## Working with MultiBaas
 
-- Use the repo's config resolution path rather than hardcoding a base URL or credentials. Prefer existing config/env surfaces and the local `hardhat/` deployment config fallback.
+- Use the repo's config resolution path rather than hardcoding a base URL or credentials. Prefer existing config/env surfaces and `.multibaas/backends.local.json`.
 - MultiBaas chooses the chain at deployment initialization time. For EVM deployments, the API path remains `/api/v0/chains/ethereum/...` even when the backend is indexing Arbitrum or another EVM chain. Treat chain identity as backend-profile metadata, not as a cue from that URL fragment.
 - Prefer the wrapper layer in `src/multibaas.ts` and higher-level services over scattering raw REST calls throughout the codebase.
 - Before assuming a query should work, confirm the prerequisites conceptually: contract definition known, contract linked, indexing/sync sufficiently complete, and query/view ready to execute.
 - Treat contract onboarding and indexing as long-running states, not immediate failures. If a task depends on linking or sync progress, model it explicitly as waiting or blocked.
 - For testing, validate the smallest loop first: query or view execution -> watch creation -> webhook registration/receiver -> trigger an on-chain change -> confirm alert behavior.
-- Use local fixtures and short-history contracts for development. Avoid relying on large historical contracts for routine testing because indexing lag can dominate the workflow.
+- Use short-history contracts for development when possible. Avoid relying on large historical contracts for routine testing because indexing lag can dominate the workflow.
 - Prefer reusable, typed view patterns over bespoke one-off query JSON when adding new protocol support. If a raw event query is needed for diagnostics, keep it close to the view or service it belongs to.
 - For live-network hackathon work, prefer loading a finite interface library first. Fully autonomous ABI discovery can come later if the bounded event-view path is already solid.
 - If the SDK path is unreliable for a specific endpoint, isolate any direct HTTP fallback in the MultiBaas integration layer and document why instead of leaking that workaround across the repo.

@@ -4,7 +4,7 @@ import path from "node:path";
 export interface RuntimeConfig {
   apiKey?: string;
   baseUrl: string;
-  hardhatNetwork: string;
+  networkName: string;
   profileName: string;
   scanLimit: number;
   stateDir: string;
@@ -15,7 +15,7 @@ interface BackendProfile {
   baseUrl?: string;
   chainId?: number;
   chainName?: string;
-  hardhatNetwork?: string;
+  networkName?: string;
   inactive?: boolean;
   note?: string;
   stateDir?: string;
@@ -30,7 +30,7 @@ export interface ConfiguredBackendSummary {
   baseUrl?: string;
   chainId?: number;
   chainName?: string;
-  hardhatNetwork: string;
+  networkName: string;
   hasApiKey: boolean;
   inactive?: boolean;
   note?: string;
@@ -45,27 +45,6 @@ function parsePositiveInteger(value: string | undefined, fallback: number): numb
 
   const parsed = Number.parseInt(value, 10);
   return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
-}
-
-function parseHardhatDeploymentConfig(networkName: string): Partial<Pick<RuntimeConfig, "apiKey" | "baseUrl">> {
-  const configPath = path.resolve(
-    process.cwd(),
-    "hardhat",
-    `deployment-config.${networkName}.ts`,
-  );
-
-  if (!fs.existsSync(configPath)) {
-    return {};
-  }
-
-  const source = fs.readFileSync(configPath, "utf8");
-  const endpointMatch = source.match(/deploymentEndpoint:\s*['"`]([^'"`]+)['"`]/);
-  const apiKeyMatch = source.match(/adminApiKey:\s*['"`]([^'"`]+)['"`]/);
-
-  return {
-    apiKey: apiKeyMatch?.[1],
-    baseUrl: endpointMatch?.[1],
-  };
 }
 
 function readBackendProfileConfig(): BackendProfileConfig {
@@ -90,7 +69,6 @@ function selectedProfileName(backendProfiles: BackendProfileConfig): string {
   return process.env.MULTIBAAS_PROFILE
     ?? backendProfiles.defaultProfile
     ?? process.env.MULTIBAAS_NETWORK
-    ?? process.env.HARDHAT_NETWORK
     ?? "development";
 }
 
@@ -100,32 +78,28 @@ function resolveProfileConfig(
   options?: { allowEnvOverrides?: boolean },
 ): RuntimeConfig {
   const selectedProfile = backendProfiles.profiles?.[profileName];
-  const hardhatNetwork =
+  const networkName =
     process.env.MULTIBAAS_NETWORK
-    ?? (options?.allowEnvOverrides !== false ? process.env.HARDHAT_NETWORK : undefined)
-    ?? selectedProfile?.hardhatNetwork
+    ?? selectedProfile?.networkName
     ?? profileName;
-  const fallback = parseHardhatDeploymentConfig(hardhatNetwork);
 
   const baseUrl =
     (options?.allowEnvOverrides !== false ? process.env.MULTIBAAS_BASE_URL : undefined)
-    ?? selectedProfile?.baseUrl
-    ?? fallback.baseUrl;
+    ?? selectedProfile?.baseUrl;
   const apiKey =
     (options?.allowEnvOverrides !== false ? process.env.MULTIBAAS_API_KEY : undefined)
-    ?? selectedProfile?.apiKey
-    ?? fallback.apiKey;
+    ?? selectedProfile?.apiKey;
 
   if (!baseUrl) {
     throw new Error(
-      `Missing MultiBaas base URL for profile ${profileName}. Set MULTIBAAS_BASE_URL, choose a configured MULTIBAAS_PROFILE, or provide hardhat/deployment-config.<network>.ts.`,
+      `Missing MultiBaas base URL for profile ${profileName}. Set MULTIBAAS_BASE_URL, choose a configured MULTIBAAS_PROFILE, or add the profile to .multibaas/backends.local.json.`,
     );
   }
 
   return {
     apiKey,
     baseUrl,
-    hardhatNetwork,
+    networkName,
     profileName,
     scanLimit: parsePositiveInteger(process.env.MULTIBAAS_QUERY_SCAN_LIMIT, 1000),
     stateDir: path.resolve(process.cwd(), process.env.MULTIBAAS_AGENT_STATE_DIR ?? selectedProfile?.stateDir ?? ".agent-state"),
@@ -147,16 +121,15 @@ export function listConfiguredBackends(): ConfiguredBackendSummary[] {
 
   return profileEntries.map((profileName) => {
     const profile = backendProfiles.profiles?.[profileName];
-    const hardhatNetwork = profile?.hardhatNetwork ?? profileName;
-    const fallback = parseHardhatDeploymentConfig(hardhatNetwork);
+    const networkName = profile?.networkName ?? profileName;
     const stateDir = path.resolve(process.cwd(), profile?.stateDir ?? ".agent-state");
 
     return {
-      baseUrl: profile?.baseUrl ?? fallback.baseUrl,
+      baseUrl: profile?.baseUrl,
       chainId: profile?.chainId,
       chainName: profile?.chainName,
-      hardhatNetwork,
-      hasApiKey: Boolean(profile?.apiKey ?? fallback.apiKey),
+      networkName,
+      hasApiKey: Boolean(profile?.apiKey),
       inactive: profile?.inactive,
       note: profile?.note,
       profileName,

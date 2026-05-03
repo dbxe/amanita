@@ -181,7 +181,7 @@ export function formatTopHolders(result: TopHoldersResult): string {
 }
 
 function formatHolderQueryTarget(result: TopHoldersResult, config: RuntimeConfig): string {
-  const network = config.hardhatNetwork === "ethereum-mainnet" ? "Ethereum mainnet" : config.hardhatNetwork;
+  const network = config.networkName === "ethereum-mainnet" ? "Ethereum mainnet" : config.networkName;
   const label = result.contractAddress ? `Token \`${result.contractAddress}\`` : `Source ${result.queryName}`;
   return `${config.profileName} (${network}) | ${label} / Transfer`;
 }
@@ -253,7 +253,7 @@ export function formatTopHoldersEvidence(
       : `Verdict: top ${result.limit} holders from the event-backed holder view.`,
     "",
     "Checked",
-    `- Network: ${config.hardhatNetwork === "ethereum-mainnet" ? "Ethereum mainnet" : config.hardhatNetwork} (\`${config.profileName}\`)`,
+    `- Network: ${config.networkName === "ethereum-mainnet" ? "Ethereum mainnet" : config.networkName} (\`${config.profileName}\`)`,
     ...(result.contractAddress ? [`- Token: ${formatTokenLabel(options.contractLabel)} \`${result.contractAddress}\``] : []),
     ...(result.tokenSymbol ? [`- Symbol: ${result.tokenSymbol}`] : []),
     ...(result.tokenDecimals === undefined ? [] : [`- Decimals: ${result.tokenDecimals}`]),

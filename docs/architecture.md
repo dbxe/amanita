@@ -34,14 +34,11 @@ What it means:
 ## What lives where
 
 - `src/` — runtime code
-- `hardhat/` — local fixture and deployment helper for deterministic development
 - `.agent-state/` — local watch and alert state for repo-local runs
-
-Treat `hardhat/` as fixture infrastructure, not as runtime logic.
 
 ## Current module boundaries
 
-- `config.ts` resolves runtime config from env, backend registry JSON, or local deployment config.
+- `config.ts` resolves runtime config from env or backend registry JSON.
 - `multibaas.ts` owns the MultiBaas SDK client and low-level helpers.
 - `token-target-service.ts` resolves token names and contract addresses into explicit runtime targets.
 - `query-service.ts` owns typed balance and concentration execution over explicit token targets.

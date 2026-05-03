@@ -46,7 +46,7 @@ test("resolveConfig reads a gitignored backend profile", () => {
             baseUrl: "https://mainnet.example.multibaas.com",
             chainId: 1,
             chainName: "Ethereum Mainnet",
-            hardhatNetwork: "ethereum-mainnet",
+            networkName: "ethereum-mainnet",
             stateDir: ".agent-state/mainnet-remote",
           },
         },
@@ -61,7 +61,6 @@ test("resolveConfig reads a gitignored backend profile", () => {
   try {
     const config = withEnv(
       {
-        HARDHAT_NETWORK: undefined,
         MULTIBAAS_API_KEY: undefined,
         MULTIBAAS_BASE_URL: undefined,
         MULTIBAAS_NETWORK: undefined,
@@ -72,7 +71,7 @@ test("resolveConfig reads a gitignored backend profile", () => {
 
     assert.equal(config.baseUrl, "https://mainnet.example.multibaas.com");
     assert.equal(config.apiKey, "secret-token");
-    assert.equal(config.hardhatNetwork, "ethereum-mainnet");
+    assert.equal(config.networkName, "ethereum-mainnet");
     assert.equal(config.profileName, "mainnet-remote");
     assert.equal(path.basename(config.stateDir), "mainnet-remote");
     assert.equal(path.basename(path.dirname(config.stateDir)), ".agent-state");
@@ -98,7 +97,7 @@ test("resolveConfig lets env vars override the selected backend profile", () => 
             baseUrl: "https://mainnet.example.multibaas.com",
             chainId: 1,
             chainName: "Ethereum Mainnet",
-            hardhatNetwork: "ethereum-mainnet",
+            networkName: "ethereum-mainnet",
           },
         },
       },
@@ -112,7 +111,6 @@ test("resolveConfig lets env vars override the selected backend profile", () => 
   try {
     const config = withEnv(
       {
-        HARDHAT_NETWORK: undefined,
         MULTIBAAS_API_KEY: "override-token",
         MULTIBAAS_BASE_URL: "https://override.example.multibaas.com",
         MULTIBAAS_NETWORK: undefined,
@@ -123,7 +121,7 @@ test("resolveConfig lets env vars override the selected backend profile", () => 
 
     assert.equal(config.baseUrl, "https://override.example.multibaas.com");
     assert.equal(config.apiKey, "override-token");
-    assert.equal(config.hardhatNetwork, "ethereum-mainnet");
+    assert.equal(config.networkName, "ethereum-mainnet");
     assert.equal(config.profileName, "mainnet-remote");
   } finally {
     process.chdir(previousCwd);
@@ -147,7 +145,7 @@ test("resolveConfigForProfile and listConfiguredBackends expose multiple configu
             baseUrl: "https://arb.example.multibaas.com",
             chainId: 42161,
             chainName: "Arbitrum One",
-            hardhatNetwork: "arbitrum-one",
+            networkName: "arbitrum-one",
             stateDir: ".agent-state/arbitrum-one-remote",
           },
           "mainnet-remote": {
@@ -155,7 +153,7 @@ test("resolveConfigForProfile and listConfiguredBackends expose multiple configu
             baseUrl: "https://mainnet.example.multibaas.com",
             chainId: 1,
             chainName: "Ethereum Mainnet",
-            hardhatNetwork: "ethereum-mainnet",
+            networkName: "ethereum-mainnet",
             stateDir: ".agent-state/mainnet-remote",
           },
         },
@@ -179,7 +177,7 @@ test("resolveConfigForProfile and listConfiguredBackends expose multiple configu
 
     assert.equal(config.baseUrl, "https://arb.example.multibaas.com");
     assert.equal(config.apiKey, "arb-secret");
-    assert.equal(config.hardhatNetwork, "arbitrum-one");
+    assert.equal(config.networkName, "arbitrum-one");
     assert.equal(config.profileName, "arbitrum-one-remote");
 
     const backends = listConfiguredBackends();
@@ -188,7 +186,7 @@ test("resolveConfigForProfile and listConfiguredBackends expose multiple configu
         baseUrl: backend.baseUrl,
         chainId: backend.chainId,
         chainName: backend.chainName,
-        hardhatNetwork: backend.hardhatNetwork,
+        networkName: backend.networkName,
         hasApiKey: backend.hasApiKey,
         profileName: backend.profileName,
       })),
@@ -197,7 +195,7 @@ test("resolveConfigForProfile and listConfiguredBackends expose multiple configu
           baseUrl: "https://arb.example.multibaas.com",
           chainId: 42161,
           chainName: "Arbitrum One",
-          hardhatNetwork: "arbitrum-one",
+          networkName: "arbitrum-one",
           hasApiKey: true,
           profileName: "arbitrum-one-remote",
         },
@@ -205,7 +203,7 @@ test("resolveConfigForProfile and listConfiguredBackends expose multiple configu
           baseUrl: "https://mainnet.example.multibaas.com",
           chainId: 1,
           chainName: "Ethereum Mainnet",
-          hardhatNetwork: "ethereum-mainnet",
+          networkName: "ethereum-mainnet",
           hasApiKey: true,
           profileName: "mainnet-remote",
         },
@@ -220,7 +218,6 @@ test("resolveConfigForProfile and listConfiguredBackends expose multiple configu
 test("resolveConfig can read backend profiles from MULTIBAAS_BACKENDS_JSON", () => {
   const config = withEnv(
     {
-      HARDHAT_NETWORK: undefined,
       MULTIBAAS_API_KEY: undefined,
       MULTIBAAS_BACKENDS_JSON: JSON.stringify({
         defaultProfile: "mainnet-remote",
@@ -229,14 +226,14 @@ test("resolveConfig can read backend profiles from MULTIBAAS_BACKENDS_JSON", () 
             baseUrl: "https://arb.example.multibaas.com",
             chainId: 42161,
             chainName: "Arbitrum One",
-            hardhatNetwork: "arbitrum-one",
+            networkName: "arbitrum-one",
             stateDir: "/workspace/agent/.agent-state/arbitrum-one-remote",
           },
           "mainnet-remote": {
             baseUrl: "https://mainnet.example.multibaas.com",
             chainId: 1,
             chainName: "Ethereum Mainnet",
-            hardhatNetwork: "ethereum-mainnet",
+            networkName: "ethereum-mainnet",
             stateDir: "/workspace/agent/.agent-state/mainnet-remote",
           },
         },
@@ -249,7 +246,7 @@ test("resolveConfig can read backend profiles from MULTIBAAS_BACKENDS_JSON", () 
   );
 
   assert.equal(config.baseUrl, "https://mainnet.example.multibaas.com");
-  assert.equal(config.hardhatNetwork, "ethereum-mainnet");
+  assert.equal(config.networkName, "ethereum-mainnet");
   assert.equal(config.profileName, "mainnet-remote");
   assert.equal(config.stateDir, "/workspace/agent/.agent-state/mainnet-remote");
 });
