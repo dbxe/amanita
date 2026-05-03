@@ -42,6 +42,7 @@ Required values:
 - `MULTIBAAS_BACKENDS_FILE` pointing at your gitignored multibackend config, or `MULTIBAAS_BASE_URL` + `MULTIBAAS_API_KEY` for a single-backend fallback
 - `MULTIBAAS_PROFILE` for the default backend profile used by single-backend tools
 - `LOGRUNNER_WEBHOOK_PUBLIC_URL` for MultiBaas event callbacks
+- `LOGRUNNER_WEBHOOK_LABEL`, defaulting to a Logrunner-specific label so deploy can create and retain its own signing secret
 
 If your live MultiBaas backends are already in `.multibaas/backends.local.json`, set:
 

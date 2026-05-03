@@ -728,7 +728,9 @@ while read -r profileName; do
     cd "$runtime_release"
     MULTIBAAS_BACKENDS_FILE="$MULTIBAAS_BACKENDS_FILE" \
     MULTIBAAS_PROFILE="$profileName" \
-    node dist/index.js webhook ensure --url "$LOGRUNNER_WEBHOOK_PUBLIC_URL"
+    node dist/index.js webhook ensure \
+      --url "$LOGRUNNER_WEBHOOK_PUBLIC_URL" \
+      --label "${LOGRUNNER_WEBHOOK_LABEL:-logrunner-prod-runtime-events}"
   )
 done < <(backend_profile_names)
 
