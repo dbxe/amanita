@@ -17,6 +17,51 @@ quote_env() {
   fi
 }
 
+run_root() {
+  if [ "$(id -u)" = "0" ]; then
+    "$@"
+  elif command -v sudo >/dev/null 2>&1; then
+    sudo "$@"
+  else
+    echo "Need root or sudo to install remote prerequisites" >&2
+    return 1
+  fi
+}
+
+apt_install() {
+  run_root env DEBIAN_FRONTEND=noninteractive apt-get install -y "$@"
+}
+
+node_major() {
+  node -p 'Number(process.versions.node.split(".")[0])' 2>/dev/null || echo 0
+}
+
+ensure_remote_prereqs() {
+  if ! command -v apt-get >/dev/null 2>&1; then
+    echo "Remote bootstrap currently supports Ubuntu/Debian hosts with apt-get" >&2
+    exit 2
+  fi
+
+  run_root env DEBIAN_FRONTEND=noninteractive apt-get update -y
+  apt_install ca-certificates curl git gnupg docker.io
+
+  if [ "$(node_major)" -lt 22 ]; then
+    curl -fsSL https://deb.nodesource.com/setup_22.x | run_root bash -
+    apt_install nodejs
+  fi
+
+  run_root systemctl enable --now docker >/dev/null 2>&1 || true
+  if ! docker info >/dev/null 2>&1; then
+    echo "Docker is installed but not reachable by $(whoami). Deploy as root or a user in the docker group." >&2
+    exit 2
+  fi
+
+  if ! command -v pnpm >/dev/null 2>&1; then
+    corepack enable
+    corepack prepare pnpm@latest --activate
+  fi
+}
+
 extract_url() {
   grep -Eo 'https?://[A-Za-z0-9._:-]+' | head -n1 || true
 }
@@ -102,6 +147,33 @@ ensure_onecli() {
 
 host_from_url() {
   node -e 'console.log(new URL(process.argv[1]).hostname)' "$1"
+}
+
+scheme_from_url() {
+  node -e 'console.log(new URL(process.argv[1]).protocol)' "$1"
+}
+
+ensure_caddy_proxy() {
+  if [ "${LOGRUNNER_ENABLE_CADDY:-1}" != "1" ]; then
+    return
+  fi
+
+  local scheme host
+  scheme="$(scheme_from_url "$LOGRUNNER_WEBHOOK_PUBLIC_URL")"
+  if [ "$scheme" != "https:" ]; then
+    echo "Skipping Caddy because LOGRUNNER_WEBHOOK_PUBLIC_URL is not HTTPS."
+    return
+  fi
+
+  host="$(host_from_url "$LOGRUNNER_WEBHOOK_PUBLIC_URL")"
+  apt_install caddy
+  run_root tee /etc/caddy/Caddyfile >/dev/null <<CADDY
+$host {
+  reverse_proxy 127.0.0.1:8787
+}
+CADDY
+  run_root systemctl enable --now caddy >/dev/null
+  run_root systemctl reload caddy
 }
 
 backend_profile_names() {
@@ -490,29 +562,7 @@ if [ -z "${MULTIBAAS_BASE_URL:-}" ] && { [ -z "${MULTIBAAS_BACKENDS_FILE:-}" ] |
 fi
 require LOGRUNNER_WEBHOOK_PUBLIC_URL
 
-if ! command -v git >/dev/null 2>&1; then
-  echo "git is required on the remote host" >&2
-  exit 2
-fi
-if ! command -v node >/dev/null 2>&1; then
-  echo "Node.js is required on the remote host" >&2
-  exit 2
-fi
-if ! command -v curl >/dev/null 2>&1; then
-  echo "curl is required on the remote host" >&2
-  exit 2
-fi
-if ! command -v docker >/dev/null 2>&1; then
-  echo "Docker is required on the remote host" >&2
-  exit 2
-fi
-if ! docker info >/dev/null 2>&1; then
-  echo "Docker is installed but not reachable by $(whoami)" >&2
-  exit 2
-fi
-if ! command -v pnpm >/dev/null 2>&1; then
-  corepack enable
-fi
+ensure_remote_prereqs
 
 mkdir -p "$LOGRUNNER_REMOTE_DIR"/{incoming,releases,shared,tmp,current}
 chmod 700 "$LOGRUNNER_REMOTE_DIR/shared"
@@ -629,7 +679,7 @@ rm -f "$nanoclaw_release/.seed-logrunner-prod.ts"
 )
 
 unit_file="/etc/systemd/system/logrunner-prod.service"
-sudo tee "$unit_file" >/dev/null <<UNIT
+run_root tee "$unit_file" >/dev/null <<UNIT
 [Unit]
 Description=Logrunner production NanoClaw
 After=network-online.target docker.service
@@ -651,9 +701,9 @@ TimeoutStopSec=20
 WantedBy=multi-user.target
 UNIT
 
-sudo systemctl daemon-reload
-sudo systemctl enable logrunner-prod.service >/dev/null
-sudo systemctl restart logrunner-prod.service
+run_root systemctl daemon-reload
+run_root systemctl enable logrunner-prod.service >/dev/null
+run_root systemctl restart logrunner-prod.service
 
 webhook_env="$LOGRUNNER_REMOTE_DIR/shared/runtime-webhook.env"
 {
@@ -675,7 +725,7 @@ while read -r profileName; do
   )
 done < <(backend_profile_names)
 
-sudo tee /etc/systemd/system/logrunner-prod-webhook.service >/dev/null <<UNIT
+run_root tee /etc/systemd/system/logrunner-prod-webhook.service >/dev/null <<UNIT
 [Unit]
 Description=Logrunner production MultiBaas webhook receiver
 After=network-online.target logrunner-prod.service
@@ -693,9 +743,10 @@ RestartSec=5
 [Install]
 WantedBy=multi-user.target
 UNIT
-sudo systemctl daemon-reload
-sudo systemctl enable logrunner-prod-webhook.service >/dev/null
-sudo systemctl restart logrunner-prod-webhook.service
+run_root systemctl daemon-reload
+run_root systemctl enable logrunner-prod-webhook.service >/dev/null
+run_root systemctl restart logrunner-prod-webhook.service
+ensure_caddy_proxy
 
 manifest="$LOGRUNNER_REMOTE_DIR/shared/deploy-manifest.json"
 cat > "$manifest" <<JSON
@@ -713,5 +764,5 @@ cat > "$manifest" <<JSON
 }
 JSON
 
-sudo systemctl --no-pager --full status logrunner-prod.service | sed -n '1,18p'
+run_root systemctl --no-pager --full status logrunner-prod.service | sed -n '1,18p'
 echo "Deploy manifest: $manifest"

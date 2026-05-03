@@ -10,25 +10,21 @@ This runbook deploys the demo to a short-lived Linux VM with Docker. Use a VM, n
 - `get_runtime_status` is exposed as an MCP tool so the Discord agent can report the running runtime commit.
 - NanoClaw `data/`, `groups/`, and `logs/` persist under `/opt/logrunner-prod/shared/` across redeploys.
 
-## VM Prerequisites
+## VM Shape
 
-Use a small Ubuntu VM for the hackathon week. Install:
+Use a small Ubuntu 24.04 VM for the hackathon week. The easiest path is SSH as `root` with the Hetzner key because the deploy script can install missing prerequisites without a docker-group re-login.
 
-```bash
-sudo apt-get update
-sudo apt-get install -y git curl docker.io
-sudo usermod -aG docker "$USER"
-sudo systemctl enable --now docker
-curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
-sudo apt-get install -y nodejs
-corepack enable
-```
+Firewall inbound rules:
 
-Log out and back in after adding the user to the `docker` group.
+- TCP `22` from your IP, or from anywhere if this is a throwaway hackathon VM.
+- TCP `80` and `443` from anywhere when using the built-in Caddy HTTPS reverse proxy for MultiBaas webhooks.
+- ICMP from anywhere for basic reachability checks.
+
+The remote script bootstraps `git`, `curl`, Docker, Node.js 22, `pnpm`, OneCLI, and Caddy when needed. If you do not want Caddy, set `LOGRUNNER_ENABLE_CADDY=0` and provide your own HTTPS forwarding to port `8787`.
 
 ## Configure Secrets
 
-Copy the example and fill in the live values:
+Copy the example and fill in the live values. Keep the copied file local; it is gitignored and is not meant to be stored in GitHub Actions secrets.
 
 ```bash
 cp deploy/logrunner-prod/.env.prod.example deploy/logrunner-prod/.env.prod
@@ -37,6 +33,7 @@ cp deploy/logrunner-prod/.env.prod.example deploy/logrunner-prod/.env.prod
 Required values:
 
 - `LOGRUNNER_SSH_TARGET`
+- `LOGRUNNER_SSH_KEY`
 - `LOGRUNNER_DISCORD_PLATFORM_ID` as `discord:<guild-id>:<channel-id>`
 - `DISCORD_BOT_TOKEN`, `DISCORD_APPLICATION_ID`, `DISCORD_PUBLIC_KEY`
 - `OPENAI_CHAT_COMPLETIONS_URL` or `OPENAI_BASE_URL` for the OpenAI-compatible inference endpoint
@@ -49,7 +46,7 @@ Required values:
 If your live MultiBaas backends are already in `.multibaas/backends.local.json`, set:
 
 ```bash
-MULTIBAAS_BACKENDS_FILE=/Users/danielbriskin/git/dbxe/logrunner/.multibaas/backends.local.json
+MULTIBAAS_BACKENDS_FILE=/Users/danielbriskin/git/dbxe/amanita-deploy-rails/.multibaas/backends.local.json
 MULTIBAAS_PROFILE=mainnet-remote
 ```
 
@@ -123,14 +120,15 @@ If a Discord thread appears stuck on old context, stop the active NanoClaw sessi
 
 ## Webhook Callbacks
 
-Balance-watch alerts and event-driven follow-up need a public HTTPS URL that MultiBaas can call. Set:
+Balance-watch alerts and event-driven follow-up need a public HTTPS URL that MultiBaas can call. For a short-lived VM with IPv4, use an `sslip.io` name and let Caddy terminate HTTPS:
 
 ```bash
-LOGRUNNER_WEBHOOK_PUBLIC_URL=https://your-demo-host.example/webhooks/multibaas
+LOGRUNNER_WEBHOOK_PUBLIC_URL=https://<vm-ipv4>.sslip.io/webhooks/multibaas
+LOGRUNNER_ENABLE_CADDY=1
 ```
 
 The deploy runs `webhook ensure` for each configured MultiBaas backend profile before starting the receiver and stores generated signing secrets in profile-scoped state under `/opt/logrunner-prod/shared/runtime-state`. If you create the webhook manually in MultiBaas, set `MULTIBAAS_WEBHOOK_SECRET` to that signing secret.
 
-For a short-lived demo, the simplest HTTPS options are a DNS name pointed at the VM with Caddy/Nginx terminating TLS, or a tunnel that forwards HTTPS traffic to VM port `8787`.
+If you use your own DNS name, point it at the VM and use the same `LOGRUNNER_WEBHOOK_PUBLIC_URL` shape. If you use a tunnel instead, disable Caddy and forward HTTPS traffic to VM port `8787`.
 
 The webhook signing secret is inbound verification material for the host-side receiver. It does not have to be in NanoClaw `container.json`; for this deploy it is stored either in the runtime state created by `webhook ensure` or in the VM env file if `MULTIBAAS_WEBHOOK_SECRET` is provided. The host-side webhook service uses `/opt/logrunner-prod/shared/backends.host.runtime.json` for runtime-owned watch evaluation; that file is chmod-600 and is not mounted into NanoClaw containers.

@@ -23,6 +23,10 @@ if systemctl list-unit-files logrunner-prod-webhook.service >/dev/null 2>&1; the
   systemctl is-active logrunner-prod-webhook.service || true
   systemctl --no-pager --full status logrunner-prod-webhook.service | sed -n '1,16p' || true
 fi
+if systemctl list-unit-files caddy.service >/dev/null 2>&1; then
+  systemctl is-active caddy.service || true
+  systemctl --no-pager --full status caddy.service | sed -n '1,12p' || true
+fi
 
 echo
 echo "== recent logs =="

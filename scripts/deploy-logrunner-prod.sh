@@ -96,7 +96,21 @@ require LOGRUNNER_SSH_TARGET
 load_multibaas_backend
 derive_openai_base_url
 
+case "$LOGRUNNER_SSH_TARGET" in
+  *203.0.113.*|*REPLACE_WITH*)
+    echo "Replace LOGRUNNER_SSH_TARGET with the actual VM SSH target before deploying." >&2
+    exit 2
+    ;;
+esac
+case "${LOGRUNNER_WEBHOOK_PUBLIC_URL:-}" in
+  *203.0.113.*|*REPLACE_WITH*|*your-demo-host.example*)
+    echo "Replace LOGRUNNER_WEBHOOK_PUBLIC_URL with the actual public webhook URL before deploying." >&2
+    exit 2
+    ;;
+esac
+
 LOGRUNNER_REMOTE_DIR="${LOGRUNNER_REMOTE_DIR:-/opt/logrunner-prod}"
+LOGRUNNER_SSH_KEY="${LOGRUNNER_SSH_KEY:-$HOME/.ssh/hetzner_logrunner_prod}"
 NANOCLAW_REPO="${NANOCLAW_REPO:-git@github.com:dbxe/nanoclaw.git}"
 NANOCLAW_REF="${NANOCLAW_REF:-openagents}"
 LOGRUNNER_REF="${LOGRUNNER_REF:-$(git -C "$ROOT_DIR" rev-parse HEAD)}"
@@ -106,6 +120,17 @@ validate_model_settings
 if [ "${LOGRUNNER_ALLOW_DIRTY:-0}" != "1" ] && [ -n "$(git -C "$ROOT_DIR" status --porcelain --untracked-files=all)" ]; then
   echo "Working tree has uncommitted changes. Commit them or set LOGRUNNER_ALLOW_DIRTY=1." >&2
   exit 2
+fi
+
+ssh_args=(-o StrictHostKeyChecking=accept-new)
+scp_args=(-o StrictHostKeyChecking=accept-new)
+if [ -n "${LOGRUNNER_SSH_KEY:-}" ]; then
+  if [ ! -f "$LOGRUNNER_SSH_KEY" ]; then
+    echo "SSH key not found: $LOGRUNNER_SSH_KEY" >&2
+    exit 2
+  fi
+  ssh_args+=(-i "$LOGRUNNER_SSH_KEY")
+  scp_args+=(-i "$LOGRUNNER_SSH_KEY")
 fi
 
 (
@@ -130,21 +155,22 @@ for key in \
   OPENCODE_SMALL_MODEL OPENCODE_BASE_URL OPENCODE_API_KEY ANTHROPIC_BASE_URL \
   ANTHROPIC_AUTH_TOKEN MULTIBAAS_BASE_URL MULTIBAAS_API_KEY ONECLI_URL ONECLI_API_KEY \
   MULTIBAAS_PROFILE MULTIBAAS_NETWORK LOGRUNNER_WEBHOOK_PUBLIC_URL MULTIBAAS_WEBHOOK_SECRET \
+  LOGRUNNER_ENABLE_CADDY \
   MODEL_ONECLI_SECRET_NAME MODEL_ONECLI_PATH_PATTERN MULTIBAAS_ONECLI_SECRET_NAME \
   MULTIBAAS_ONECLI_PATH_PATTERN LOGRUNNER_REINSTALL_ONECLI ASSISTANT_NAME \
   MAX_MESSAGES_PER_PROMPT MAX_CONCURRENT_CONTAINERS TZ; do
   write_env "$combined_env" "$key"
 done
 
-ssh "$LOGRUNNER_SSH_TARGET" "mkdir -p '$LOGRUNNER_REMOTE_DIR/incoming' '$LOGRUNNER_REMOTE_DIR/shared' '$LOGRUNNER_REMOTE_DIR/tmp' && chmod 700 '$LOGRUNNER_REMOTE_DIR/shared'"
-scp "$archive" "$LOGRUNNER_SSH_TARGET:$LOGRUNNER_REMOTE_DIR/incoming/logrunner-$LOGRUNNER_REF.tar.gz"
+ssh "${ssh_args[@]}" "$LOGRUNNER_SSH_TARGET" "mkdir -p '$LOGRUNNER_REMOTE_DIR/incoming' '$LOGRUNNER_REMOTE_DIR/shared' '$LOGRUNNER_REMOTE_DIR/tmp' && chmod 700 '$LOGRUNNER_REMOTE_DIR/shared'"
+scp "${scp_args[@]}" "$archive" "$LOGRUNNER_SSH_TARGET:$LOGRUNNER_REMOTE_DIR/incoming/logrunner-$LOGRUNNER_REF.tar.gz"
 printf "LOGRUNNER_ARCHIVE=%q\n" "$LOGRUNNER_REMOTE_DIR/incoming/logrunner-$LOGRUNNER_REF.tar.gz" >> "$combined_env"
 if [ -f "$MULTIBAAS_BACKENDS_SOURCE_FILE" ]; then
   remote_backends_file="$LOGRUNNER_REMOTE_DIR/shared/backends.source.local.json"
-  scp "$MULTIBAAS_BACKENDS_SOURCE_FILE" "$LOGRUNNER_SSH_TARGET:$remote_backends_file"
+  scp "${scp_args[@]}" "$MULTIBAAS_BACKENDS_SOURCE_FILE" "$LOGRUNNER_SSH_TARGET:$remote_backends_file"
   printf "MULTIBAAS_BACKENDS_FILE=%q\n" "$remote_backends_file" >> "$combined_env"
 fi
-scp "$combined_env" "$LOGRUNNER_SSH_TARGET:$LOGRUNNER_REMOTE_DIR/shared/logrunner.env"
-scp "$ROOT_DIR/deploy/logrunner-prod/remote-deploy.sh" "$LOGRUNNER_SSH_TARGET:$LOGRUNNER_REMOTE_DIR/tmp/remote-deploy.sh"
+scp "${scp_args[@]}" "$combined_env" "$LOGRUNNER_SSH_TARGET:$LOGRUNNER_REMOTE_DIR/shared/logrunner.env"
+scp "${scp_args[@]}" "$ROOT_DIR/deploy/logrunner-prod/remote-deploy.sh" "$LOGRUNNER_SSH_TARGET:$LOGRUNNER_REMOTE_DIR/tmp/remote-deploy.sh"
 
-ssh "$LOGRUNNER_SSH_TARGET" "chmod 700 '$LOGRUNNER_REMOTE_DIR/tmp/remote-deploy.sh' && bash '$LOGRUNNER_REMOTE_DIR/tmp/remote-deploy.sh'"
+ssh "${ssh_args[@]}" "$LOGRUNNER_SSH_TARGET" "chmod 700 '$LOGRUNNER_REMOTE_DIR/tmp/remote-deploy.sh' && bash '$LOGRUNNER_REMOTE_DIR/tmp/remote-deploy.sh'"
