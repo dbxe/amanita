@@ -111,7 +111,7 @@ esac
 
 LOGRUNNER_REMOTE_DIR="${LOGRUNNER_REMOTE_DIR:-/opt/logrunner-prod}"
 LOGRUNNER_SSH_KEY="${LOGRUNNER_SSH_KEY:-$HOME/.ssh/hetzner_logrunner_prod}"
-NANOCLAW_REPO="${NANOCLAW_REPO:-git@github.com:dbxe/nanoclaw.git}"
+NANOCLAW_REPO="${NANOCLAW_REPO:-https://github.com/dbxe/nanoclaw.git}"
 NANOCLAW_REF="${NANOCLAW_REF:-openagents}"
 LOGRUNNER_REF="${LOGRUNNER_REF:-$(git -C "$ROOT_DIR" rev-parse HEAD)}"
 MULTIBAAS_BACKENDS_SOURCE_FILE="${MULTIBAAS_BACKENDS_FILE:-$ROOT_DIR/.multibaas/backends.local.json}"

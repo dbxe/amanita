@@ -78,7 +78,7 @@ The `dbxe/nanoclaw` `openagents` branch includes the `opencode` provider used by
 
 Do not deploy from a dirty NanoClaw worktree. The NanoClaw setup wizard and skills mutate source files, for example by adding Discord channel imports or provider support. For a repeatable demo:
 
-1. Use `git@github.com:dbxe/nanoclaw.git`.
+1. Use `https://github.com/dbxe/nanoclaw.git` unless the VM has GitHub SSH deploy credentials.
 2. Use `NANOCLAW_REF=openagents` while that branch is the tested local branch.
 3. For a frozen judging release, either set `NANOCLAW_REF` to the tested commit SHA or create a lightweight prod branch/tag that points at that commit.
 
