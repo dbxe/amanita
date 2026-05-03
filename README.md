@@ -4,8 +4,6 @@ Logrunner is a Web3 intelligence runtime for agents. It lets a chat agent query 
 
 The short version: Logrunner gives an agent a typed way to use blockchain event logs the way a web research agent uses search results. It is built for the [ETHGlobal OpenAgents](https://ethglobal.com/events/openagents) hackathon.
 
-The name is a nod to Cyberpunk 2077's netrunners. Logrunner runs through event logs.
-
 ---
 
 ## What This Repo Is
