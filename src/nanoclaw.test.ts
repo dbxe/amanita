@@ -139,6 +139,7 @@ test("configureNanoClawGroup writes a relative mount and workspace/extra MCP pat
   const previousBackendsJson = process.env.MULTIBAAS_BACKENDS_JSON;
   const previousProfile = process.env.MULTIBAAS_PROFILE;
   const previousWebhookPublicUrl = process.env.MULTIBAAS_WEBHOOK_PUBLIC_URL;
+  const previousAgentProvider = process.env.LOGRUNNER_AGENT_PROVIDER;
   process.env.MULTIBAAS_BACKENDS_JSON = JSON.stringify({
     defaultProfile: "development",
     profiles: {
@@ -167,6 +168,7 @@ test("configureNanoClawGroup writes a relative mount and workspace/extra MCP pat
   delete process.env.MULTIBAAS_API_KEY;
   delete process.env.MULTIBAAS_PROFILE;
   delete process.env.MULTIBAAS_WEBHOOK_PUBLIC_URL;
+  process.env.LOGRUNNER_AGENT_PROVIDER = "codex";
 
   try {
     const result = configureNanoClawGroup({
@@ -181,6 +183,7 @@ test("configureNanoClawGroup writes a relative mount and workspace/extra MCP pat
     const containerConfig = JSON.parse(fs.readFileSync(containerConfigPath, "utf8")) as {
       additionalMounts: Array<{ hostPath: string; containerPath: string; readonly?: boolean }>;
       mcpServers: Record<string, { command: string; args?: string[]; env?: Record<string, string>; instructions?: string }>;
+      provider?: string;
     };
 
     assert.deepEqual(containerConfig.additionalMounts, [
@@ -192,6 +195,7 @@ test("configureNanoClawGroup writes a relative mount and workspace/extra MCP pat
     ]);
 
     assert.equal(containerConfig.mcpServers["multibaas-runtime"].command, "node");
+    assert.equal(containerConfig.provider, "codex");
     assert.equal(
       containerConfig.mcpServers["multibaas-runtime"].args?.[0],
       "/workspace/extra/multibaas-runtime/dist/mcp.js",
@@ -240,6 +244,12 @@ test("configureNanoClawGroup writes a relative mount and workspace/extra MCP pat
       delete process.env.MULTIBAAS_WEBHOOK_PUBLIC_URL;
     } else {
       process.env.MULTIBAAS_WEBHOOK_PUBLIC_URL = previousWebhookPublicUrl;
+    }
+
+    if (previousAgentProvider === undefined) {
+      delete process.env.LOGRUNNER_AGENT_PROVIDER;
+    } else {
+      process.env.LOGRUNNER_AGENT_PROVIDER = previousAgentProvider;
     }
 
     fs.rmSync(tempDir, { recursive: true, force: true });

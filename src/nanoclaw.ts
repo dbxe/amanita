@@ -339,6 +339,10 @@ export function configureNanoClawGroup(options: ConfigureNanoClawOptions): Confi
   containerConfig.mcpServers = containerConfig.mcpServers ?? {};
   containerConfig.additionalMounts = containerConfig.additionalMounts ?? [];
   containerConfig.packages = containerConfig.packages ?? { apt: [], npm: [] };
+  const agentProvider = process.env.LOGRUNNER_AGENT_PROVIDER?.trim();
+  if (agentProvider) {
+    containerConfig.provider = agentProvider;
+  }
   delete containerConfig.mcpServers[LEGACY_SERVER_NAME];
   const existingEnv = containerConfig.mcpServers[SERVER_NAME]?.env ?? {};
   const webhookPublicUrl =
