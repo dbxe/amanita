@@ -589,7 +589,14 @@ echo "$runtime_commit" > "$runtime_stage/.deploy-commit"
 (
   cd "$runtime_stage"
   npm ci
-  npm test
+  env \
+    -u MULTIBAAS_BACKENDS_FILE \
+    -u MULTIBAAS_BACKENDS_JSON \
+    -u MULTIBAAS_PROFILE \
+    -u MULTIBAAS_BASE_URL \
+    -u MULTIBAAS_API_KEY \
+    -u MULTIBAAS_NETWORK \
+    npm test
 )
 
 runtime_release="$LOGRUNNER_REMOTE_DIR/releases/runtime-$runtime_commit"
