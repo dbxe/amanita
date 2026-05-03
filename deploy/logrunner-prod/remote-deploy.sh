@@ -43,7 +43,7 @@ ensure_remote_prereqs() {
   fi
 
   run_root env DEBIAN_FRONTEND=noninteractive apt-get update -y
-  apt_install ca-certificates curl git gnupg docker.io
+  apt_install ca-certificates curl git gnupg docker.io docker-compose-v2
 
   if [ "$(node_major)" -lt 22 ]; then
     curl -fsSL https://deb.nodesource.com/setup_22.x | run_root bash -
