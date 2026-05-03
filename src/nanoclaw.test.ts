@@ -22,6 +22,7 @@ test("containerInstructions steer NanoClaw away from saved queries for ERC-20 ho
   assert.match(instructions, /investigate_contract_address/i);
   assert.match(instructions, /requires explicit user confirmation before mutating MultiBaas setup/i);
   assert.match(instructions, /confirmed: true/i);
+  assert.match(instructions, /Do not treat the user's initial imperative request as confirmation/i);
   assert.match(instructions, /Mandatory routing.*KelpDAO.*summarize_governance_incident.*monitor_governance_proposal.*Do not answer those prompts from memory/i);
   assert.match(instructions, /list_configured_backends/i);
   assert.match(instructions, /inspect_targets_across_backends/i);
@@ -91,8 +92,8 @@ test("containerInstructions steer NanoClaw away from saved queries for ERC-20 ho
   assert.match(instructions, /contract-interface coverage questions.*inspect_contract_interfaces/i);
   assert.match(instructions, /use `ensure_contract_interface` only for explicit manual linking requests/i);
   assert.match(instructions, /do not use `ensure_contract_interface` as the default onboarding path/i);
-  assert.match(instructions, /live address.*not yet known.*proxy.*investigate_contract_address.*identify candidates.*import the clear best candidate.*report readiness/i);
-  assert.match(instructions, /if contract lookup returns a clear best candidate, import it and continue without asking the user to approve/i);
+  assert.match(instructions, /live address.*not yet known.*proxy.*investigate_contract_address.*pause for confirmation before importing or linking/i);
+  assert.match(instructions, /if contract lookup returns a clear best candidate, import it and continue only when confirmation is not required/i);
   assert.match(instructions, /if contract lookup does not return a credible candidate, ask the user for clarification/i);
   assert.match(instructions, /blacklist, pause, ownership, role, or upgrade-history questions.*get_token_control_events/i);
   assert.match(instructions, /broader token investigation requests.*investigate_token/i);

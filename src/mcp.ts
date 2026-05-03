@@ -208,8 +208,9 @@ server.tool(
 
 server.tool(
   "investigate_contract_address",
+  "Inspect a raw contract address and, when allowed, import/link the clear verified ABI candidate. This can mutate MultiBaas setup and start historical indexing. If confirmation is required, call once without confirmed; only retry with confirmed true after the tool asks for confirmation and the user explicitly agrees in a later message.",
   {
-    confirmed: z.boolean().optional(),
+    confirmed: z.boolean().optional().describe("Set true only after this tool has already returned a confirmation-required message and the user explicitly confirmed in a later message."),
     contractAddress: z.string().min(1),
   },
   async ({ confirmed, contractAddress }) => {
@@ -242,9 +243,10 @@ server.tool(
 
 server.tool(
   "import_contract_lookup_candidate",
+  "Import a selected verified ABI candidate and link it to an address. This mutates MultiBaas setup and may start historical indexing. If confirmation is required, call once without confirmed; only retry with confirmed true after the tool asks for confirmation and the user explicitly agrees in a later message.",
   {
     candidateIndex: z.number().int().min(0),
-    confirmed: z.boolean().optional(),
+    confirmed: z.boolean().optional().describe("Set true only after this tool has already returned a confirmation-required message and the user explicitly confirmed in a later message."),
     contractAddress: z.string().min(1),
     contractLabel: z.string().min(1).optional(),
     startingBlock: z.string().min(1).optional(),
@@ -303,8 +305,9 @@ server.tool(
 
 server.tool(
   "ensure_contract_interface",
+  "Manually link one preloaded interface to an address. This mutates MultiBaas setup and may start historical indexing. If confirmation is required, call once without confirmed; only retry with confirmed true after the tool asks for confirmation and the user explicitly agrees in a later message.",
   {
-    confirmed: z.boolean().optional(),
+    confirmed: z.boolean().optional().describe("Set true only after this tool has already returned a confirmation-required message and the user explicitly confirmed in a later message."),
     contractAddress: z.string().min(1).optional(),
     interfaceLabel: z.string().min(1),
     startingBlock: z.string().min(1).optional(),
@@ -522,7 +525,7 @@ server.tool(
       .min(1)
       .describe("Known token alias/name to resolve to a contract address before onboarding.")
       .optional(),
-    confirmed: z.boolean().optional(),
+    confirmed: z.boolean().optional().describe("Set true only after this tool has already returned a confirmation-required message and the user explicitly confirmed in a later message."),
   },
   async ({ confirmed, contractAddress, limit, tokenName }) => {
     if (contractAddress && !tokenName) {
@@ -668,8 +671,9 @@ server.tool("evaluate_balance_watches", {}, async () => {
 
 server.tool(
   "ensure_event_webhook",
+  "Register or update a generic MultiBaas event webhook URL. This mutates MultiBaas webhook configuration. If confirmation is required, call once without confirmed; only retry with confirmed true after the tool asks for confirmation and the user explicitly agrees in a later message.",
   {
-    confirmed: z.boolean().optional(),
+    confirmed: z.boolean().optional().describe("Set true only after this tool has already returned a confirmation-required message and the user explicitly confirmed in a later message."),
     url: z.string().url(),
     label: z.string().min(1).default(DEFAULT_WEBHOOK_LABEL),
   },
