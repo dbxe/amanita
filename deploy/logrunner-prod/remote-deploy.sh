@@ -778,6 +778,7 @@ User=$LOGRUNNER_SERVICE_USER
 SupplementaryGroups=docker
 WorkingDirectory=$LOGRUNNER_REMOTE_DIR/current/nanoclaw
 EnvironmentFile=$nanoclaw_env
+ExecStartPre=+/bin/rm -f /tmp/onecli-proxy-ca.pem
 ExecStartPre=/bin/bash -lc 'docker ps --filter "name=nanoclaw-v2-" --format "{{.Names}}" | xargs -r docker stop -t 1'
 ExecStart=/bin/bash -lc 'exec pnpm start'
 ExecStopPost=/bin/bash -lc 'docker ps --filter "name=nanoclaw-v2-" --format "{{.Names}}" | xargs -r docker stop -t 1'
