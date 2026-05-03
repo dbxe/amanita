@@ -456,6 +456,7 @@ const agentProvider = process.env.LOGRUNNER_AGENT_PROVIDER?.trim() || 'opencode'
 const folder = process.env.LOGRUNNER_AGENT_FOLDER?.trim() || 'logrunner-prod';
 const name = process.env.LOGRUNNER_AGENT_NAME?.trim() || 'Logrunner Prod';
 const messagingGroupId = process.env.LOGRUNNER_DISCORD_MESSAGING_GROUP_ID?.trim() || 'mg-logrunner-prod-discord';
+const cliMessagingGroupId = process.env.LOGRUNNER_CLI_MESSAGING_GROUP_ID?.trim() || 'mg-logrunner-prod-cli';
 const platformId = required('LOGRUNNER_DISCORD_PLATFORM_ID');
 const now = new Date().toISOString();
 
@@ -530,6 +531,47 @@ if (!getMessagingGroupAgentByPair(messagingGroupId, agentGroupId)) {
      WHERE messaging_group_id = ? AND agent_group_id = ?`,
   ).run('mention-sticky', null, 'all', 'drop', 'shared', 0, messagingGroupId, agentGroupId);
   console.log(`Updated wiring ${messagingGroupId} -> ${agentGroupId}`);
+}
+
+if (!getMessagingGroup(cliMessagingGroupId)) {
+  createMessagingGroup({
+    id: cliMessagingGroupId,
+    channel_type: 'cli',
+    platform_id: 'local',
+    name: 'Logrunner CLI',
+    is_group: 0,
+    unknown_sender_policy: 'public',
+    created_at: now,
+  });
+  console.log(`Created CLI messaging group ${cliMessagingGroupId}`);
+} else {
+  db.prepare(
+    'UPDATE messaging_groups SET channel_type = ?, platform_id = ?, name = ?, is_group = ?, unknown_sender_policy = ? WHERE id = ?',
+  ).run('cli', 'local', 'Logrunner CLI', 0, 'public', cliMessagingGroupId);
+  console.log(`Updated CLI messaging group ${cliMessagingGroupId}`);
+}
+
+if (!getMessagingGroupAgentByPair(cliMessagingGroupId, agentGroupId)) {
+  createMessagingGroupAgent({
+    id: 'mga-logrunner-prod-cli',
+    messaging_group_id: cliMessagingGroupId,
+    agent_group_id: agentGroupId,
+    engage_mode: 'pattern',
+    engage_pattern: '.',
+    sender_scope: 'all',
+    ignored_message_policy: 'drop',
+    session_mode: 'shared',
+    priority: 0,
+    created_at: now,
+  });
+  console.log(`Wired ${cliMessagingGroupId} -> ${agentGroupId}`);
+} else {
+  db.prepare(
+    `UPDATE messaging_group_agents
+       SET engage_mode = ?, engage_pattern = ?, sender_scope = ?, ignored_message_policy = ?, session_mode = ?, priority = ?
+     WHERE messaging_group_id = ? AND agent_group_id = ?`,
+  ).run('pattern', '.', 'all', 'drop', 'shared', 0, cliMessagingGroupId, agentGroupId);
+  console.log(`Updated wiring ${cliMessagingGroupId} -> ${agentGroupId}`);
 }
 TS
 }
