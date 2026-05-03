@@ -3,6 +3,10 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ENV_FILE="${LOGRUNNER_ENV_FILE:-$ROOT_DIR/deploy/logrunner-prod/.env.prod}"
+OPENAI_API_KEY_WAS_EXPORTED=0
+if [ -n "${OPENAI_API_KEY:-}" ]; then
+  OPENAI_API_KEY_WAS_EXPORTED=1
+fi
 
 if [ -f "$ENV_FILE" ]; then
   set -a
@@ -65,7 +69,10 @@ console.log(url.toString().replace(/\/$/, ""));
 }
 
 load_openai_api_key_from_keychain() {
-  if [ -n "${OPENAI_API_KEY:-}" ] || [ "$(uname -s)" != "Darwin" ] || ! command -v security >/dev/null 2>&1; then
+  if [ "${OPENAI_API_KEY_SOURCE:-keychain}" != "keychain" ]; then
+    return
+  fi
+  if [ "$OPENAI_API_KEY_WAS_EXPORTED" = "1" ] || [ "$(uname -s)" != "Darwin" ] || ! command -v security >/dev/null 2>&1; then
     return
   fi
 
