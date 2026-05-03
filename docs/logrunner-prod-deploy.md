@@ -39,6 +39,7 @@ Required values:
 - `OPENAI_CHAT_COMPLETIONS_URL` or `OPENAI_BASE_URL` for the OpenAI-compatible inference endpoint
 - `OPENAI_API_KEY` for first-time remote OneCLI secret install
 - `OPENCODE_PROVIDER`, `OPENCODE_MODEL`, `OPENCODE_SMALL_MODEL`, and optional model limits such as `OPENCODE_MODEL_OUTPUT_LIMIT`
+- `LOGRUNNER_NANOCLAW_INSTRUCTION_PROFILE=compact` for low-token-budget remote model endpoints
 - `MULTIBAAS_BACKENDS_FILE` pointing at your gitignored multibackend config, or `MULTIBAAS_BASE_URL` + `MULTIBAAS_API_KEY` for a single-backend fallback
 - `MULTIBAAS_PROFILE` for the default backend profile used by single-backend tools
 - `LOGRUNNER_WEBHOOK_PUBLIC_URL` for MultiBaas event callbacks

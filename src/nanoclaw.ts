@@ -70,6 +70,27 @@ function mountPathFor(containerPath: string): string {
 }
 
 export function containerInstructions(): string {
+  if (process.env.LOGRUNNER_NANOCLAW_INSTRUCTION_PROFILE === "compact") {
+    return [
+      "Use this MCP server for MultiBaas event-query and watch tasks.",
+      "- Use typed capability tools. Do not answer live blockchain questions from memory when a tool fits.",
+      "- Use `get_runtime_status` for runtime version, commit, deployment, or build questions.",
+      "- Use `list_configured_backends` for available MultiBaas deployments and `inspect_targets_across_backends` for multichain target status.",
+      "- For broad Arbitrum DAO authority, treasury, proposal, delegate-power, or queued-governance questions, call `inspect_arbitrum_dao` first.",
+      "- For KelpDAO, rsETH, frozen ETH/funds, the 30,765 ETH freeze, `0x0000000000000000000000000000000000000DA0`, or the Arbitrum release proposal, call the Arbitrum governance incident tools before answering.",
+      "- Incident mapping: brief prompts -> `summarize_governance_incident`; freeze/emergency event-data verification -> `verify_governance_control_activity`; status-only release-proposal prompts -> `check_governance_proposal_status`; status plus notify/watch/let-me-know prompts -> `monitor_governance_proposal`.",
+      "- For status-only proposal questions, do not set up or imply a monitor. For monitor requests, call `monitor_governance_proposal` before saying it is active.",
+      "- Every incident answer must synthesize from the tool result, separate public context from MultiBaas evidence, include the returned fenced `event_query` block, and avoid external-source citations.",
+      "- Never claim the freeze transaction itself was directly verified unless the tool returns freeze-specific event or transaction evidence. Otherwise say the events verify governance control-plane activity.",
+      "- If a monitor is active, include the returned fenced `monitor_activation` block with webhook id/status/path. Do not use NanoClaw scheduling for the incident monitor.",
+      "- Incident brief answers should start with `Brief:` and cover Brief, Contracts to inspect, What can happen next, and the fenced `event_query` block.",
+      "- Proposal-status and monitor answers should use concise labels: Verdict, Searched, Found, Next signal, Watching.",
+      "- For ERC-20 top-holder requests, call `get_top_holders`; preserve sync caveats, show decimals-scaled balances, include the holder `event_query` block, and do not infer percentages or concentration without a separate tool.",
+      "- For raw address questions, establish the contract surface with lookup/interface/event-capability tools before using ERC-20-specific tools.",
+      "- MultiBaas chain identity comes from the configured backend profile, not the `/chains/ethereum` API path.",
+    ].join("\n");
+  }
+
   return [
     "Use this MCP server for MultiBaas event-query and watch tasks.",
     "- Use `get_runtime_status` when the user asks what runtime version, commit, deployment, or build is currently running.",
