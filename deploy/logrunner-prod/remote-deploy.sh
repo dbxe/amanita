@@ -674,6 +674,7 @@ echo "$runtime_commit" > "$runtime_stage/.deploy-commit"
     -u MULTIBAAS_BASE_URL \
     -u MULTIBAAS_API_KEY \
     -u MULTIBAAS_NETWORK \
+    -u LOGRUNNER_NANOCLAW_INSTRUCTION_PROFILE \
     npm test
 )
 
