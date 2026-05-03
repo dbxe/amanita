@@ -317,20 +317,33 @@ console.log(url.toString().replace(/\/$/, ""));
 }
 
 validate_model_settings() {
-  if [ "${LOGRUNNER_AGENT_PROVIDER:-opencode}" != "opencode" ]; then
-    return
-  fi
-
-  if [ -z "${OPENAI_BASE_URL:-}" ] && [ -z "${OPENCODE_BASE_URL:-}" ]; then
-    echo "Missing required env for opencode: OPENAI_BASE_URL, OPENAI_CHAT_COMPLETIONS_URL, or OPENCODE_BASE_URL" >&2
-    exit 2
-  fi
-  require OPENCODE_MODEL
-  require OPENCODE_SMALL_MODEL
-  case "$OPENCODE_MODEL:$OPENCODE_SMALL_MODEL" in
-    *TODO_MODEL_ID*)
-      echo "Replace OPENCODE_MODEL and OPENCODE_SMALL_MODEL with the deployed model id." >&2
-      exit 2
+  case "${LOGRUNNER_AGENT_PROVIDER:-opencode}" in
+    codex)
+      if [ -z "${OPENAI_BASE_URL:-}" ]; then
+        echo "Missing required env for codex: OPENAI_BASE_URL or OPENAI_CHAT_COMPLETIONS_URL" >&2
+        exit 2
+      fi
+      require CODEX_MODEL
+      case "$CODEX_MODEL" in
+        *TODO_MODEL_ID*)
+          echo "Replace CODEX_MODEL with the deployed model id." >&2
+          exit 2
+          ;;
+      esac
+      ;;
+    opencode)
+      if [ -z "${OPENAI_BASE_URL:-}" ] && [ -z "${OPENCODE_BASE_URL:-}" ]; then
+        echo "Missing required env for opencode: OPENAI_BASE_URL, OPENAI_CHAT_COMPLETIONS_URL, or OPENCODE_BASE_URL" >&2
+        exit 2
+      fi
+      require OPENCODE_MODEL
+      require OPENCODE_SMALL_MODEL
+      case "$OPENCODE_MODEL:$OPENCODE_SMALL_MODEL" in
+        *TODO_MODEL_ID*)
+          echo "Replace OPENCODE_MODEL and OPENCODE_SMALL_MODEL with the deployed model id." >&2
+          exit 2
+          ;;
+      esac
       ;;
   esac
 }
@@ -709,6 +722,7 @@ CONTAINER_IMAGE="${CONTAINER_IMAGE:-$CONTAINER_IMAGE_BASE:latest}"
   quote_env CONTAINER_IMAGE_BASE
   quote_env CONTAINER_IMAGE
   quote_env LOGRUNNER_AGENT_PROVIDER
+  quote_env CODEX_MODEL
   quote_env OPENCODE_PROVIDER
   quote_env OPENCODE_PROVIDER_NAME
   quote_env OPENCODE_PROVIDER_PACKAGE

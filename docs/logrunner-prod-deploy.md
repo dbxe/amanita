@@ -38,7 +38,8 @@ Required values:
 - `DISCORD_BOT_TOKEN`, `DISCORD_APPLICATION_ID`, `DISCORD_PUBLIC_KEY`
 - `OPENAI_CHAT_COMPLETIONS_URL` or `OPENAI_BASE_URL` for the official OpenAI or OpenAI-compatible inference endpoint
 - `OPENAI_API_KEY` for official OpenAI, or `OPENCODE_API_KEY` for non-OpenAI compatible providers such as Integrate/0G, for first-time remote OneCLI secret install
-- `OPENCODE_PROVIDER`, `OPENCODE_MODEL`, `OPENCODE_SMALL_MODEL`, and optional model limits such as `OPENCODE_MODEL_OUTPUT_LIMIT`
+- `LOGRUNNER_AGENT_PROVIDER=codex` and `CODEX_MODEL` for the default production path
+- `OPENCODE_PROVIDER`, `OPENCODE_MODEL`, `OPENCODE_SMALL_MODEL`, and optional model limits such as `OPENCODE_MODEL_OUTPUT_LIMIT` only when using the OpenCode fallback
 - `LOGRUNNER_NANOCLAW_INSTRUCTION_PROFILE=compact` only for low-token-budget remote model endpoints
 - `MULTIBAAS_BACKENDS_FILE` pointing at your gitignored multibackend config, or `MULTIBAAS_BASE_URL` + `MULTIBAAS_API_KEY` for a single-backend fallback
 - `MULTIBAAS_PROFILE` for the default backend profile used by single-backend tools
@@ -74,7 +75,7 @@ If you need to force a fresh OneCLI gateway install on the VM, set:
 LOGRUNNER_REINSTALL_ONECLI=1
 ```
 
-The `dbxe/nanoclaw` `deploy/logrunner-prod` branch is the isolated NanoClaw branch used by this deploy path. It is based on `openagents` plus production-specific OpenCode compatibility fixes. If you provide a full `.../chat/completions` URL, the deploy derives `OPENAI_BASE_URL` by stripping that final path segment before configuring OpenCode.
+The `dbxe/nanoclaw` `deploy/logrunner-prod` branch is the isolated NanoClaw branch used by this deploy path. It is based on `openagents` plus production-specific Codex and OpenCode compatibility fixes. If you provide a full `.../chat/completions` URL, the deploy derives `OPENAI_BASE_URL` by stripping that final path segment before configuring the model provider.
 
 ## NanoClaw Source
 

@@ -89,20 +89,33 @@ load_openai_api_key_from_keychain() {
 }
 
 validate_model_settings() {
-  if [ "${LOGRUNNER_AGENT_PROVIDER:-opencode}" != "opencode" ]; then
-    return
-  fi
-
-  if [ -z "${OPENAI_BASE_URL:-}" ] && [ -z "${OPENCODE_BASE_URL:-}" ]; then
-    echo "Missing required env for opencode: OPENAI_BASE_URL, OPENAI_CHAT_COMPLETIONS_URL, or OPENCODE_BASE_URL" >&2
-    exit 2
-  fi
-  require OPENCODE_MODEL
-  require OPENCODE_SMALL_MODEL
-  case "$OPENCODE_MODEL:$OPENCODE_SMALL_MODEL" in
-    *TODO_MODEL_ID*)
-      echo "Replace OPENCODE_MODEL and OPENCODE_SMALL_MODEL with the deployed model id." >&2
-      exit 2
+  case "${LOGRUNNER_AGENT_PROVIDER:-opencode}" in
+    codex)
+      if [ -z "${OPENAI_BASE_URL:-}" ]; then
+        echo "Missing required env for codex: OPENAI_BASE_URL or OPENAI_CHAT_COMPLETIONS_URL" >&2
+        exit 2
+      fi
+      require CODEX_MODEL
+      case "$CODEX_MODEL" in
+        *TODO_MODEL_ID*)
+          echo "Replace CODEX_MODEL with the deployed model id." >&2
+          exit 2
+          ;;
+      esac
+      ;;
+    opencode)
+      if [ -z "${OPENAI_BASE_URL:-}" ] && [ -z "${OPENCODE_BASE_URL:-}" ]; then
+        echo "Missing required env for opencode: OPENAI_BASE_URL, OPENAI_CHAT_COMPLETIONS_URL, or OPENCODE_BASE_URL" >&2
+        exit 2
+      fi
+      require OPENCODE_MODEL
+      require OPENCODE_SMALL_MODEL
+      case "$OPENCODE_MODEL:$OPENCODE_SMALL_MODEL" in
+        *TODO_MODEL_ID*)
+          echo "Replace OPENCODE_MODEL and OPENCODE_SMALL_MODEL with the deployed model id." >&2
+          exit 2
+          ;;
+      esac
       ;;
   esac
 }
@@ -184,6 +197,7 @@ for key in \
   LOGRUNNER_AGENT_FOLDER LOGRUNNER_AGENT_NAME LOGRUNNER_DISCORD_PLATFORM_ID LOGRUNNER_DISCORD_MESSAGING_GROUP_ID \
   LOGRUNNER_CLI_MESSAGING_GROUP_ID DISCORD_BOT_TOKEN DISCORD_APPLICATION_ID DISCORD_PUBLIC_KEY OPENAI_CHAT_COMPLETIONS_URL \
   OPENAI_BASE_URL OPENAI_API_KEY OPENAI_ONECLI_SECRET_NAME OPENAI_ONECLI_PATH_PATTERN \
+  CODEX_MODEL \
   OPENCODE_PROVIDER OPENCODE_PROVIDER_NAME OPENCODE_PROVIDER_PACKAGE OPENCODE_MODEL \
   OPENCODE_SMALL_MODEL OPENCODE_MODEL_CONTEXT_LIMIT OPENCODE_MODEL_OUTPUT_LIMIT \
   OPENCODE_BASE_URL OPENCODE_API_KEY ANTHROPIC_BASE_URL \
