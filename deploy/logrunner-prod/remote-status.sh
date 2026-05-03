@@ -3,6 +3,14 @@ set -euo pipefail
 
 LOGRUNNER_REMOTE_DIR="${LOGRUNNER_REMOTE_DIR:-/opt/logrunner-prod}"
 
+redact_runtime_secrets() {
+  sed -E \
+    -e 's#(https?_proxy=|HTTPS_PROXY=|HTTP_PROXY=)[^ ]+#\1REDACTED#Ig' \
+    -e 's#(http://x:)[^@ ]+@#\1REDACTED@#g' \
+    -e 's#(aoc_)[A-Za-z0-9._~+/-]+#\1REDACTED#g' \
+    -e 's#(api[_-]?key|token|secret|Authorization: Bearer )[A-Za-z0-9._~+/:=-]+#\1REDACTED#Ig'
+}
+
 echo "== deploy manifest =="
 if [ -f "$LOGRUNNER_REMOTE_DIR/shared/deploy-manifest.json" ]; then
   cat "$LOGRUNNER_REMOTE_DIR/shared/deploy-manifest.json"
@@ -18,16 +26,16 @@ readlink "$LOGRUNNER_REMOTE_DIR/current/nanoclaw" || true
 echo
 echo "== services =="
 systemctl is-active logrunner-prod.service || true
-systemctl --no-pager --full status logrunner-prod.service | sed -n '1,20p' || true
+systemctl --no-pager --full status logrunner-prod.service | redact_runtime_secrets | sed -n '1,20p' || true
 if systemctl list-unit-files logrunner-prod-webhook.service >/dev/null 2>&1; then
   systemctl is-active logrunner-prod-webhook.service || true
-  systemctl --no-pager --full status logrunner-prod-webhook.service | sed -n '1,16p' || true
+  systemctl --no-pager --full status logrunner-prod-webhook.service | redact_runtime_secrets | sed -n '1,16p' || true
 fi
 if systemctl list-unit-files caddy.service >/dev/null 2>&1; then
   systemctl is-active caddy.service || true
-  systemctl --no-pager --full status caddy.service | sed -n '1,12p' || true
+  systemctl --no-pager --full status caddy.service | redact_runtime_secrets | sed -n '1,12p' || true
 fi
 
 echo
 echo "== recent logs =="
-journalctl -u logrunner-prod.service -n 80 --no-pager || true
+journalctl -u logrunner-prod.service -n 80 --no-pager | redact_runtime_secrets || true

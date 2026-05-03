@@ -17,6 +17,14 @@ quote_env() {
   fi
 }
 
+redact_runtime_secrets() {
+  sed -E \
+    -e 's#(https?_proxy=|HTTPS_PROXY=|HTTP_PROXY=)[^ ]+#\1REDACTED#Ig' \
+    -e 's#(http://x:)[^@ ]+@#\1REDACTED@#g' \
+    -e 's#(aoc_)[A-Za-z0-9._~+/-]+#\1REDACTED#g' \
+    -e 's#(api[_-]?key|token|secret|Authorization: Bearer )[A-Za-z0-9._~+/:=-]+#\1REDACTED#Ig'
+}
+
 run_root() {
   if [ "$(id -u)" = "0" ]; then
     "$@"
@@ -863,5 +871,5 @@ cat > "$manifest" <<JSON
 }
 JSON
 
-run_root systemctl --no-pager --full status logrunner-prod.service | sed -n '1,18p'
+run_root systemctl --no-pager --full status logrunner-prod.service | redact_runtime_secrets | sed -n '1,18p'
 echo "Deploy manifest: $manifest"
