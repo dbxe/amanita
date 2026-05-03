@@ -64,6 +64,23 @@ console.log(url.toString().replace(/\/$/, ""));
   export OPENAI_BASE_URL
 }
 
+load_openai_api_key_from_keychain() {
+  if [ -n "${OPENAI_API_KEY:-}" ] || [ "$(uname -s)" != "Darwin" ] || ! command -v security >/dev/null 2>&1; then
+    return
+  fi
+
+  local keychain_name="${OPENAI_API_KEY_KEYCHAIN_ITEM:-DEMO_OPENAI_API_KEY}"
+  local keychain_value=""
+  keychain_value="$(security find-generic-password -s "$keychain_name" -w 2>/dev/null || true)"
+  if [ -z "$keychain_value" ]; then
+    keychain_value="$(security find-generic-password -a "$keychain_name" -w 2>/dev/null || true)"
+  fi
+  if [ -n "$keychain_value" ]; then
+    OPENAI_API_KEY="$keychain_value"
+    export OPENAI_API_KEY
+  fi
+}
+
 validate_model_settings() {
   if [ "${LOGRUNNER_AGENT_PROVIDER:-opencode}" != "opencode" ]; then
     return
@@ -95,6 +112,7 @@ write_env() {
 require LOGRUNNER_SSH_TARGET
 load_multibaas_backend
 derive_openai_base_url
+load_openai_api_key_from_keychain
 
 case "$LOGRUNNER_SSH_TARGET" in
   *203.0.113.*|*REPLACE_WITH*)
