@@ -18,14 +18,3 @@ coverage.json
 .agent-state/
 *.log
 *.tsbuildinfo
-
-# Hardhat outputs
-hardhat/artifacts/
-hardhat/cache/
-hardhat/typechain/
-hardhat/typechain-types/
-hardhat/coverage/
-hardhat/coverage.json
-hardhat/ignition/deployments/
-hardhat/deployment-config.*.ts
-!hardhat/deployment-config.template.ts

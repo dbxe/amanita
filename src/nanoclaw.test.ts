@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
+import { MUTATION_CONFIRMATION_ENV } from "./mcp-safety.js";
 import { configureNanoClawGroup, containerInstructions, deriveContainerBaseUrl } from "./nanoclaw.js";
 
 test("deriveContainerBaseUrl rewrites localhost for container access", () => {
@@ -19,6 +20,8 @@ test("containerInstructions steer NanoClaw away from saved queries for ERC-20 ho
   const instructions = containerInstructions();
 
   assert.match(instructions, /investigate_contract_address/i);
+  assert.match(instructions, /requires explicit user confirmation before mutating MultiBaas setup/i);
+  assert.match(instructions, /confirmed: true/i);
   assert.match(instructions, /Mandatory routing.*KelpDAO.*summarize_governance_incident.*monitor_governance_proposal.*Do not answer those prompts from memory/i);
   assert.match(instructions, /list_configured_backends/i);
   assert.match(instructions, /inspect_targets_across_backends/i);
@@ -193,6 +196,7 @@ test("configureNanoClawGroup writes a relative mount and workspace/extra MCP pat
       "/workspace/extra/multibaas-runtime/dist/mcp.js",
     );
     assert.equal(containerConfig.mcpServers["multibaas-runtime"].env?.MULTIBAAS_PROFILE, "mainnet-remote");
+    assert.equal(containerConfig.mcpServers["multibaas-runtime"].env?.[MUTATION_CONFIRMATION_ENV], "1");
     assert.equal(
       containerConfig.mcpServers["multibaas-runtime"].env?.MULTIBAAS_WEBHOOK_PUBLIC_URL,
       "https://agent.example/webhooks/multibaas",

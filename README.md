@@ -296,6 +296,7 @@ For live NanoClaw work, use this order:
 ## Documentation
 
 - [`docs/architecture.md`](docs/architecture.md) — module boundaries and design direction
+- [`docs/exposed-surface.md`](docs/exposed-surface.md) — what the judge-facing MCP surface can and cannot do
 - [`docs/nanoclaw.md`](docs/nanoclaw.md) — NanoClaw setup, auth, preflight, reset, and stale-session recovery
 - [`docs/phase-03-demo-script.md`](docs/phase-03-demo-script.md) — four-beat demo and pass criteria
 - [`docs/nanoclaw-live-tests.md`](docs/nanoclaw-live-tests.md) — live validation matrix

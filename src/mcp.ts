@@ -38,6 +38,7 @@ import {
 import { formatTokenControlEvents, getTokenControlEvents } from "./event-view-service.js";
 import { evaluatePendingHolderQueries, getTopHoldersForTokenTarget } from "./holder-query-service.js";
 import { formatTokenInvestigation, investigateToken } from "./investigation-service.js";
+import { formatMutationConfirmationRequired, isMutationConfirmationRequired } from "./mcp-safety.js";
 import { formatConfiguredBackends, formatMultichainInspection, inspectTargetsAcrossBackends } from "./multichain-service.js";
 import { getAddressBalanceForTokenTarget, getHolderConcentrationForTokenTarget } from "./query-service.js";
 import {
@@ -54,6 +55,16 @@ const server = new McpServer({
   name: "logrunner",
   version: "0.1.0",
 });
+
+function mutationConfirmationRequired(operation: string, confirmed?: boolean) {
+  if (!isMutationConfirmationRequired() || confirmed) {
+    return undefined;
+  }
+
+  return {
+    content: [{ type: "text" as const, text: formatMutationConfirmationRequired(operation) }],
+  };
+}
 
 async function arbitrumGovernanceIncidentToolContent(
   input: {
@@ -198,14 +209,22 @@ server.tool(
 server.tool(
   "investigate_contract_address",
   {
+    confirmed: z.boolean().optional(),
     contractAddress: z.string().min(1),
   },
-  async ({ contractAddress }) => ({
-    content: [{
-      type: "text",
-      text: formatContractAddressInvestigationResult(await investigateContractAddress(contractAddress)),
-    }],
-  }),
+  async ({ confirmed, contractAddress }) => {
+    const confirmation = mutationConfirmationRequired("automatic contract ABI import/linking", confirmed);
+    if (confirmation) {
+      return confirmation;
+    }
+
+    return {
+      content: [{
+        type: "text",
+        text: formatContractAddressInvestigationResult(await investigateContractAddress(contractAddress)),
+      }],
+    };
+  },
 );
 
 server.tool(
@@ -225,28 +244,37 @@ server.tool(
   "import_contract_lookup_candidate",
   {
     candidateIndex: z.number().int().min(0),
+    confirmed: z.boolean().optional(),
     contractAddress: z.string().min(1),
     contractLabel: z.string().min(1).optional(),
     startingBlock: z.string().min(1).optional(),
   },
-  async ({ candidateIndex, contractAddress, contractLabel, startingBlock }) => ({
-    content: [{
-      type: "text",
-      text: formatImportContractLookupCandidateResult(
-        await importContractLookupCandidateForAddress({
-          address: contractAddress,
-          candidateIndex,
-          contractLabel,
-          startingBlock,
-        }),
-      ),
-    }],
-  }),
+  async ({ candidateIndex, confirmed, contractAddress, contractLabel, startingBlock }) => {
+    const confirmation = mutationConfirmationRequired("manual contract ABI import/linking", confirmed);
+    if (confirmation) {
+      return confirmation;
+    }
+
+    return {
+      content: [{
+        type: "text",
+        text: formatImportContractLookupCandidateResult(
+          await importContractLookupCandidateForAddress({
+            address: contractAddress,
+            candidateIndex,
+            contractLabel,
+            startingBlock,
+          }),
+        ),
+      }],
+    };
+  },
 );
 
 server.tool(
   "inspect_contract_interfaces",
   {
+    confirmed: z.boolean().optional(),
     contractAddress: z.string().min(1).optional(),
     tokenName: z.string().min(1).optional(),
   },
@@ -276,12 +304,18 @@ server.tool(
 server.tool(
   "ensure_contract_interface",
   {
+    confirmed: z.boolean().optional(),
     contractAddress: z.string().min(1).optional(),
     interfaceLabel: z.string().min(1),
     startingBlock: z.string().min(1).optional(),
     tokenName: z.string().min(1).optional(),
   },
-  async ({ contractAddress, interfaceLabel, startingBlock, tokenName }) => {
+  async ({ confirmed, contractAddress, interfaceLabel, startingBlock, tokenName }) => {
+    const confirmation = mutationConfirmationRequired("manual contract interface linking", confirmed);
+    if (confirmation) {
+      return confirmation;
+    }
+
     const target = await resolveTokenTarget({ contractAddress, tokenName });
     if (target.unresolved) {
       return {
@@ -488,8 +522,26 @@ server.tool(
       .min(1)
       .describe("Known token alias/name to resolve to a contract address before onboarding.")
       .optional(),
+    confirmed: z.boolean().optional(),
   },
-  async ({ contractAddress, limit, tokenName }) => {
+  async ({ confirmed, contractAddress, limit, tokenName }) => {
+    if (contractAddress && !tokenName) {
+      let needsOnboarding = true;
+      try {
+        const readiness = await resolveContractReadiness(resolveConfig(), contractAddress);
+        needsOnboarding = readiness.state === "needs-link";
+      } catch {
+        needsOnboarding = true;
+      }
+
+      if (needsOnboarding) {
+        const confirmation = mutationConfirmationRequired("raw contract holder onboarding", confirmed);
+        if (confirmation) {
+          return confirmation;
+        }
+      }
+    }
+
     const responseText =
       contractAddress || tokenName
         ? await getTopHoldersForTokenTarget({
@@ -617,10 +669,16 @@ server.tool("evaluate_balance_watches", {}, async () => {
 server.tool(
   "ensure_event_webhook",
   {
+    confirmed: z.boolean().optional(),
     url: z.string().url(),
     label: z.string().min(1).default(DEFAULT_WEBHOOK_LABEL),
   },
-  async ({ url, label }) => {
+  async ({ confirmed, url, label }) => {
+    const confirmation = mutationConfirmationRequired("arbitrary webhook registration", confirmed);
+    if (confirmation) {
+      return confirmation;
+    }
+
     const result = await ensureBalanceWebhook(url, label);
     return {
       content: [{ type: "text", text: `Webhook ready: id=${result.id} label=${result.label} url=${result.url}` }],

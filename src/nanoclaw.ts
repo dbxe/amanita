@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 
 import { listConfiguredBackends, readConfiguredBackendProfiles, resolveConfig } from "./config.js";
+import { MUTATION_CONFIRMATION_ENV } from "./mcp-safety.js";
 
 interface McpServerConfig {
   command: string;
@@ -72,6 +73,7 @@ export function containerInstructions(): string {
   return [
     "Use this MCP server for MultiBaas event-query and watch tasks.",
     "- Prefer typed capability tools over any workflow-specific or prompt-matched fallback behavior.",
+    "- This judge-facing NanoClaw session requires explicit user confirmation before mutating MultiBaas setup. If a tool says confirmation is required for contract ABI import/linking, raw contract holder onboarding, or arbitrary webhook registration, explain the sync/configuration impact and ask the user to confirm. Only call the tool again with `confirmed: true` after an explicit yes.",
     "- Mandatory routing: if the user mentions KelpDAO, rsETH, frozen ETH, frozen funds, the 30,765 ETH freeze, the 0x0000000000000000000000000000000000000DA0 address, or the Arbitrum release proposal, call the Arbitrum governance incident tool surface before answering. Prefer the capability-shaped tools `summarize_governance_incident`, `verify_governance_control_activity`, `check_governance_proposal_status`, and `monitor_governance_proposal`; use `analyze_arbitrum_governance_incident` only when no narrower capability fits. Do not answer those prompts from memory.",
     "- Use `list_configured_backends` when you need to understand which MultiBaas deployments are available to you.",
     "- Use `inspect_targets_across_backends` when the user asks for multichain context, bridge-side comparison, or the status of explicit contracts across more than one configured backend.",
@@ -290,6 +292,7 @@ export function configureNanoClawGroup(options: ConfigureNanoClawOptions): Confi
   const webhookPublicUrl =
     process.env.MULTIBAAS_WEBHOOK_PUBLIC_URL ?? existingEnv.MULTIBAAS_WEBHOOK_PUBLIC_URL;
   const runtimeEnv: Record<string, string> = {
+    [MUTATION_CONFIRMATION_ENV]: "1",
     ...(backendProfilesJson ? {
       MULTIBAAS_BACKENDS_JSON: backendProfilesJson,
       MULTIBAAS_PROFILE: preferredNanoClawProfileName(),
