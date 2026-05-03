@@ -36,10 +36,10 @@ Required values:
 - `LOGRUNNER_SSH_KEY`
 - `LOGRUNNER_DISCORD_PLATFORM_ID` as `discord:<guild-id>:<channel-id>`
 - `DISCORD_BOT_TOKEN`, `DISCORD_APPLICATION_ID`, `DISCORD_PUBLIC_KEY`
-- `OPENAI_CHAT_COMPLETIONS_URL` or `OPENAI_BASE_URL` for the OpenAI-compatible inference endpoint
-- `OPENAI_API_KEY` for first-time remote OneCLI secret install
+- `OPENAI_CHAT_COMPLETIONS_URL` or `OPENAI_BASE_URL` for the official OpenAI or OpenAI-compatible inference endpoint
+- `OPENAI_API_KEY` for official OpenAI, or `OPENCODE_API_KEY` for non-OpenAI compatible providers such as Integrate/0G, for first-time remote OneCLI secret install
 - `OPENCODE_PROVIDER`, `OPENCODE_MODEL`, `OPENCODE_SMALL_MODEL`, and optional model limits such as `OPENCODE_MODEL_OUTPUT_LIMIT`
-- `LOGRUNNER_NANOCLAW_INSTRUCTION_PROFILE=compact` for low-token-budget remote model endpoints
+- `LOGRUNNER_NANOCLAW_INSTRUCTION_PROFILE=compact` only for low-token-budget remote model endpoints
 - `MULTIBAAS_BACKENDS_FILE` pointing at your gitignored multibackend config, or `MULTIBAAS_BASE_URL` + `MULTIBAAS_API_KEY` for a single-backend fallback
 - `MULTIBAAS_PROFILE` for the default backend profile used by single-backend tools
 - `LOGRUNNER_WEBHOOK_PUBLIC_URL` for MultiBaas event callbacks
@@ -66,7 +66,7 @@ The deploy owns the remote OneCLI setup:
    `OPENAI_ONECLI_SECRET_NAME` for `OPENAI_BASE_URL` on `OPENAI_ONECLI_PATH_PATTERN`, usually `/v1/*`.
    one `MULTIBAAS_ONECLI_SECRET_NAME (<profile>)` entry for each configured MultiBaas profile on `MULTIBAAS_ONECLI_PATH_PATTERN`, usually `/api/v0/*`.
 
-For a first deploy, set `OPENAI_API_KEY` in `.env.prod` or store it in the macOS Keychain as `DEMO_OPENAI_API_KEY`, then provide MultiBaas API keys through `MULTIBAAS_BACKENDS_FILE` or the single-backend `MULTIBAAS_API_KEY` fallback. The local deploy script defaults to `OPENAI_API_KEY_SOURCE=keychain`, so the Keychain item wins over an ignored `.env.prod` value unless `OPENAI_API_KEY` was explicitly exported in the shell. To use a different Keychain item name, set `OPENAI_API_KEY_KEYCHAIN_ITEM`; to force the env-file key, set `OPENAI_API_KEY_SOURCE=env`. The remote deploy script redacts raw env-file key values back out of `/opt/logrunner-prod/shared/logrunner.env` after installing them into OneCLI. Keep raw keys out of NanoClaw `container.json`; the runtime sends placeholder bearer tokens from inside NanoClaw so OneCLI can inject real credentials.
+For a first deploy, set `OPENAI_API_KEY` in `.env.prod` or store it in the macOS Keychain as `DEMO_OPENAI_API_KEY`, then provide MultiBaas API keys through `MULTIBAAS_BACKENDS_FILE` or the single-backend `MULTIBAAS_API_KEY` fallback. For non-OpenAI providers that expose an OpenAI-compatible API, prefer `OPENCODE_API_KEY` so the credential is not confused with an official OpenAI key. The local deploy script defaults to `OPENAI_API_KEY_SOURCE=keychain`, so the Keychain item wins over an ignored `.env.prod` value unless `OPENAI_API_KEY` was explicitly exported in the shell. To use a different Keychain item name, set `OPENAI_API_KEY_KEYCHAIN_ITEM`; to force the env-file key, set `OPENAI_API_KEY_SOURCE=env`. The remote deploy script redacts raw env-file key values back out of `/opt/logrunner-prod/shared/logrunner.env` after installing them into OneCLI. Keep raw keys out of NanoClaw `container.json`; the runtime sends placeholder bearer tokens from inside NanoClaw so OneCLI can inject real credentials.
 
 If you need to force a fresh OneCLI gateway install on the VM, set:
 
