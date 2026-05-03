@@ -135,7 +135,14 @@ fi
 
 (
   cd "$ROOT_DIR"
-  npm test
+  env \
+    -u MULTIBAAS_BACKENDS_FILE \
+    -u MULTIBAAS_BACKENDS_JSON \
+    -u MULTIBAAS_PROFILE \
+    -u MULTIBAAS_BASE_URL \
+    -u MULTIBAAS_API_KEY \
+    -u MULTIBAAS_NETWORK \
+    npm test
 )
 
 tmp_dir="$(mktemp -d)"
