@@ -63,8 +63,8 @@ See:
 │  NanoClaw  (Dockerized agent harness — lightly modified fork)   │
 │  ┌──────────────────────────────────────────────────────────┐   │
 │  │  Inference provider                                      │   │
-│  │  • local OpenAI-compatible endpoint for recording         │   │
-│  │  • hosted provider path for demo deployment               │   │
+│  │  • local OpenAI-compatible endpoint for recording        │   │
+│  │  • hosted provider path for demo deployment              │   │
 │  └──────────────────────────────────────────────────────────┘   │
 │                            │  MCP (stdio)                       │
 └────────────────────────────┼────────────────────────────────────┘
