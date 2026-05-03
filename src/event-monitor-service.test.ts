@@ -28,6 +28,8 @@ const monitor: EventMonitor = {
   updatedAt: "2026-05-02T00:00:00.000Z",
 };
 
+const frozenEthAddress = "0x0000000000000000000000000000000000000DA0";
+
 function stateWithMonitor(candidate: EventMonitor = monitor): LocalState {
   return {
     eventMonitors: [candidate],
@@ -177,6 +179,36 @@ test("formatArbitrumFrozenEthReleaseMonitorRegistration describes the webhook pa
   assert.doesNotMatch(text, /fallback/i);
   assert.doesNotMatch(text, /recurrence/i);
   assert.doesNotMatch(text, /tool: analyze_arbitrum_governance_incident/i);
+});
+
+test("formatArbitrumFrozenEthReleaseMonitorRegistration prefers canonical monitor filters over stale state", () => {
+  const staleMonitor: EventMonitor = {
+    ...monitor,
+    matchText: ["Kelp", "rsETH", "frozen ETH", "0x00000000000000000000000000000DA0"],
+  };
+  const analysis: ArbitrumGovernanceIncidentAnalysis = {
+    evidenceBoundaries: [],
+    focus: "monitor",
+    limit: 3,
+    monitorPlan: {
+      agentSideFilters: ["Kelp", "rsETH", "frozen ETH", frozenEthAddress],
+      directDescriptionFilteringSupported: false,
+      eventName: "ProposalCreated",
+      followUpAnalysis: ["inspect proposal ID, proposer, targets, values, calldata, and description"],
+      network: "Arbitrum One",
+      profileName: "arbitrum-one-remote",
+      targetAddress: monitor.contractAddress,
+      targetLabel: "Core Governor",
+    },
+  };
+
+  const text = formatArbitrumFrozenEthReleaseMonitorRegistration({
+    analysis,
+    monitor: staleMonitor,
+  });
+
+  assert.match(text, new RegExp(`matching: .*${frozenEthAddress}`));
+  assert.doesNotMatch(text, /0x00000000000000000000000000000DA0/);
 });
 
 test("formatArbitrumFrozenEthReleaseMonitorRegistration makes missing webhook impossible to present as active", () => {

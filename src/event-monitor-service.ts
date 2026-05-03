@@ -63,6 +63,10 @@ function formatMonitorValues(values: string[]): string {
   return values.map(formatMonitorValue).join(", ");
 }
 
+function displayMatchText(result: ArbitrumFrozenEthReleaseMonitorResult): string[] {
+  return result.analysis.monitorPlan?.agentSideFilters ?? result.monitor.matchText;
+}
+
 function upsertEventMonitor(monitors: EventMonitor[], monitor: EventMonitor): EventMonitor[] {
   const existing = monitors.find((candidate) => candidate.id === monitor.id);
   if (existing) {
@@ -315,7 +319,7 @@ export function formatArbitrumFrozenEthReleaseMonitorRegistration(
     : `no matching release ProposalCreated event in ${proposalStatus?.searchedCount ?? 0} scanned Core Governor event(s)`;
   const followUp = result.monitor.followUpAnalysis.join("; ");
   const watching = `${result.monitor.profileName} (${result.monitor.network}) ${result.monitor.contractLabel} \`${result.monitor.contractAddress}\` / ${result.monitor.eventName}`;
-  const matching = formatMonitorValues(result.monitor.matchText);
+  const matching = formatMonitorValues(displayMatchText(result));
 
   const lines = [
     "Evidence packet: Arbitrum frozen ETH release event monitor",
