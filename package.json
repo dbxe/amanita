@@ -1,5 +1,5 @@
 {
-  "name": "multibaas-protocol-intelligence-runtime",
+  "name": "logrunner",
   "private": true,
   "version": "0.1.0",
   "description": "Typed MultiBaas protocol intelligence runtime",

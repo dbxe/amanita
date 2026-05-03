@@ -51,7 +51,7 @@ import { DEFAULT_WEBHOOK_LABEL, ensureBalanceWebhook } from "./webhook-service.j
 import { evaluateBalanceWatches, listBalanceWatches, saveBalanceWatch } from "./watch-service.js";
 
 const server = new McpServer({
-  name: "multibaas-protocol-intelligence-runtime",
+  name: "logrunner",
   version: "0.1.0",
 });
 

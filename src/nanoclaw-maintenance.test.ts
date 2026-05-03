@@ -47,7 +47,7 @@ function initializeHostDatabase(dbPath: string): void {
 }
 
 test("inspectNanoClawGroup reports backend registry and session state", (t) => {
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "amanita-nanoclaw-maintenance-"));
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "logrunner-nanoclaw-maintenance-"));
   const repoDir = path.join(tempDir, "repo");
   const nanoclawDir = path.join(tempDir, "nanoclaw");
   const dbPath = path.join(nanoclawDir, "data", "v2.db");
@@ -154,7 +154,7 @@ test("inspectNanoClawGroup reports backend registry and session state", (t) => {
 });
 
 test("resetNanoClawGroupSessions stops containers, archives sessions, and clears host DB rows", (t) => {
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "amanita-nanoclaw-reset-"));
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "logrunner-nanoclaw-reset-"));
   const nanoclawDir = path.join(tempDir, "nanoclaw");
   const dbPath = path.join(nanoclawDir, "data", "v2.db");
   const containerConfigPath = path.join(nanoclawDir, "groups", "cli-with-test", "container.json");

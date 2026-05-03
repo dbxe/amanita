@@ -1,6 +1,6 @@
 # NanoClaw live integration tests
 
-This runbook tracks **live NanoClaw + amanita + MultiBaas** validation for the current DAO pivot.
+This runbook tracks **live NanoClaw + Logrunner + MultiBaas** validation for the current DAO pivot.
 
 The tests are split into two categories on purpose:
 

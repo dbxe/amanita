@@ -31,7 +31,7 @@ function withEnv<T>(overrides: Record<string, string | undefined>, run: () => T)
 }
 
 test("resolveConfig reads a gitignored backend profile", () => {
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "amanita-config-"));
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "logrunner-config-"));
   const previousCwd = process.cwd();
 
   fs.mkdirSync(path.join(tempDir, ".multibaas"), { recursive: true });
@@ -83,7 +83,7 @@ test("resolveConfig reads a gitignored backend profile", () => {
 });
 
 test("resolveConfig lets env vars override the selected backend profile", () => {
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "amanita-config-"));
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "logrunner-config-"));
   const previousCwd = process.cwd();
 
   fs.mkdirSync(path.join(tempDir, ".multibaas"), { recursive: true });
@@ -132,7 +132,7 @@ test("resolveConfig lets env vars override the selected backend profile", () => 
 });
 
 test("resolveConfigForProfile and listConfiguredBackends expose multiple configured backends without env overrides", () => {
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "amanita-config-"));
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "logrunner-config-"));
   const previousCwd = process.cwd();
 
   fs.mkdirSync(path.join(tempDir, ".multibaas"), { recursive: true });

@@ -7,7 +7,7 @@ import test from "node:test";
 import { evaluatePendingHolderQueries, requestTopHolders } from "./holder-tasks.js";
 
 test("requestTopHolders asks for a token address when the token name is unknown", async () => {
-  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "amanita-holder-task-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "logrunner-holder-task-"));
 
   try {
     const result = await requestTopHolders(
@@ -37,7 +37,7 @@ test("requestTopHolders asks for a token address when the token name is unknown"
 });
 
 test("requestTopHolders returns a partial indexed holder snapshot while syncing and follows up once ready", async () => {
-  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "amanita-holder-task-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "logrunner-holder-task-"));
   let ensureReadyCalls = 0;
   let executeCalls = 0;
 

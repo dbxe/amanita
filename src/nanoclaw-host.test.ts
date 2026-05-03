@@ -68,7 +68,7 @@ function initializeOutboundDatabase(dbPath: string): void {
 }
 
 test("sendNanoClawNotification queues a chat message into the latest active session", () => {
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "amanita-nanoclaw-host-"));
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "logrunner-nanoclaw-host-"));
   const nanoclawDir = path.join(tempDir, "nanoclaw");
   const hostDbPath = path.join(nanoclawDir, "data", "v2.db");
   const outboundDbPath = path.join(

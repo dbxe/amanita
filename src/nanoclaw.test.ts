@@ -104,7 +104,7 @@ test("containerInstructions steer NanoClaw away from saved queries for ERC-20 ho
 });
 
 test("configureNanoClawGroup writes a relative mount and workspace/extra MCP path", () => {
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "amanita-nanoclaw-"));
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "logrunner-nanoclaw-"));
   const repoDir = path.join(tempDir, "repo");
   const nanoclawDir = path.join(tempDir, "nanoclaw");
   const groupFolder = "cli-with-test";
@@ -242,7 +242,7 @@ test("configureNanoClawGroup writes a relative mount and workspace/extra MCP pat
 });
 
 test("configureNanoClawGroup prunes the legacy multibaas-agent server and mount", () => {
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "amanita-nanoclaw-legacy-"));
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "logrunner-nanoclaw-legacy-"));
   const repoDir = path.join(tempDir, "repo");
   const nanoclawDir = path.join(tempDir, "nanoclaw");
   const groupFolder = "cli-with-test";

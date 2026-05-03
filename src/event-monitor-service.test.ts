@@ -62,7 +62,7 @@ test("evaluateEventMonitorsForState emits one alert for a matching ProposalCreat
 });
 
 test("evaluateEventMonitors checks configured profile state dirs", () => {
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "amanita-event-monitors-"));
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "logrunner-event-monitors-"));
   const mainnetStateDir = path.join(tempDir, "mainnet");
   const arbitrumStateDir = path.join(tempDir, "arbitrum");
   const previousBackendsJson = process.env.MULTIBAAS_BACKENDS_JSON;

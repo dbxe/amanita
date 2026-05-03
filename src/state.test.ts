@@ -8,7 +8,7 @@ import { loadState, saveState } from "./state.js";
 import { createBalanceMonitorTask } from "./tasks.js";
 
 test("loadState and saveState persist capability-oriented task records", () => {
-  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "amanita-state-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "logrunner-state-"));
 
   try {
     const task = createBalanceMonitorTask({
