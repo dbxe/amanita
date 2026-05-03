@@ -1,325 +1,185 @@
-# MultiBaas-backed Web3 intelligence runtime
+# Logrunner
 
-This repo is a **generic Web3 intelligence system** built on top of MultiBaas. Its long-term direction is a typed, composable runtime where an agent answers protocol questions by combining reusable capabilities instead of relying on a growing shell of prompt-specific workflows.
+A research agent that **jacks into EVM event history** the way a web research agent browses the internet.
 
-The **current demo focus is Arbitrum DAO**. That story is still early. Live sync coverage, backend correctness, and contract-role reliability are still being hardened, so the current priority is to make the DAO path reliable enough to learn what the strongest story actually is.
+Logrunner reaches blockchain state that smart-contract storage can't expose: it queries decoded event logs, builds pivot-table-style aggregations across them, registers webhooks so the chain itself can wake the agent, and correlates evidence across multiple EVM networks. Built for the [ETHGlobal OpenAgents](https://ethglobal.com/events/openagents) hackathon.
 
-Do not read today's operator prompts and backend-health checks as the finished DAO demo. They are build-stage validation tools that help stabilize the runtime while the DAO intelligence story is still being discovered.
+The name is a nod to Cyberpunk 2077's netrunners. Logrunner runs through event logs.
 
-## Source Of Truth
+---
 
-**MultiBaas is the source of truth.**
+## What this repo is
 
-This repo's task is to get the agent to report what MultiBaas actually knows:
+This repo is **Logrunner the runtime** — the code that turns natural-language research questions into bounded, decoded blockchain queries and back into grounded answers. It is exposed to a chat interface as an MCP server.
 
-- which contracts are linked
-- which contracts are `ready` vs `syncing`
-- which event surfaces and bounded investigations are really available
-- which historical results are grounded enough to report
+The agent harness around it is NanoClaw, a third-party Dockerized harness integrated as plumbing on a [lightly modified fork](https://github.com/dbxe/nanoclaw) (the `openagents` branch — branch-based feature opt-ins like Discord support are how NanoClaw ships, plus a few small runtime fixes). The core hackathon contribution lives entirely in this repository: the typed event-query substrate, the webhook-driven monitor, the multichain target layer, the incident-shaped demo surface, and ~30 MCP tools wiring it together.
 
-Do not take the agent's prose at face value when it conflicts with backend state. While this runtime is still being hardened, trust the host-side MultiBaas-backed checks over the agent's summary:
+---
 
-- `npm run dev -- backend list`
-- `npm run dev -- contract inspect --contract 0x...`
-- `npm run dev -- query event-capabilities --contract 0x...`
-- `npm run dev -- query controls --contract 0x... --limit 10`
-- `npm run dev -- query multichain-inspect --targets ...`
+## The demo
 
-The point of the project is not to make the agent sound confident. The point is to make the agent report the source of truth accurately.
+Four prompts, sent in sequence to a NanoClaw chat channel wired to this MCP server. The scenario is the Arbitrum Security Council's freeze of ~30,765 ETH following the KelpDAO / rsETH exploit.
 
-## Documentation map
+| # | Prompt | What it shows |
+|---|--------|---------------|
+| 1 | *"What's going on with Arbitrum governance lately? I heard the council froze some ETH. What's the brief?"* | Real tool call, real live blockchain data. The reply carries a tool-call receipt: which contract, which event, how many blocks scanned. |
+| 2 | *"Does the event data show the transaction freezing the ETH?"* | Multichain in one answer. The receipt lists four event streams across Ethereum mainnet (L1 timelock + upgrade executor) and Arbitrum One (L2 timelock + upgrade executor). |
+| 3 | *"Has the proposal to release the frozen ETH already landed on chain? If not, let me know when it does."* | The agent takes action, not just reports. It registers a MultiBaas event-emitted webhook and emits an activation receipt. After this, the chain wakes the agent only when the event actually fires — no polling. |
+| 4 | *"By the way, who are the top ARB token holders on Ethereum?"* | State that contract storage can't enumerate. There is no `getAllHolders` on an ERC-20; Logrunner derives the live balance sheet by aggregating every `Transfer` event the token has ever emitted. |
 
-- `README.md` — quickstart and current repo posture
-- `docs/arbitrum-dao-demo.md` — DAO pivot framing: what is being validated now vs what the story should become
-- `docs/architecture.md` — repo shape, module boundaries, and design direction
-- `docs/nanoclaw.md` — NanoClaw setup, auth wiring, preflight, reset, and stale-session recovery
-- `docs/nanoclaw-live-tests.md` — live validation matrix split into operator health checks and exploratory DAO probes
-- `docs/phase-01.md` — original Phase 01 plan and partial implementation record
-- `docs/phase-02.md` — current capability-first direction with DAO-first packaging
-- `AGENTS.md` — repo conventions for coding agents
+Every reply embeds an `event_query` block with the exact tool call, target contract, event filter, and number of events scanned. That receipt is the part that makes the agent feel grounded rather than ungrounded.
 
-## Current posture
+The full transcript is in [`docs/demo-log.md`](docs/demo-log.md). The script and pass criteria are in [`docs/phase-03-demo-script.md`](docs/phase-03-demo-script.md).
 
-Two things are true at once:
+---
 
-- the runtime is still **generic**
-- the repo is currently being packaged around **Arbitrum DAO**
+## Architecture
 
-That packaging choice is deliberate. Token, stablecoin, pool, event-sourced, and multibackend investigations are still part of the substrate, but one strong live story is better than several fragmented ones. Right now the strongest candidate story is DAO intelligence, so the repo is prioritizing the Arbitrum DAO path while keeping the underlying runtime naming-neutral and reusable.
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  User                                                           │
+│  Discord channel  /  local CLI socket                           │
+└──────────────────────────────┬──────────────────────────────────┘
+                               │  chat message
+                               ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  NanoClaw  (Dockerized agent harness — third-party)             │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │  Inference provider                                      │   │
+│  │  • llama-swap → local Gemma 4 26B A4B    (recording)     │   │
+│  │  • OpenCode → 0G Galileo / Qwen 2.5 7B   (hosted demo)   │   │
+│  └──────────────────────────────────────────────────────────┘   │
+│                            │  MCP (stdio)                       │
+└────────────────────────────┼────────────────────────────────────┘
+                             ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  Logrunner runtime  ◄── this repo                               │
+│  • event-view spec compiler (typed pivot tables over events)    │
+│  • event-monitor service (webhook registration + dispatch)      │
+│  • multichain target resolver                                   │
+│  • incident-shaped surfaces (KelpDAO frozen-ETH demo)           │
+│  • ~30 MCP tools                                                │
+│  • local CLI mirroring the same operations                      │
+└────────────────────────────┬────────────────────────────────────┘
+                             │  REST  ( /api/v0/* — one client per backend profile )
+                ┌────────────┴────────────┐
+                ▼                         ▼
+┌─────────────────────────────┐  ┌─────────────────────────────┐
+│  MultiBaas instance         │  │  MultiBaas instance         │
+│  profile: mainnet-remote    │  │  profile: arbitrum-one-     │
+│                             │  │           remote            │
+│  • indexes & decodes events │  │  • indexes & decodes events │
+│  • event-query API          │  │  • event-query API          │
+│  • signed event webhooks    │  │  • signed event webhooks    │
+└──────────────┬──────────────┘  └──────────────┬──────────────┘
+               │  RPC                           │  RPC
+               ▼                                ▼
+       Ethereum mainnet                    Arbitrum One
+```
 
-## North star
+Each MultiBaas instance ([Curvegrid](https://www.curvegrid.com/multibaas)) is a separate deployment indexing exactly one EVM chain. Logrunner's backend registry holds one client per chain and routes each typed query to the right profile. The "multichain" feel comes from this layer fanning out concurrently, not from a single MultiBaas talking to multiple chains.
 
-The product direction is:
+Two MultiBaas capabilities carry the demo. Logrunner adds a typed substrate around both so the LLM can compose them safely.
 
-- reusable, typed MultiBaas-backed capabilities
-- explicit readiness, waiting, and execution state
-- model-driven composition of lower-level tools
-- less reliance over time on workflow-specific natural-language routing
+### Event queries
 
-The repo still contains some compatibility-era surfaces, but the main runtime direction is capability-first. Prefer the framing in [`docs/phase-02.md`](docs/phase-02.md) over adding new workflow-specific routing.
+MultiBaas indexes and decodes every emitted event for a linked contract. Logrunner's `event-view` module ([`src/event-view.ts`](src/event-view.ts)) is a bounded, typed spec compiler that turns a structured view definition — selected fields, filters by indexed inputs, unions of compatible event streams, group-by, and aggregators (`add`, `subtract`, `first`, `last`, `min`, `max`) — into a MultiBaas event query.
 
-## Repo-health acceptance
+This matters because much of EVM state isn't readable from contract storage. ERC-20 holders, governance proposal histories, timelock execution traces, and pool liquidity over time all live in the event log. The event-view layer is the substrate that lets the agent treat that log as a queryable database.
 
-Treat repo health in two layers.
+### Webhook monitors
 
-### A. Operator health
+The `event-monitor` service ([`src/event-monitor-service.ts`](src/event-monitor-service.ts)) registers a MultiBaas `event.emitted` webhook, persists a marker filter alongside it, and routes incoming deliveries through a signature-validated local ingress ([`src/webhook-service.ts`](src/webhook-service.ts)) that dispatches matches back to the NanoClaw session. The agent does not poll. The chain calls back.
 
-A fresh operator should be able to:
+### Multichain
 
-- configure NanoClaw for a target group
-- run `nanoclaw preflight`
-- verify mounted runtime build and backend registry presence
-- verify OneCLI `/api/v0/*` secret coverage for each configured backend
-- recover stale state with `nanoclaw reset-group`
-- ask narrow sync, link, backend, and role-identification questions and get grounded answers
+A backend registry maps named profiles (e.g. `mainnet-remote`, `arbitrum-one-remote`) to MultiBaas instances ([`src/config.ts`](src/config.ts), [`src/multichain-service.ts`](src/multichain-service.ts)). The same query primitives work across networks, and the `inspect_targets_across_backends` tool runs them concurrently so a single answer can correlate L1 and L2 evidence.
 
-### B. Product-intelligence readiness
+---
 
-A fresh operator should also understand that:
+## What's real, what's scaffolded
 
-- the Arbitrum DAO story is still being shaped
-- some contracts may still be syncing
-- today's stable result set is narrower than the intended final DAO story
-- operator-health prompts are not the intended end-state user experience
-- the agent is not the source of truth; MultiBaas is
+Honest scope, in plain language.
 
-## Prerequisites
+**Real, in the demo:**
 
-1. Node 22+
-2. A populated `hardhat/deployment-config.<network>.ts`
-3. For repo-local fixture work, the sample token deployed and linked from `hardhat/`
+- The blockchain data is live. Every `event_query` receipt corresponds to an actual MultiBaas API call against a live deployment indexing Ethereum mainnet or Arbitrum One.
+- The webhook in beat 3 is a real MultiBaas `event.emitted` registration. When (or if) a matching `ProposalCreated` event fires, the agent gets woken up.
+- The holder reconstruction in beat 4 is a genuine `Transfer` aggregation, not a static snapshot.
+- The multichain split in beat 2 is two MultiBaas instances queried concurrently.
 
-If you need the local fixture from scratch:
+**Scripted / scaffolded:**
+
+- The four demo prompts are scenario-shaped, and the event-query templates powering each beat are handcrafted for this incident (see [`src/arbitrum-governance-incident-service.ts`](src/arbitrum-governance-incident-service.ts)). The agent picks among them via tool descriptions, but the queries themselves are not yet composed by the model on the fly.
+- MultiBaas requires each contract to be **pre-linked and synced** before the agent can query it. This is not yet ad-hoc against any contract on any chain.
+- The recording uses a **local model** (Gemma 4 26B A4B served by llama-swap) for responsiveness. The hosted version uses **0G's Galileo testnet** (Qwen 2.5 7B) — a smaller model, with the longer-term framing that DAOs and dApps could fund their own agent deployments with onchain resources and token-paid inference.
+
+The next milestone is collapsing the scaffolded layer: letting the model compose event-view specs directly from the typed substrate, rather than choosing among incident-shaped wrappers.
+
+---
+
+## Repo layout
+
+```
+src/
+  event-view.ts                          ← typed event-query spec
+  event-view-service.ts                  ← runtime execution + formatting
+  event-monitor-service.ts               ← webhook-backed monitors
+  webhook-service.ts                     ← signature-validated ingress
+  multichain-service.ts                  ← cross-backend target inspection
+  arbitrum-governance-incident-service.ts ← demo-specific surfaces
+  arbitrum-dao-service.ts                ← Arbitrum DAO contract registry
+  multibaas.ts                           ← SDK integration layer
+  config.ts                              ← per-profile config resolution
+  mcp.ts                                 ← stdio MCP surface
+  nanoclaw.ts                            ← NanoClaw container.json helper
+  index.ts                               ← local CLI entrypoint
+  ...                                    ← typed services, holders, tasks, watches
+hardhat/                                 ← local fixture (deploy + mint a sample token)
+docs/                                    ← architecture, runbooks, demo scripts
+```
+
+A more granular module map lives in [`AGENTS.md`](AGENTS.md).
+
+---
+
+## Running locally
+
+Prerequisites: Node 22+, a MultiBaas backend you can reach, and (for the chat path) NanoClaw running on the host.
 
 ```bash
-cd hardhat
 npm install
-npm run deploy
-npm run mint
+npm run build
 ```
 
-## Install
+Configure MultiBaas via either:
 
-```bash
-npm install
-```
+- env vars: `MULTIBAAS_BASE_URL` + `MULTIBAAS_API_KEY`
+- a backend registry: `.multibaas/backends.local.json` selected by `MULTIBAAS_PROFILE` (see `.multibaas/backends.example.json`)
+- the local hardhat fixture: `hardhat/deployment-config.<network>.ts`
 
-`src/config.ts` resolves MultiBaas settings from either:
+### Local CLI (no agent)
 
-- `MULTIBAAS_BASE_URL` and `MULTIBAAS_API_KEY`
-- `.multibaas/backends.local.json` selected through `MULTIBAAS_PROFILE` or that file's `defaultProfile`
-- `hardhat/deployment-config.<network>.ts`
-
-The local backend-profile file is gitignored. Use `.multibaas/backends.example.json` as the shape reference.
-
-Useful backend commands:
-
-```bash
-# show all configured backends
-npm run dev -- backend list
-
-# use the gitignored default profile from .multibaas/backends.local.json
-npm run dev -- contract list-interfaces
-
-# force the local hardhat/dev backend
-MULTIBAAS_PROFILE=development npm run dev -- contract list-interfaces
-
-# force a specific remote profile
-MULTIBAAS_PROFILE=mainnet-remote npm run dev -- contract list-interfaces
-```
-
-Important MultiBaas convention:
-
-- the deployment selects the chain
-- for EVM deployments, the API path still remains `/api/v0/chains/ethereum/...`
-
-Do not treat that URL fragment as proof that a backend is Ethereum mainnet. Chain identity comes from the backend profile and deployment metadata, not from the path segment.
-
-## Generic runtime capabilities
-
-The runtime remains broader than the current DAO packaging. Current typed capability surfaces include:
-
-- contract/interface inspection and bounded onboarding
-- token metadata, balance, concentration, and top-holder reads
-- event-surface inspection and bounded event-backed investigations
-- multibackend target inspection
-- local watches, task persistence, and webhook delivery
-- the same operations exposed through CLI and stdio MCP
-
-Representative CLI entrypoints:
-
-```bash
-npm run dev -- query balance --contract 0xd26fde38F244Dcbb13e8017347Ac37804d926Bb5 --address 0xF9450D254A66ab06b30Cfa9c6e7AE1B7598c7172
-npm run dev -- query controls --contract 0xd26fde38F244Dcbb13e8017347Ac37804d926Bb5 --limit 10
-npm run dev -- query investigate --contract 0xd26fde38F244Dcbb13e8017347Ac37804d926Bb5 --limit 5
-npm run dev -- query multichain-inspect --targets source@mainnet-remote:0xd26fde38F244Dcbb13e8017347Ac37804d926Bb5,destination@arbitrum-one-remote:0xd26fde38F244Dcbb13e8017347Ac37804d926Bb5
-npm run dev -- query event-capabilities --contract 0xd26fde38F244Dcbb13e8017347Ac37804d926Bb5
-npm run dev -- query event-investigation --contract 0xd26fde38F244Dcbb13e8017347Ac37804d926Bb5 --lead holder_distribution --limit 10
-npm run dev -- query arbitrum-governance-incident --focus proposal-status --limit 5
-```
-
-Local watch state stays under `.agent-state/`.
-
-## Current demo focus: Arbitrum DAO
-
-The current live demo packaging is Arbitrum DAO, but the story is still in discovery because:
-
-- sync coverage across the DAO contract set is still being established
-- backend/profile correctness is still part of the day-to-day validation loop
-- role identification and cross-backend consistency still need repeated live verification
-
-The current build-stage goal is not to pretend the DAO intelligence story is finished. The goal is to stabilize the live DAO path enough to discover which intelligence questions produce the strongest demo.
-
-See [`docs/arbitrum-dao-demo.md`](docs/arbitrum-dao-demo.md) for the DAO-specific framing.
-
-## Question tracks
-
-### Operator / build-stage questions
-
-These are first-class validation tools, but they are not the end-state product story.
-
-- "What backends are configured right now?"
-- "Which backend profiles are present and do they have OneCLI `/api/v0/*` secret coverage?"
-- "For this DAO contract set, which targets are `ready`, `syncing`, or `needs-link`?"
-- "Is this address really the treasury governor, core timelock, or upgrade executor?"
-- "How does this contract look across Ethereum mainnet and Arbitrum backends?"
-
-Representative commands and flows:
+Every MCP tool has a CLI counterpart. Useful for development and for verifying answers when the agent looks suspicious.
 
 ```bash
 npm run dev -- backend list
-npm run dev -- query multichain-inspect --targets l1@mainnet-remote:0xE6841D92B0C345144506576eC13ECf5103aC7f49,l2@arbitrum-one-remote:0x34d45e99f7D8c45ed05B5cA72D54bbD1fb3F98f0
-npm run dev -- contract inspect --contract 0xE6841D92B0C345144506576eC13ECf5103aC7f49
-npm run dev -- query controls --contract 0xE6841D92B0C345144506576eC13ECf5103aC7f49 --limit 10
+npm run dev -- query arbitrum-governance-incident --focus brief --limit 3
+npm run dev -- query multichain-inspect --targets l1@mainnet-remote:0xE684...,l2@arbitrum-one-remote:0x34d4...
+npm run dev -- query event-investigation --contract 0xb50721bcf8d664c30412cfbc6cf7a15145234ad1 --lead holder_distribution --limit 10
 ```
 
-### Emerging DAO intelligence questions
-
-These are the questions the repo is trying to earn, not claim prematurely. Treat them as exploratory and still evolving.
-
-- "How is Arbitrum DAO governance structured across Ethereum and Arbitrum?"
-- "Which timelock or executor paths matter most right now?"
-- "Which proposals had treasury consequences?"
-- "Where does upgrade power live in practice?"
-- "What governance or treasury risks are visible, and which parts are still blocked on sync?"
-
-The correct live behavior here is:
-
-- stay grounded in current tool results
-- preserve syncing uncertainty explicitly
-- avoid turning operator-health facts into finished product conclusions
-- prefer under-claiming over reporting something that MultiBaas has not actually established
-
-## NanoClaw operator loop
-
-For NanoClaw-backed work, the standard operator loop is:
-
-1. build and configure the mounted runtime
-2. run `nanoclaw preflight`
-3. verify backend registry presence, active session/container state, and OneCLI secret coverage
-4. if a session is stale or poisoned, run `nanoclaw reset-group`
-5. run narrow health checks first
-6. only then run broader DAO intelligence probes
-
-`nanoclaw preflight` is an **operator health check**, not a product feature.
-
-Its purpose is to verify:
-
-- mounted runtime build presence
-- backend registry or selected base URL presence
-- active session and container state
-- OneCLI `/api/v0/*` secret coverage for each configured backend
-
-`nanoclaw reset-group` is also an operator tool. It is for stale-session recovery and poisoned-state cleanup, not part of the product story.
-
-For local maintainer testing, use NanoClaw's CLI socket path through:
-
-```bash
-cd ~/git/dbxe/nanoclaw
-pnpm run chat -- "hello"
-```
-
-After the NanoClaw chat-client fix, that command is the standard maintainer lane for both narrow and broader live prompts:
-
-- it waits up to 15 minutes for the first reply
-- it prints a waiting update every 30 seconds while the terminal is still quiet
-- after liveness succeeds, send one prompt and let the agent work
-- if the agent and MultiBaas disagree, trust MultiBaas and treat the agent answer as a bug
-
-See [`docs/nanoclaw.md`](docs/nanoclaw.md) for the operational runbook and [`docs/nanoclaw-live-tests.md`](docs/nanoclaw-live-tests.md) for the live validation matrix.
-
-When a live answer looks suspicious, verify the same question against the host-side CLI that talks to MultiBaas directly. If the agent and MultiBaas disagree, treat the MultiBaas-backed result as authoritative and treat the agent behavior as a bug to fix.
-
-## Webhooks
-
-Run the local webhook receiver:
-
-```bash
-npm run dev -- webhook serve --secret <webhook-secret> --port 8787
-```
-
-To have webhook-triggered alerts delivered back through a NanoClaw session:
-
-```bash
-npm run dev -- webhook serve \
-  --secret <webhook-secret> \
-  --port 8787 \
-  --nanoclaw-dir ~/git/dbxe/nanoclaw \
-  --group-folder dm-with-<name>
-```
-
-Register or update the shared MultiBaas webhook when you have a reachable callback URL:
-
-```bash
-npm run dev -- webhook ensure --url https://your-host.example/webhooks/multibaas
-```
-
-For local development:
-
-- if MultiBaas is running on the host, use `http://127.0.0.1:8787/webhooks/multibaas`
-- if MultiBaas is running in a container that can reach the host via Docker DNS, use `http://host.docker.internal:8787/webhooks/multibaas`
-
-The webhook handler validates `X-MultiBaas-Signature` and `X-MultiBaas-Timestamp`, refreshes tracked watch state, evaluates persisted event monitors, and appends alerts under `.agent-state/`.
-
-## MCP server
-
-The same operations are exposed over stdio MCP:
+### MCP server
 
 ```bash
 npm run mcp
 ```
 
-Representative tools:
+This is the entrypoint NanoClaw mounts. The full list of tools is in [`src/mcp.ts`](src/mcp.ts).
 
-- `list_preloaded_interfaces`
-- `inspect_contract_interfaces`
-- `ensure_contract_interface`
-- `resolve_contract_target`
-- `analyze_arbitrum_governance_incident`
-- `inspect_event_capabilities`
-- `run_event_investigation`
-- `get_token_control_events`
-- `investigate_token`
-- `get_top_holders`
-- `get_holder_concentration`
-- `get_address_balance`
-- `create_balance_watch`
-- `list_balance_watches`
-- `evaluate_tasks`
-- `ensure_event_webhook`
-- `create_arbitrum_frozen_eth_release_monitor`
+### NanoClaw integration
 
-The preferred direction is still:
-
-- preloaded interface matching
-- explicit contract-targeted reads and views
-- bounded event-view compilation
-
-not unconstrained model-authored backend payloads.
-
-## NanoClaw bridge
-
-This repo can write the NanoClaw group config needed to mount the runtime repo and register the MCP server:
+This repo can write the NanoClaw group config needed to mount the runtime and register the MCP server:
 
 ```bash
 npm run dev -- nanoclaw configure \
@@ -328,14 +188,36 @@ npm run dev -- nanoclaw configure \
   --write-allowlist
 ```
 
-What that does:
+Operational runbook (preflight, reset, stale-session recovery, secret injection): [`docs/nanoclaw.md`](docs/nanoclaw.md).
 
-- adds a read-only mount for this repo into the NanoClaw container
-- registers the `multibaas-runtime` MCP server in the target group's `container.json`
-- rewrites a host-local MultiBaas base URL like `localhost` to `host.docker.internal` for container access
-- sets a stable in-container state directory for watches
-- optionally adds this repo to NanoClaw's mount allowlist
+### Webhook receiver
 
-When the runtime runs inside NanoClaw, authenticated MultiBaas calls should use **OneCLI path-scoped secret injection** rather than a raw API key in `container.json`. The runtime sends a placeholder bearer token when no direct key is configured so OneCLI can rewrite it on `/api/v0/*` requests.
+For beat 3 to actually fire, MultiBaas needs a reachable callback URL:
 
-For the working NanoClaw install pattern, auth model, preflight/reset flow, and stale-session recovery, use [`docs/nanoclaw.md`](docs/nanoclaw.md).
+```bash
+npm run dev -- webhook serve --secret <webhook-secret> --port 8787
+npm run dev -- webhook ensure --url https://your-host.example/webhooks/multibaas
+```
+
+Signature validation, persisted monitor evaluation, and alert routing are handled in [`src/webhook-service.ts`](src/webhook-service.ts).
+
+---
+
+## Documentation
+
+- [`docs/architecture.md`](docs/architecture.md) — module boundaries, design direction, pressure points
+- [`docs/phase-03-demo-script.md`](docs/phase-03-demo-script.md) — the four-beat demo with pass/fail criteria
+- [`docs/demo-log.md`](docs/demo-log.md) — captured transcript from the recording pass
+- [`docs/nanoclaw.md`](docs/nanoclaw.md) — NanoClaw setup, auth, preflight, reset
+- [`docs/nanoclaw-live-tests.md`](docs/nanoclaw-live-tests.md) — live validation matrix
+- [`docs/research-event-query-use-cases.md`](docs/research-event-query-use-cases.md) — the broader space of investigations event queries unlock
+- [`AGENTS.md`](AGENTS.md) — repo conventions for coding agents and maintainers
+
+---
+
+## Credits
+
+- [NanoClaw](https://nanoclaw.dev) — agent harness
+- [MultiBaas](https://www.curvegrid.com/multibaas) — Curvegrid's blockchain backend platform; the indexing, event-query, and webhook substrate Logrunner builds on
+- [0G](https://0g.ai) — inference backend for the hosted demo
+- ETHGlobal OpenAgents — the hackathon
