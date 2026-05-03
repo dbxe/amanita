@@ -1,6 +1,6 @@
 # Phase 03 Demo Script
 
-Goal: pass a live NanoClaw demo where the agent uses the prescriptive Arbitrum governance incident tool, returns live event evidence, and presents a crisp incident brief.
+Goal: pass a live NanoClaw demo where the agent uses typed event-backed tools, returns live evidence, presents the Arbitrum governance incident crisply, and then shows the same substrate on an ERC-20 holder question.
 
 ## What Needs To Happen
 
@@ -17,7 +17,8 @@ Goal: pass a live NanoClaw demo where the agent uses the prescriptive Arbitrum g
 7. A status-only proposal question must not set up or promise a monitor.
 8. The merged status-plus-monitor beat must first report the current onchain status, then create the webhook-backed monitor.
 9. The monitor answer must include the `monitor_activation` proof block with webhook status/id/path before saying the monitor is active.
-10. For live event-query turns, the agent should synthesize a final answer from the evidence packet rather than copying it wholesale. Do not use model-authored standalone progress acknowledgements in this demo path; visible progress should come from NanoClaw runtime behavior, not from a progress-only assistant reply.
+10. The holder beat must call `get_top_holders`, show decimals-scaled balances, preserve sync status when present, and include the holder `event_query` block.
+11. For live event-query turns, the agent should synthesize a final answer from the evidence packet rather than copying it wholesale. Do not use model-authored standalone progress acknowledgements in this demo path; visible progress should come from NanoClaw runtime behavior, not from a progress-only assistant reply.
 
 ## Host-Side Verification
 
@@ -31,6 +32,7 @@ npm run dev -- query arbitrum-governance-incident --focus brief --limit 3
 npm run dev -- query arbitrum-governance-incident --focus verify-freeze --limit 2
 npm run dev -- query arbitrum-governance-incident --focus proposal-status --limit 3
 npm run dev -- query arbitrum-governance-incident --focus monitor --limit 3
+MULTIBAAS_PROFILE=mainnet-remote npm run dev -- query top-holders --token ARB --limit 10
 ```
 
 Expected host-side state:
@@ -39,6 +41,7 @@ Expected host-side state:
 - `proposal-status` checks Core Governor `ProposalCreated` events on Arbitrum One.
 - If no Kelp / rsETH / frozen ETH match exists, the answer says the next binding signal is `ProposalCreated`.
 - `verify-freeze` shows decoded L1 Upgrade Executor evidence and timelock/executor context without claiming exploit reconstruction.
+- `top-holders` shows the L1 bridged ARB token, symbol/decimals, scaled balances, and the holder reconstruction `event_query` block.
 
 ## NanoClaw Setup
 
@@ -108,11 +111,29 @@ Expected behavior:
 - includes the `monitor_activation` block with MultiBaas webhook id/status/path and avoids any NanoClaw recurrence language
 - lists the follow-up analysis to run after trigger
 
+### Beat 4: Holder Reconstruction Follow-Up
+
+```bash
+cd ~/git/dbxe/nanoclaw
+pnpm run chat -- "By the way, who are the top ARB token holders on Ethereum?"
+```
+
+Expected behavior:
+
+- calls `get_top_holders` with `tokenName: ARB`
+- uses `mainnet-remote` / Ethereum mainnet
+- identifies L1 bridged ARB at `0xb50721bcf8d664c30412cfbc6cf7a15145234ad1`
+- includes symbol and decimals when returned by the tool
+- shows balances in ARB units, not raw uint256 values
+- includes the holder reconstruction `event_query` block
+- preserves any sync caveat if the backend reports a partial indexed snapshot
+- does not infer total supply, holder percentages, or concentration from the holder list alone
+
 ## Pass Criteria
 
 A live pass means:
 
-- the agent calls the intended MCP tool for all three beats
+- the agent calls the intended MCP tool for all four beats
 - the agent includes a compact fenced `event_query` block for the live query it ran instead of making the answer feel like an ungrounded script
 - the output is event-backed and concise
 - the final answer is synthesized from the evidence packet, not a wholesale copy of the tool output
@@ -121,6 +142,7 @@ A live pass means:
 - the merged status-plus-monitor beat clearly separates "not onchain yet" from "webhook monitor is now active"
 - the merged status-plus-monitor beat includes both the `event_query` status preflight and the `monitor_activation` proof block
 - the monitor setup uses the MultiBaas webhook path, then clearly describes what is watched and what the agent will inspect next
+- the top-holder beat returns a clear holder table with decimals-scaled balances and an explicit evidence boundary
 
 Fail the run if the agent:
 
@@ -131,3 +153,5 @@ Fail the run if the agent:
 - gives a generic DAO-readiness answer instead of the incident brief
 - says it has set up a monitor before the user asks to be notified or watched
 - uses recurring NanoClaw scheduling instead of the MultiBaas webhook-backed monitor path
+- returns raw holder balances after token decimals are available
+- presents partial holder rankings as final when the tool reports historical sync is still incomplete

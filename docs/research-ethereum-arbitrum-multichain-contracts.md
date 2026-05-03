@@ -1,3 +1,7 @@
+# Ethereum / Arbitrum Multichain Contract Research
+
+This is a research seed for possible multichain event-query surfaces. It is not an active deployment config or a canonical linked-contract list. Use the runtime backend registry and MultiBaas contract state for current availability.
+
 | What it is | Ethereum mainnet | Arbitrum One | Why it matters / interesting event analysis |
 |---|---:|---:|---|
 | **Arbitrum Delayed Inbox** | `0x4Dbd4fc535Ac27206064B68FfCf827b0A60BAB3f` | N/A | Core L1 → L2 message entrypoint. Good for tracking retryable tickets, deposits, and L1-originated actions entering Arbitrum. |

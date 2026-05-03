@@ -48,7 +48,6 @@ That makes the answer feel like cited process rather than unsupported narration:
 See:
 
 - [`docs/phase-03-demo-script.md`](docs/phase-03-demo-script.md) for the demo beats and pass criteria
-- [`docs/phase-03-golden-demo-transcript.md`](docs/phase-03-golden-demo-transcript.md) for the planned happy path
 - [`docs/nanoclaw-live-tests.md`](docs/nanoclaw-live-tests.md) for broader live validation
 
 ---
@@ -77,7 +76,7 @@ See:
 │  • event-view spec compiler (typed pivot tables over events)    │
 │  • event-monitor service (webhook registration + dispatch)      │
 │  • multichain target resolver                                   │
-│  • incident-shaped surfaces (KelpDAO frozen-ETH demo)           │
+│  • incident-shaped surfaces (KelpDAO frozen ETH demo)           │
 │  • MCP tools                                                    │
 │  • local CLI mirroring the same operations                      │
 └────────────────────────────┬────────────────────────────────────┘
@@ -138,7 +137,7 @@ For the Arbitrum release proposal beat, the runtime does not schedule a polling 
 
 **Still scaffolded:**
 
-- The Arbitrum frozen-ETH incident path uses handcrafted capability wrappers in [`src/arbitrum-governance-incident-service.ts`](src/arbitrum-governance-incident-service.ts). The model chooses and synthesizes from these tools, but it is not yet freely composing every incident query from first principles.
+- The Arbitrum frozen ETH incident path uses handcrafted capability wrappers in [`src/arbitrum-governance-incident-service.ts`](src/arbitrum-governance-incident-service.ts). The model chooses and synthesizes from these tools, but it is not yet freely composing every incident query from first principles.
 - Contracts generally need to be known, ABI-linked, and sufficiently indexed before historical event queries are useful.
 - Some live-network answers must report sync readiness or partial indexed state instead of pretending a complete view is available.
 - NanoClaw is integration plumbing. Useful fixes live in the fork, but this repo should not become a workflow-specific harness shell.
@@ -303,7 +302,6 @@ For live NanoClaw work, use this order:
 - [`docs/architecture.md`](docs/architecture.md) — module boundaries and design direction
 - [`docs/nanoclaw.md`](docs/nanoclaw.md) — NanoClaw setup, auth, preflight, reset, and stale-session recovery
 - [`docs/phase-03-demo-script.md`](docs/phase-03-demo-script.md) — four-beat demo and pass criteria
-- [`docs/phase-03-golden-demo-transcript.md`](docs/phase-03-golden-demo-transcript.md) — planned happy-path transcript
 - [`docs/nanoclaw-live-tests.md`](docs/nanoclaw-live-tests.md) — live validation matrix
 - [`docs/research-event-query-use-cases.md`](docs/research-event-query-use-cases.md) — broader event-query investigation space
 - [`AGENTS.md`](AGENTS.md) — repo conventions for coding agents and maintainers

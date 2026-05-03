@@ -5,7 +5,8 @@ This file is for coding agents and maintainers working inside the repo. Treat it
 - `README.md` — quickstart and current repo posture
 - `docs/architecture.md` — repo shape, boundaries, and design direction
 - `docs/nanoclaw.md` — NanoClaw setup, auth wiring, restart, and test runbook
-- `docs/phase-02.md` — current north star and next-phase architecture direction
+- `docs/phase-03.md` — current demo story and implementation target
+- `docs/phase-02.md` — prior architecture direction that still explains the capability-first pivot
 
 ## North star
 

@@ -12,7 +12,7 @@ Use this doc for:
 - operator pacing during slow live inference
 - using `pnpm run chat` as the canonical local maintainer test path
 
-For broader live prompt coverage, use [`docs/nanoclaw-live-tests.md`](docs/nanoclaw-live-tests.md). For the DAO story framing, use [`docs/arbitrum-dao-demo.md`](docs/arbitrum-dao-demo.md).
+For broader live prompt coverage, use [`nanoclaw-live-tests.md`](nanoclaw-live-tests.md). For the DAO story framing, use [`arbitrum-dao-demo.md`](arbitrum-dao-demo.md).
 
 ## Working local install notes
 

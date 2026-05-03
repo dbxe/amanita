@@ -10,7 +10,7 @@ This document remains useful as:
 - a partial implementation record for what was built
 - context for why the repo has its current holder/balance/watch compatibility surfaces
 
-It is **not** the active roadmap. The current direction is Phase 02 in [`docs/phase-02.md`](docs/phase-02.md), which explicitly shifts the repo toward agentic tool composition and away from expanding the workflow-specific MVP shell.
+It is **not** the active roadmap. The current demo target is Phase 03 in [`phase-03.md`](phase-03.md), while Phase 02 in [`phase-02.md`](phase-02.md) explains the shift toward agentic tool composition and away from expanding the workflow-specific MVP shell.
 
 ## Goal
 

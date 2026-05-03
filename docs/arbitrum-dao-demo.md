@@ -85,4 +85,4 @@ That means:
 - avoid turning current validation prompts into the permanent product identity
 - use the Arbitrum DAO packaging to focus the live demo, not to narrow the runtime itself
 
-For current live validation steps, use [`docs/nanoclaw-live-tests.md`](docs/nanoclaw-live-tests.md). For operator setup and recovery, use [`docs/nanoclaw.md`](docs/nanoclaw.md).
+For current live validation steps, use [`nanoclaw-live-tests.md`](nanoclaw-live-tests.md). For operator setup and recovery, use [`nanoclaw.md`](nanoclaw.md).

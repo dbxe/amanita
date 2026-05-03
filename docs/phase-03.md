@@ -52,7 +52,7 @@ Suggested MultiBaas line:
 
 ## User-facing demo arc
 
-Keep the recorded chat to three beats.
+Keep the recorded chat to four beats: three governance-incident beats, then one holder-analysis follow-up that shows the same event-query substrate outside the incident wrapper.
 
 ### Beat 1: Incident brief
 
@@ -165,17 +165,39 @@ When triggered, inspect:
 - whether the proposal later reaches `CallExecuted`
 - whether L1 timelock or L1 upgrade executor activity appears
 
-## Required implementation
+### Beat 4: Holder reconstruction follow-up
 
-Build one prescriptive demo capability:
+Prompt:
 
 ```text
-analyze_arbitrum_governance_incident
+By the way, who are the top ARB token holders on Ethereum?
 ```
 
-Expose it through MCP and CLI.
+The agent should:
 
-The tool can be specific to this demo, but its internals should use reusable event-view builders and typed runtime services. Do not ask the model to author raw event-query payloads during the recorded path.
+- call `get_top_holders` for `ARB` on `mainnet-remote`
+- identify the L1 bridged ARB token on Ethereum mainnet
+- show balances scaled by token decimals, not raw uint256 values
+- preserve any sync status returned by the tool
+- include the holder `event_query` block
+- avoid inferring total supply, percentages, or concentration unless it separately calls the relevant concentration or metadata tool
+
+This beat demonstrates that the event-query substrate is not only a scripted governance incident surface. It can reconstruct ERC-20 holder state from historical `Transfer` deltas, which contract storage cannot enumerate directly.
+
+## Required implementation
+
+Build a small prescriptive demo surface over reusable services:
+
+```text
+summarize_governance_incident
+verify_governance_control_activity
+check_governance_proposal_status
+monitor_governance_proposal
+```
+
+Keep `analyze_arbitrum_governance_incident` as the general compatibility surface, but prefer the narrower capability-shaped tools in NanoClaw instructions and the recorded path.
+
+The governance tools can be specific to this demo, but their internals should use reusable event-view builders and typed runtime services. Do not ask the model to author raw event-query payloads during the recorded path.
 
 Inputs:
 
@@ -189,6 +211,14 @@ Outputs:
 - evidence boundaries
 - next event to watch
 - monitor setup result or monitor plan
+
+The fourth beat should use the generic holder capability:
+
+```text
+get_top_holders
+```
+
+That answer should be generated from the holder view formatter, including token symbol, decimals, scaled balances, sync status when relevant, and the holder `event_query` block.
 
 ## Required event views
 
@@ -318,7 +348,7 @@ Expected answer:
 - recent L1 upgrade executor events
 - no claim that these are causally related to Kelp unless event data proves it
 
-This beat is optional because it can become a data dump. The stronger recorded flow is incident brief -> verification -> next onchain signal plus webhook monitor.
+This beat is optional because it can become a data dump. The stronger recorded governance flow is incident brief -> verification -> next onchain signal plus webhook monitor.
 
 ## Webhook posture
 
@@ -340,6 +370,7 @@ Before recording:
 - live prompt 1 returns incident brief without backend-health framing
 - live prompt 2 surfaces live `UpgradeExecuted` evidence or a clear onchain evidence boundary
 - live prompt 3 distinguishes public proposal from onchain `ProposalCreated`, then creates the MultiBaas webhook-backed monitor, includes the `monitor_activation` proof block, and describes the follow-up analysis
+- live prompt 4 returns the ARB holder table with decimals-scaled balances and the holder `event_query` block
 
 ## Video close
 
