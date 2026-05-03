@@ -267,6 +267,26 @@ function containerBackendProfilesJson(): string | undefined {
   });
 }
 
+function inheritedMcpProcessEnv(): Record<string, string> {
+  const passthroughKeys = [
+    "HTTP_PROXY",
+    "HTTPS_PROXY",
+    "NO_PROXY",
+    "http_proxy",
+    "https_proxy",
+    "no_proxy",
+    "NODE_USE_ENV_PROXY",
+    "NODE_EXTRA_CA_CERTS",
+  ];
+
+  return Object.fromEntries(
+    passthroughKeys.flatMap((key) => {
+      const value = process.env[key];
+      return value ? [[key, value]] : [];
+    }),
+  );
+}
+
 function ensureAllowlist(repoDir: string): string {
   const allowlistPath = path.join(os.homedir(), ".config", "nanoclaw", "mount-allowlist.json");
   const allowlist = parseJsonFile<MountAllowlist>(allowlistPath, {
@@ -324,6 +344,7 @@ export function configureNanoClawGroup(options: ConfigureNanoClawOptions): Confi
   const webhookPublicUrl =
     process.env.MULTIBAAS_WEBHOOK_PUBLIC_URL ?? existingEnv.MULTIBAAS_WEBHOOK_PUBLIC_URL;
   const runtimeEnv: Record<string, string> = {
+    ...inheritedMcpProcessEnv(),
     [MUTATION_CONFIRMATION_ENV]: "1",
     ...(backendProfilesJson ? {
       MULTIBAAS_BACKENDS_JSON: backendProfilesJson,
